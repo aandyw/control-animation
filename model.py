@@ -6,10 +6,13 @@ import tomesd
 import jax
 
 # from diffusers import StableDiffusionInstructPix2PixPipeline, StableDiffusionControlNetPipeline, ControlNetModel, UNet2DConditionModel
-from diffusers.schedulers import EulerAncestralDiscreteScheduler, DDIMScheduler
+# from diffusers.schedulers import EulerAncestralDiscreteScheduler, DDIMScheduler
 
+from diffusers import FlaxDDIMScheduler
 from diffusers import FlaxCLIPTextModel, FlaxAutoencoderKL, FlaxUNet2DConditionModel, FlaxControlNetModel, FlaxStableDiffusionControlNetPipeline
 from text_to_video_pipeline import TextToVideoPipeline
+
+from transformers import CLIPTokenizer
 
 import utils
 import gradio_utils
@@ -52,7 +55,7 @@ class Model:
         self.states = {}
         self.model_name = ""
 
-    def set_model(self, model_type: ModelType, model_id: str, controlnet, controlnet_params, tokenizer **kwargs):
+    def set_model(self, model_type: ModelType, model_id: str, controlnet, controlnet_params, tokenizer, **kwargs):
         if hasattr(self, "pipe") and self.pipe is not None:
             del self.pipe
             self.pipe = None
@@ -162,11 +165,15 @@ class Model:
                 from_pt=True,
                 # dtype=jnp.float32,
             )
+            tokenizer = CLIPTokenizer.from_pretrained(
+            model_id, subfolder="tokenizer"
+            )
             self.set_model(ModelType.ControlNetPose,
-                           model_id=model_id
+                           model_id=model_id,
+                           tokenizer=tokenizer,
                            controlnet=controlnet,
                            controlnet_params=controlnet_params)
-            self.pipe.scheduler = DDIMScheduler.from_config(
+            self.pipe.scheduler, self.scheduler_state = FlaxDDIMScheduler.from_config(
                 self.pipe.scheduler.config)
             if use_cf_attn:
                 self.pipe.unet.set_attn_processor(
@@ -199,7 +206,6 @@ class Model:
                                 controlnet_conditioning_scale=controlnet_conditioning_scale,
                                 eta=eta,
                                 latents=latents,
-                                seed=seed,
                                 output_type='numpy',
                                 split_to_chunks=True,
                                 chunk_size=chunk_size,
