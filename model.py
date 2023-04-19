@@ -127,7 +127,7 @@ class Model:
         if self.model_type == ModelType.Text2Video:
             kwargs["frame_ids"] = frame_ids
         return self.pipe(
-                        image,
+                        image=image,
                         prompt_ids=prompt_ids[frame_ids],
                         params=self.params,
                         prng_seed=prng_seed,
@@ -167,7 +167,7 @@ class Model:
                 ch_end = f if i == len(chunk_ids) - 1 else chunk_ids[i + 1]
                 frame_ids = [0] + list(range(ch_start, ch_end))
                 print(f'Processing chunk {i + 1} / {len(chunk_ids)}')
-                result.append(self.inference_chunk(image,
+                result.append(self.inference_chunk(image=image,
                                                    frame_ids=frame_ids,
                                                    prompt=prompt,
                                                    negative_prompt=negative_prompt,
@@ -180,7 +180,7 @@ class Model:
         else:
             prompt_ids = self.pipe.prepare_text_inputs(prompt)
             n_prompt_ids = self.pipe.prepare_text_inputs(negative_prompt)
-            return self.pipe(image, prompt_ids=prompt_ids, neg_prompt_ids=n_prompt_ids, 
+            return self.pipe(image=image, prompt_ids=prompt_ids, neg_prompt_ids=n_prompt_ids, 
                             params=self.params,
                             prng_seed=self.rng,**kwargs
                             ).images
