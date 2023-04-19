@@ -54,7 +54,7 @@ class Model:
         self.states = {}
         self.model_name = ""
 
-    def set_model(self, model_type: ModelType, model_id: str, controlnet, controlnet_params, tokenizer, **kwargs):
+    def set_model(self, model_type: ModelType, model_id: str, controlnet, controlnet_params, tokenizer, scheduler, scheduler_state, **kwargs):
         if hasattr(self, "pipe") and self.pipe is not None:
             del self.pipe
             self.pipe = None
@@ -63,11 +63,13 @@ class Model:
                                     model_id,
                                     tokenizer=tokenizer,
                                     controlnet=controlnet,
+                                    scheduler=scheduler,
                                     safety_checker=None,
                                     # dtype=weight_dtype,
                                     # revision=args.revision,
                                     from_pt=True,
                                 )
+        self.params["scheduler"] = scheduler_state
         self.params["controlnet"] = controlnet_params
         # self.pipe = self.pipe_dict[model_type].from_pretrained(
         #     model_id, safety_checker=safety_checker, **kwargs).to(self.device).to(self.dtype)
@@ -172,14 +174,16 @@ class Model:
             tokenizer = CLIPTokenizer.from_pretrained(
             model_id, subfolder="tokenizer"
             )
+            scheduler, scheduler_state = FlaxDDIMScheduler.from_pretrained(
+                model_id)
             self.set_model(ModelType.ControlNetPose,
                             model_id=model_id,
                             tokenizer=tokenizer,
                             controlnet=controlnet,
-                            controlnet_params=controlnet_params)
-            print("CONFIG: ", self.pipe.scheduler.config)
-            self.pipe.scheduler = FlaxDDIMScheduler.from_config(
-                self.pipe.scheduler.config)
+                            controlnet_params=controlnet_params,
+                            scheduler=scheduler,
+                            scheduler_state=scheduler_state)
+
             if use_cf_attn:
                 self.pipe.unet.set_attn_processor(
                     processor=self.controlnet_attn_proc)
@@ -197,9 +201,6 @@ class Model:
         control = utils.pre_process_pose(
             video, apply_pose_detect=False)
         f, _, h, w = video.shape
-        print(video.shape, control.shape)
-        print("========================")
-        print(self.pipe.config.num_train_timesteps)
         # Sample noise that we'll add to the latents
         self.rng, latents_rng = jax.random.split(self.rng)
         latents = jax.random.normal(latents_rng, (1, 4, h//8, w//8)) #channel first
