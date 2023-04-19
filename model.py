@@ -130,7 +130,7 @@ class Model:
                         params=self.params,
                         prng_seed=prng_seed,
                         neg_prompt_ids=n_prompt_ids[frame_ids],
-                        latents=latents,
+                        latents=latents[frame_ids],
                         **kwargs
                         )
 
