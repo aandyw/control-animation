@@ -81,12 +81,13 @@ class Model:
         prompt = np.array(kwargs.pop('prompt'))
         negative_prompt = np.array(kwargs.pop('negative_prompt', ''))
         latents = None
+        frame_ids = jnp.array(frame_ids)
         if 'latents' in kwargs:
             latents = kwargs.pop('latents')[frame_ids]
         if 'image' in kwargs:
             kwargs['image'] = kwargs['image'][frame_ids]
         if 'video_length' in kwargs:
-            kwargs['video_length'] = len(frame_ids)
+            kwargs['video_length'] = frame_ids.shape[0]
         if self.model_type == ModelType.Text2Video:
             kwargs["frame_ids"] = frame_ids
         return self.pipe(prompt=prompt[frame_ids].tolist(),
