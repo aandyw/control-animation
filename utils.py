@@ -96,7 +96,7 @@ def pre_process_pose(input_video, apply_pose_detect: bool = True):
         detected_maps.append(detected_map[None])
     detected_maps = np.concatenate(detected_maps)
     control = (detected_maps.copy()) / 255.0
-    return control #rearrange(control, 'f h w c -> f c h w')
+    return rearrange(control, 'f h w c -> f c h w')
 
 
 def create_video(frames, fps, rescale=False, path=None, watermark=None):
@@ -173,7 +173,8 @@ def prepare_video(video_path:str, resolution:int, device, dtype, normalize=True,
     video = Resize((h, w), interpolation=InterpolationMode.BILINEAR, antialias=True)(video)
     if normalize:
         video = video / 127.5 - 1.0
-    video = rearrange(video, "f c h w -> f h w c").numpy() #channel first to channel last
+    # video = rearrange(video, "f c h w -> f h w c").numpy() #channel first to channel last
+    video = video.numpy()
     return video, output_fps
 
 
