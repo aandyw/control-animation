@@ -14,6 +14,7 @@ from annotator.openpose import OpenposeDetector
 # from annotator.midas import MidasDetector
 import decord
 import jax
+import torch
 
 def numpy_to_torch(array):
     array = jax.device_get(array)
