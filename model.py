@@ -154,7 +154,7 @@ class Model:
                                 controlnet_conditioning_scale=1.0,
                                 guidance_scale=9.0,
                                 seed=42,
-                                eta=0.0,
+                                # eta=0.0,
                                 resolution=512,
                                 use_cf_attn=False,#should be True
                                 save_path=None):
@@ -208,7 +208,7 @@ class Model:
                                 num_inference_steps=num_inference_steps,
                                 guidance_scale=guidance_scale,
                                 controlnet_conditioning_scale=controlnet_conditioning_scale,
-                                eta=eta,
+                                # eta=eta,
                                 latents=latents,
                                 output_type='numpy',
                                 split_to_chunks=True,
