@@ -106,6 +106,7 @@ def create_video(frames, fps, rescale=False, path=None, watermark=None):
 
     outputs = []
     for i, x in enumerate(frames):
+        x = rearrange(x, "h w c -> c h w")
         x = torchvision.utils.make_grid(numpy_to_torch(x), nrow=4)
         if rescale:
             x = (x + 1.0) / 2.0  # -1,1 -> 0,1
@@ -158,7 +159,7 @@ def prepare_video(video_path:str, resolution:int, device, dtype, normalize=True,
     video = video.asnumpy()
     _, h, w, _ = video.shape
     video = rearrange(video, "f h w c -> f c h w")
-    # video = torch.Tensor(video).to(device).to(dtype)
+    video = torch.Tensor(video)#.to(device).to(dtype)
 
     # Use max if you want the larger side to be equal to resolution (e.g. 512)
     # k = float(resolution) / min(h, w)
@@ -171,6 +172,7 @@ def prepare_video(video_path:str, resolution:int, device, dtype, normalize=True,
     video = Resize((h, w), interpolation=InterpolationMode.BILINEAR, antialias=True)(video)
     if normalize:
         video = video / 127.5 - 1.0
+    video = rearrange(video, "f c h w -> f h w c").numpy() #channel first to channel last
     return video, output_fps
 
 
