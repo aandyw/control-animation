@@ -252,17 +252,17 @@ class FlaxStableDiffusionControlNetPipeline(FlaxDiffusionPipeline):
 
         image = jnp.concatenate([image] * 2)
 
-        latents_shape = (
-            batch_size,
-            self.unet.config.in_channels,
-            height // self.vae_scale_factor,
-            width // self.vae_scale_factor,
-        )
-        if latents is None:
-            latents = jax.random.normal(prng_seed, shape=latents_shape, dtype=jnp.float32)
-        else:
-            if latents.shape != latents_shape:
-                raise ValueError(f"Unexpected latents shape, got {latents.shape}, expected {latents_shape}")
+        # latents_shape = (
+        #     batch_size,
+        #     self.unet.config.in_channels,
+        #     height // self.vae_scale_factor,
+        #     width // self.vae_scale_factor,
+        # )
+        # if latents is None:
+        #     latents = jax.random.normal(prng_seed, shape=latents_shape, dtype=jnp.float32)
+        # else:
+        #     if latents.shape != latents_shape:
+        #         raise ValueError(f"Unexpected latents shape, got {latents.shape}, expected {latents_shape}")
 
         def loop_body(step, args):
             latents, scheduler_state = args
