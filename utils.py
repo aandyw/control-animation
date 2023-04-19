@@ -84,7 +84,7 @@ def add_watermark(image, watermark_path, wm_rel_size=1/16, boundary=5):
 def pre_process_pose(input_video, apply_pose_detect: bool = True):
     detected_maps = []
     for frame in input_video:
-        img = frame.astype(np.uint8) #rearrange(frame, 'c h w -> h w c').astype(np.uint8)
+        img = rearrange(frame, 'c h w -> h w c').astype(np.uint8)
         img = HWC3(img)
         if apply_pose_detect:
             detected_map, _ = apply_openpose(img)
