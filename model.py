@@ -79,7 +79,9 @@ class Model:
             return
         prng_seed = jax.random.split(self.rng, jax.device_count())
         prompt = np.array(kwargs.pop('prompt'))
+        prompt_ids = self.pipe.prepare_text_inputs(prompt)
         negative_prompt = np.array(kwargs.pop('negative_prompt', ''))
+        n_prompt_ids = self.pipe.prepare_text_inputs(negative_prompt)
         latents = None
         frame_ids = jnp.array(frame_ids)
         if 'latents' in kwargs:
@@ -90,10 +92,10 @@ class Model:
             kwargs['video_length'] = frame_ids.shape[0]
         if self.model_type == ModelType.Text2Video:
             kwargs["frame_ids"] = frame_ids
-        return self.pipe(prompt=prompt[frame_ids].tolist(),
+        return self.pipe(prompt_ids=prompt_ids[frame_ids],
                         params=self.params,
                         prng_seed=prng_seed,
-                         negative_prompt=negative_prompt[frame_ids].tolist(),
+                         neg_prompt_ids=n_prompt_ids[frame_ids],
                          latents=latents,
                          **kwargs)
 
