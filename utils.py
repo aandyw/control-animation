@@ -44,34 +44,34 @@ def add_watermark(image, watermark_path, wm_rel_size=1/16, boundary=5):
     return image
 
 
-def pre_process_canny(input_video, low_threshold=100, high_threshold=200):
-    detected_maps = []
-    for frame in input_video:
-        img = rearrange(frame, 'c h w -> h w c').cpu().numpy().astype(np.uint8)
-        detected_map = apply_canny(img, low_threshold, high_threshold)
-        detected_map = HWC3(detected_map)
-        detected_maps.append(detected_map[None])
-    detected_maps = np.concatenate(detected_maps)
-    control = torch.from_numpy(detected_maps.copy()).float() / 255.0
-    return rearrange(control, 'f h w c -> f c h w')
+# def pre_process_canny(input_video, low_threshold=100, high_threshold=200):
+#     detected_maps = []
+#     for frame in input_video:
+#         img = rearrange(frame, 'c h w -> h w c').cpu().numpy().astype(np.uint8)
+#         detected_map = apply_canny(img, low_threshold, high_threshold)
+#         detected_map = HWC3(detected_map)
+#         detected_maps.append(detected_map[None])
+#     detected_maps = np.concatenate(detected_maps)
+#     control = torch.from_numpy(detected_maps.copy()).float() / 255.0
+#     return rearrange(control, 'f h w c -> f c h w')
 
 
-def pre_process_depth(input_video, apply_depth_detect: bool = True):
-    detected_maps = []
-    for frame in input_video:
-        img = rearrange(frame, 'c h w -> h w c').cpu().numpy().astype(np.uint8)
-        img = HWC3(img)
-        if apply_depth_detect:
-            detected_map, _ = apply_midas(img)
-        else:
-            detected_map = img
-        detected_map = HWC3(detected_map)
-        H, W, C = img.shape
-        detected_map = cv2.resize(detected_map, (W, H), interpolation=cv2.INTER_NEAREST)
-        detected_maps.append(detected_map[None])
-    detected_maps = np.concatenate(detected_maps)
-    control = torch.from_numpy(detected_maps.copy()).float() / 255.0
-    return rearrange(control, 'f h w c -> f c h w')
+# def pre_process_depth(input_video, apply_depth_detect: bool = True):
+#     detected_maps = []
+#     for frame in input_video:
+#         img = rearrange(frame, 'c h w -> h w c').cpu().numpy().astype(np.uint8)
+#         img = HWC3(img)
+#         if apply_depth_detect:
+#             detected_map, _ = apply_midas(img)
+#         else:
+#             detected_map = img
+#         detected_map = HWC3(detected_map)
+#         H, W, C = img.shape
+#         detected_map = cv2.resize(detected_map, (W, H), interpolation=cv2.INTER_NEAREST)
+#         detected_maps.append(detected_map[None])
+#     detected_maps = np.concatenate(detected_maps)
+#     control = torch.from_numpy(detected_maps.copy()).float() / 255.0
+#     return rearrange(control, 'f h w c -> f c h w')
 
 
 def pre_process_pose(input_video, apply_pose_detect: bool = True):
