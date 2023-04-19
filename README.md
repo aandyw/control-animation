@@ -58,8 +58,8 @@ To achieve this goal, all contributions are welcome. Please check out these exte
 1. Clone this repository and enter:
 
 ``` shell
-git clone https://github.com/Picsart-AI-Research/Text2Video-Zero.git
-cd Text2Video-Zero/
+git clone https://github.com/Pie31415/control-animation.git
+cd control-animation/
 ```
 2. Install requirements using Python 3.9 and CUDA >= 11.6
 ``` shell
