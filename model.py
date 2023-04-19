@@ -194,7 +194,7 @@ class Model:
         # Sample noise that we'll add to the latents
         latents_rng = jax.random.split(self.rng)
         latents = jax.random.normal(latents_rng, (1, h//8, w//8, 4)) #channel last
-        latents = latents.repeat(f, 1, 1, 1)
+        latents = latents.repeat(f, 0) #latents.repeat(f, 1, 1, 1)
         result = self.inference(image=control,
                                 prompt=prompt + ', ' + added_prompt,
                                 height=h,
