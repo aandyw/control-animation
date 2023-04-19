@@ -137,9 +137,10 @@ class Model:
         return self.pipe(prompt_ids=prompt_ids[frame_ids],
                         params=self.params,
                         prng_seed=prng_seed,
-                         neg_prompt_ids=n_prompt_ids[frame_ids],
-                         latents=latents,
-                         **kwargs)
+                        neg_prompt_ids=n_prompt_ids[frame_ids],
+                        latents=latents,
+                        #**kwargs
+                        )
 
     def inference(self, split_to_chunks=False, chunk_size=8, **kwargs):
         if not hasattr(self, "pipe") or self.pipe is None:
@@ -185,7 +186,8 @@ class Model:
             n_prompt_ids = self.pipe.prepare_text_inputs(negative_prompt)
             return self.pipe(prompt_ids=prompt_ids, neg_prompt_ids=n_prompt_ids, 
                             params=self.params,
-                            prng_seed=self.rng, **kwargs).images
+                            prng_seed=self.rng,# **kwargs
+                            ).images
 
     def process_controlnet_pose(self,
                                 video_path,
