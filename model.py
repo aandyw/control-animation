@@ -244,7 +244,7 @@ class Model:
         f, _, h, w = video.shape
         # Sample noise that we'll add to the latents
         self.rng, latents_rng = jax.random.split(self.rng)
-        latents = jax.random.normal(latents_rng, (1, 3, h//8, w//8)) #channel first, 3 channels?
+        latents = jax.random.normal(latents_rng, (1, 4, h//8, w//8)) #channel first
         latents = latents.repeat(f, 0) #latents.repeat(f, 1, 1, 1)
         result = self.inference(image=control,
                                 prompt=prompt + ', ' + added_prompt,
