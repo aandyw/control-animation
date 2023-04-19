@@ -4,6 +4,8 @@ import numpy as np
 import jax.numpy as jnp
 import tomesd
 import jax
+from flax.training.common_utils import shard
+from flax import jax_utils
 
 from transformers import CLIPTokenizer, CLIPFeatureExtractor, FlaxCLIPTextModel
 from diffusers import FlaxDDIMScheduler, FlaxControlNetModel, FlaxUNet2DConditionModel, FlaxAutoencoderKL, FlaxStableDiffusionControlNetPipeline
@@ -94,16 +96,8 @@ class Model:
                 "scheduler": scheduler_state,
                 "controlnet": controlnet_params,
                 "text_encoder": text_encoder.params}
-        # prompt_ids = pipeline.prepare_text_inputs("Test prompt")
-        # prng_seed = jax.random.PRNGKey(0)
-        # latent = jax.random.normal(prng_seed, (1, 3, 512//8, 512//8))
-        # pipeline(prompt_ids=prompt_ids,
-        #         image = latent,
-        #         params=params,
-        #         prng_seed=prng_seed
-        #         )
-        # self.pipe = self.pipe_dict[model_type].from_pretrained(
-        #     model_id, safety_checker=safety_checker, **kwargs).to(self.device).to(self.dtype)
+        self.p_params = jax_utils.replicate(self.params)
+
         self.model_type = model_type
         self.model_name = model_id
 
@@ -128,10 +122,11 @@ class Model:
         return self.pipe(
                         image=image[frame_ids],
                         prompt_ids=prompt_ids[frame_ids],
-                        params=self.params,
+                        params=self.p_params,
                         prng_seed=prng_seed,
                         neg_prompt_ids=n_prompt_ids[frame_ids],
                         latents=latents[frame_ids],
+                        jit=True,
                         # **kwargs
                         )
 
@@ -179,10 +174,11 @@ class Model:
         else:
             prompt_ids = self.pipe.prepare_text_inputs(prompt)
             n_prompt_ids = self.pipe.prepare_text_inputs(negative_prompt)
-            print(image.shape, prompt_ids.shape, n_prompt_ids.shape, kwargs["latents"].shape)
-            return self.pipe(image=image, prompt_ids=prompt_ids, neg_prompt_ids=n_prompt_ids, 
-                            params=self.params,
-                            prng_seed=self.rng,**kwargs
+            rng = jax.random.split(self.rng, jax.device_count())
+            return self.pipe(image=shard(image), prompt_ids=shard(prompt_ids), neg_prompt_ids=shard(n_prompt_ids), 
+                            params=self.p_params,
+                            prng_seed=rng, jit = True,
+                            **kwargs
                             ).images
 
     def process_controlnet_pose(self,
