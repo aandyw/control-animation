@@ -2,7 +2,6 @@ import os
 
 import PIL.Image
 import numpy as np
-import torch
 import torchvision
 from torchvision.transforms import Resize, InterpolationMode
 import imageio
@@ -14,6 +13,13 @@ from annotator.util import resize_image, HWC3
 from annotator.openpose import OpenposeDetector
 # from annotator.midas import MidasDetector
 import decord
+import jax
+
+def numpy_to_torch(array):
+    array = jax.device_get(array)
+    tensor = torch.from_numpy(array)
+    tensor = tensor.permute(0, 3, 1, 2)
+    return tensor
 
 # apply_canny = CannyDetector()
 apply_openpose = OpenposeDetector()
@@ -88,8 +94,8 @@ def pre_process_pose(input_video, apply_pose_detect: bool = True):
         detected_map = cv2.resize(detected_map, (W, H), interpolation=cv2.INTER_NEAREST)
         detected_maps.append(detected_map[None])
     detected_maps = np.concatenate(detected_maps)
-    control = torch.from_numpy(detected_maps.copy()).float() / 255.0
-    return rearrange(control, 'f h w c -> f c h w')
+    control = (detected_maps.copy()).float() / 255.0
+    return control #rearrange(control, 'f h w c -> f c h w')
 
 
 def create_video(frames, fps, rescale=False, path=None, watermark=None):
@@ -100,7 +106,7 @@ def create_video(frames, fps, rescale=False, path=None, watermark=None):
 
     outputs = []
     for i, x in enumerate(frames):
-        x = torchvision.utils.make_grid(torch.Tensor(x), nrow=4)
+        x = torchvision.utils.make_grid(numpy_to_torch(x), nrow=4)
         if rescale:
             x = (x + 1.0) / 2.0  # -1,1 -> 0,1
         x = (x * 255).numpy().astype(np.uint8)
@@ -121,7 +127,7 @@ def create_gif(frames, fps, rescale=False, path=None, watermark=None):
 
     outputs = []
     for i, x in enumerate(frames):
-        x = torchvision.utils.make_grid(torch.Tensor(x), nrow=4)
+        x = torchvision.utils.make_grid(numpy_to_torch(x), nrow=4)
         if rescale:
             x = (x + 1.0) / 2.0  # -1,1 -> 0,1
         x = (x * 255).numpy().astype(np.uint8)
@@ -149,13 +155,10 @@ def prepare_video(video_path:str, resolution:int, device, dtype, normalize=True,
     num_f = int((end_t - start_t) * output_fps)
     sample_idx = np.linspace(start_f_ind, end_f_ind, num_f, endpoint=False).astype(int)
     video = vr.get_batch(sample_idx)
-    if torch.is_tensor(video):
-        video = video.detach().cpu().numpy()
-    else:
-        video = video.asnumpy()
+    video = video.asnumpy()
     _, h, w, _ = video.shape
     video = rearrange(video, "f h w c -> f c h w")
-    video = torch.Tensor(video).to(device).to(dtype)
+    # video = torch.Tensor(video).to(device).to(dtype)
 
     # Use max if you want the larger side to be equal to resolution (e.g. 512)
     # k = float(resolution) / min(h, w)
