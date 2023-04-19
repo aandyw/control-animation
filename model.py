@@ -257,7 +257,7 @@ class Model:
                                 # eta=eta,
                                 latents=latents,
                                 # output_type='numpy',
-                                split_to_chunks=True,
+                                split_to_chunks=False,
                                 chunk_size=chunk_size,
                                 #merging_ratio=merging_ratio,
                                 )
