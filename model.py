@@ -119,7 +119,6 @@ class Model:
         frame_ids = jnp.array(frame_ids)
         if 'latents' in kwargs:
             latents = kwargs.pop('latents')[frame_ids]
-        image = image[frame_ids]
         # if 'image' in kwargs:
         #     kwargs['image'] = kwargs['image'][frame_ids]
         # if 'video_length' in kwargs:
@@ -127,7 +126,7 @@ class Model:
         if self.model_type == ModelType.Text2Video:
             kwargs["frame_ids"] = frame_ids
         return self.pipe(
-                        image=image,
+                        image=image[frame_ids],
                         prompt_ids=prompt_ids[frame_ids],
                         params=self.params,
                         prng_seed=prng_seed,
@@ -180,6 +179,7 @@ class Model:
         else:
             prompt_ids = self.pipe.prepare_text_inputs(prompt)
             n_prompt_ids = self.pipe.prepare_text_inputs(negative_prompt)
+            print(image.shape, prompt_ids.shape, n_prompt_ids.shape, kwargs["latents"].shape)
             return self.pipe(image=image, prompt_ids=prompt_ids, neg_prompt_ids=n_prompt_ids, 
                             params=self.params,
                             prng_seed=self.rng,**kwargs
