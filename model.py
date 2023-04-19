@@ -9,9 +9,8 @@ import jax
 # from diffusers.schedulers import EulerAncestralDiscreteScheduler, DDIMScheduler
 
 from diffusers import FlaxDDIMScheduler
-from diffusers import FlaxCLIPTextModel, FlaxAutoencoderKL, FlaxUNet2DConditionModel, FlaxControlNetModel, FlaxStableDiffusionControlNetPipeline
-from text_to_video_pipeline import TextToVideoPipeline
-
+from diffusers import FlaxControlNetModel, FlaxStableDiffusionControlNetPipeline
+# from text_to_video_pipeline import TextToVideoPipeline
 from transformers import CLIPTokenizer
 
 import utils
@@ -169,11 +168,11 @@ class Model:
             model_id, subfolder="tokenizer"
             )
             self.set_model(ModelType.ControlNetPose,
-                           model_id=model_id,
-                           tokenizer=tokenizer,
-                           controlnet=controlnet,
-                           controlnet_params=controlnet_params)
-            self.pipe.scheduler, self.scheduler_state = FlaxDDIMScheduler.from_config(
+                            model_id=model_id,
+                            tokenizer=tokenizer,
+                            controlnet=controlnet,
+                            controlnet_params=controlnet_params)
+            self.pipe.scheduler = FlaxDDIMScheduler.from_config(
                 self.pipe.scheduler.config)
             if use_cf_attn:
                 self.pipe.unet.set_attn_processor(
