@@ -202,8 +202,8 @@ class Model:
         latents = latents.repeat(f, 0) #latents.repeat(f, 1, 1, 1)
         result = self.inference(image=control,
                                 prompt=prompt + ', ' + added_prompt,
-                                height=h,
-                                width=w,
+                                # height=h,
+                                # width=w,
                                 negative_prompt=negative_prompts,
                                 num_inference_steps=num_inference_steps,
                                 guidance_scale=guidance_scale,
