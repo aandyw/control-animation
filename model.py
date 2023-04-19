@@ -227,11 +227,11 @@ class Model:
                             scheduler=scheduler,
                             scheduler_state=scheduler_state)
 
-            if use_cf_attn:
-                self.pipe.unet.set_attn_processor(
-                    processor=self.controlnet_attn_proc)
-                self.pipe.controlnet.set_attn_processor(
-                    processor=self.controlnet_attn_proc)
+            # if use_cf_attn:
+            #     self.pipe.unet.set_attn_processor(
+            #         processor=self.controlnet_attn_proc)
+            #     self.pipe.controlnet.set_attn_processor(
+            #         processor=self.controlnet_attn_proc)
 
         video_path = gradio_utils.motion_to_video_path(
             video_path) if 'Motion' in video_path else video_path
@@ -261,6 +261,6 @@ class Model:
                                 # output_type='numpy',
                                 split_to_chunks=False,
                                 # chunk_size=chunk_size,
-                                #merging_ratio=merging_ratio,
+                                # merging_ratio=merging_ratio,
                                 )
         return utils.create_gif(result, fps, path=save_path, watermark=None)
