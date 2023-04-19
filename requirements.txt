@@ -38,7 +38,6 @@ tomesd
 -f https://storage.googleapis.com/jax-releases/libtpu_releases.html
 jax[tpu]==0.4.5
 flax==0.6.7
-transformers
 chex
 datasets
 optax
