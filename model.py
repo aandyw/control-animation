@@ -195,7 +195,7 @@ class Model:
             video_path, resolution, self.device, self.dtype, False, output_fps=4)
         control = utils.pre_process_pose(
             video, apply_pose_detect=False)
-        f, _, h, w = video.shape
+        f, h, w, _ = video.shape
         # Sample noise that we'll add to the latents
         latents_rng = jax.random.split(self.rng)
         latents = jax.random.normal(latents_rng, (1, h//8, w//8, 4)) #channel last
