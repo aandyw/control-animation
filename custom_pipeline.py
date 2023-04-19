@@ -25,6 +25,70 @@ from diffusers.pipelines.pipeline_flax_utils import FlaxDiffusionPipeline
 from diffusers.pipelines.stable_diffusion import FlaxStableDiffusionPipelineOutput
 from diffusers.pipelines.stable_diffusion.safety_checker_flax import FlaxStableDiffusionSafetyChecker
 
+logger = logging.get_logger(__name__)  # pylint: disable=invalid-name
+
+# Set to True to use python for loop instead of jax.fori_loop for easier debugging
+DEBUG = False
+
+EXAMPLE_DOC_STRING = """
+    Examples:
+        ```py
+        >>> import jax
+        >>> import numpy as np
+        >>> import jax.numpy as jnp
+        >>> from flax.jax_utils import replicate
+        >>> from flax.training.common_utils import shard
+        >>> from diffusers.utils import load_image
+        >>> from PIL import Image
+        >>> from diffusers import FlaxStableDiffusionControlNetPipeline, FlaxControlNetModel
+        >>> def image_grid(imgs, rows, cols):
+        ...     w, h = imgs[0].size
+        ...     grid = Image.new("RGB", size=(cols * w, rows * h))
+        ...     for i, img in enumerate(imgs):
+        ...         grid.paste(img, box=(i % cols * w, i // cols * h))
+        ...     return grid
+        >>> def create_key(seed=0):
+        ...     return jax.random.PRNGKey(seed)
+        >>> rng = create_key(0)
+        >>> # get canny image
+        >>> canny_image = load_image(
+        ...     "https://huggingface.co/datasets/YiYiXu/test-doc-assets/resolve/main/blog_post_cell_10_output_0.jpeg"
+        ... )
+        >>> prompts = "best quality, extremely detailed"
+        >>> negative_prompts = "monochrome, lowres, bad anatomy, worst quality, low quality"
+        >>> # load control net and stable diffusion v1-5
+        >>> controlnet, controlnet_params = FlaxControlNetModel.from_pretrained(
+        ...     "lllyasviel/sd-controlnet-canny", from_pt=True, dtype=jnp.float32
+        ... )
+        >>> pipe, params = FlaxStableDiffusionControlNetPipeline.from_pretrained(
+        ...     "runwayml/stable-diffusion-v1-5", controlnet=controlnet, revision="flax", dtype=jnp.float32
+        ... )
+        >>> params["controlnet"] = controlnet_params
+        >>> num_samples = jax.device_count()
+        >>> rng = jax.random.split(rng, jax.device_count())
+        >>> prompt_ids = pipe.prepare_text_inputs([prompts] * num_samples)
+        >>> negative_prompt_ids = pipe.prepare_text_inputs([negative_prompts] * num_samples)
+        >>> processed_image = pipe.prepare_image_inputs([canny_image] * num_samples)
+        >>> p_params = replicate(params)
+        >>> prompt_ids = shard(prompt_ids)
+        >>> negative_prompt_ids = shard(negative_prompt_ids)
+        >>> processed_image = shard(processed_image)
+        >>> output = pipe(
+        ...     prompt_ids=prompt_ids,
+        ...     image=processed_image,
+        ...     params=p_params,
+        ...     prng_seed=rng,
+        ...     num_inference_steps=50,
+        ...     neg_prompt_ids=negative_prompt_ids,
+        ...     jit=True,
+        ... ).images
+        >>> output_images = pipe.numpy_to_pil(np.asarray(output.reshape((num_samples,) + output.shape[-3:])))
+        >>> output_images = image_grid(output_images, num_samples // 4, 4)
+        >>> output_images.save("generated_image.png")
+        ```
+"""
+
+
 class FlaxStableDiffusionControlNetPipeline(FlaxDiffusionPipeline):
     r"""
     Pipeline for text-to-image generation using Stable Diffusion with ControlNet Guidance.
