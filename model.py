@@ -144,7 +144,7 @@ class Model:
                                 video_path,
                                 prompt,
                                 chunk_size=8,
-                                merging_ratio=0.0,
+                                #merging_ratio=0.0,
                                 num_inference_steps=20,
                                 controlnet_conditioning_scale=1.0,
                                 guidance_scale=9.0,
@@ -208,6 +208,6 @@ class Model:
                                 output_type='numpy',
                                 split_to_chunks=True,
                                 chunk_size=chunk_size,
-                                merging_ratio=merging_ratio,
+                                #merging_ratio=merging_ratio,
                                 )
         return utils.create_gif(result, fps, path=save_path, watermark=None)
