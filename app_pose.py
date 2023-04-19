@@ -51,8 +51,8 @@ def create_demo(model: Model):
             input_video_path,
             prompt,
             chunk_size,
-            watermark,
-            merging_ratio,
+            # watermark,
+            # merging_ratio,
         ]
 
         gr.Examples(examples=examples,

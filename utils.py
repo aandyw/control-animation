@@ -159,7 +159,6 @@ def prepare_video(video_path:str, resolution:int, device, dtype, normalize=True,
     video = vr.get_batch(sample_idx)
     video = video.asnumpy()
     _, h, w, _ = video.shape
-    print(video.shape)
     video = rearrange(video, "f h w c -> f c h w")
     video = torch.Tensor(video)#.to(device).to(dtype)
 
