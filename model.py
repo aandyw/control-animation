@@ -107,7 +107,7 @@ class Model:
         self.model_type = model_type
         self.model_name = model_id
 
-    def inference_chunk(self, frame_ids, **kwargs):
+    def inference_chunk(self, image, frame_ids, **kwargs):
         if not hasattr(self, "pipe") or self.pipe is None:
             return
         prng_seed = jax.random.split(self.rng, jax.device_count())
@@ -119,22 +119,24 @@ class Model:
         frame_ids = jnp.array(frame_ids)
         if 'latents' in kwargs:
             latents = kwargs.pop('latents')[frame_ids]
-        if 'image' in kwargs:
-            kwargs['image'] = kwargs['image'][frame_ids]
-        if 'video_length' in kwargs:
-            kwargs['video_length'] = frame_ids.shape[0]
+        image = image[frame_ids]
+        # if 'image' in kwargs:
+        #     kwargs['image'] = kwargs['image'][frame_ids]
+        # if 'video_length' in kwargs:
+        #     kwargs['video_length'] = frame_ids.shape[0]
         if self.model_type == ModelType.Text2Video:
             kwargs["frame_ids"] = frame_ids
         return self.pipe(
+                        image,
                         prompt_ids=prompt_ids[frame_ids],
                         params=self.params,
                         prng_seed=prng_seed,
                         neg_prompt_ids=n_prompt_ids[frame_ids],
-                        latents=latents[frame_ids],
+                        image=latents[frame_ids],
                         # **kwargs
                         )
 
-    def inference(self, split_to_chunks=False, chunk_size=8, **kwargs):
+    def inference(self, image, split_to_chunks=False, chunk_size=8, **kwargs):
         if not hasattr(self, "pipe") or self.pipe is None:
             return
 
@@ -144,10 +146,11 @@ class Model:
             # if merging_ratio > 0:
             tomesd.apply_patch(self.pipe, ratio=merging_ratio)
 
-        if 'image' in kwargs:
-            f = kwargs['image'].shape[0]
-        else:
-            f = kwargs['video_length']
+        f = image.shape[0]
+        # if 'image' in kwargs:
+        #     f = kwargs['image'].shape[0]
+        # else:
+        #     f = kwargs['video_length']
 
         assert 'prompt' in kwargs
         prompt = [kwargs.pop('prompt')] * f
@@ -164,7 +167,8 @@ class Model:
                 ch_end = f if i == len(chunk_ids) - 1 else chunk_ids[i + 1]
                 frame_ids = [0] + list(range(ch_start, ch_end))
                 print(f'Processing chunk {i + 1} / {len(chunk_ids)}')
-                result.append(self.inference_chunk(frame_ids=frame_ids,
+                result.append(self.inference_chunk(image,
+                                                   frame_ids=frame_ids,
                                                    prompt=prompt,
                                                    negative_prompt=negative_prompt,
                                                    **kwargs).images[1:])
@@ -176,7 +180,7 @@ class Model:
         else:
             prompt_ids = self.pipe.prepare_text_inputs(prompt)
             n_prompt_ids = self.pipe.prepare_text_inputs(negative_prompt)
-            return self.pipe(prompt_ids=prompt_ids, neg_prompt_ids=n_prompt_ids, 
+            return self.pipe(image, prompt_ids=prompt_ids, neg_prompt_ids=n_prompt_ids, 
                             params=self.params,
                             prng_seed=self.rng,**kwargs
                             ).images
