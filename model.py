@@ -19,6 +19,10 @@ import os
 on_huggingspace = os.environ.get("SPACE_AUTHOR_NAME") == "PAIR"
 
 
+from transformers import CLIPTokenizer, CLIPFeatureExtractor, FlaxCLIPTextModel
+from diffusers import FlaxUNet2DConditionModel, FlaxAutoencoderKL, FlaxStableDiffusionControlNetPipeline
+
+
 class ModelType(Enum):
     Pix2Pix_Video = 1,
     Text2Video = 2,
@@ -59,18 +63,54 @@ class Model:
             del self.pipe
             self.pipe = None
         gc.collect()
-        self.pipe, self.params = FlaxStableDiffusionControlNetPipeline.from_pretrained(
-                                    model_id,
-                                    tokenizer=tokenizer,
-                                    controlnet=controlnet,
-                                    scheduler=scheduler,
-                                    safety_checker=None,
-                                    # dtype=weight_dtype,
-                                    # revision=args.revision,
-                                    from_pt=True,
-                                )
-        self.params["scheduler"] = scheduler_state
-        self.params["controlnet"] = controlnet_params
+        # self.pipe, self.params = FlaxStableDiffusionControlNetPipeline.from_pretrained(
+        #                             model_id,
+        #                             tokenizer=tokenizer,
+        #                             controlnet=controlnet,
+        #                             scheduler=scheduler,
+        #                             safety_checker=None,
+        #                             # dtype=weight_dtype,
+        #                             # revision=args.revision,
+        #                             from_pt=True,
+        #                         )
+        # model_id = "tuwonga/zukki_style"
+        # # model_id = "runwayml/stable-diffusion-v1-5"
+        scheduler, scheduler_state = FlaxDDIMScheduler.from_pretrained(
+            model_id,
+            subfolder="scheduler",
+            from_pt =True
+        )
+        # controlnet_id = "fusing/stable-diffusion-v1-5-controlnet-openpose"
+        # controlnet, controlnet_params = FlaxControlNetModel.from_pretrained(
+        #     controlnet_id,
+        #     from_pt=True,
+        # )
+        tokenizer = CLIPTokenizer.from_pretrained(model_id, subfolder="tokenizer")
+        feature_extractor = CLIPFeatureExtractor.from_pretrained(model_id, subfolder="feature_extractor")
+        unet, unet_params = FlaxUNet2DConditionModel.from_pretrained(model_id, subfolder="unet", from_pt=True)
+        vae, vae_params = FlaxAutoencoderKL.from_pretrained(model_id, subfolder="vae", from_pt=True)
+        text_encoder = FlaxCLIPTextModel.from_pretrained(model_id, subfolder="text_encoder", from_pt=True)
+        self.pipe = FlaxStableDiffusionControlNetPipeline(vae=vae,
+                                                        text_encoder=text_encoder,
+                                                        tokenizer=tokenizer,
+                                                        unet=unet,
+                                                        controlnet=controlnet,
+                                                        scheduler=scheduler,
+                                                        safety_checker=None,
+                                                        feature_extractor=feature_extractor)
+        self.params = {'unet': unet_params,
+                "vae": vae_params,
+                "scheduler": scheduler_state,
+                "controlnet": controlnet_params,
+                "text_encoder": text_encoder.params}
+        # prompt_ids = pipeline.prepare_text_inputs("Test prompt")
+        # prng_seed = jax.random.PRNGKey(0)
+        # latent = jax.random.normal(prng_seed, (1, 3, 512//8, 512//8))
+        # pipeline(prompt_ids=prompt_ids,
+        #         image = latent,
+        #         params=params,
+        #         prng_seed=prng_seed
+        #         )
         # self.pipe = self.pipe_dict[model_type].from_pretrained(
         #     model_id, safety_checker=safety_checker, **kwargs).to(self.device).to(self.dtype)
         self.model_type = model_type
@@ -175,7 +215,7 @@ class Model:
             model_id, subfolder="tokenizer"
             )
             scheduler, scheduler_state = FlaxDDIMScheduler.from_pretrained(
-            model_id, subfolder ="scheduler"
+            "runwayml/stable-diffusion-v1-5", subfolder ="scheduler"
             )
             self.set_model(ModelType.ControlNetPose,
                             model_id=model_id,
@@ -204,7 +244,7 @@ class Model:
         f, _, h, w = video.shape
         # Sample noise that we'll add to the latents
         self.rng, latents_rng = jax.random.split(self.rng)
-        latents = jax.random.normal(latents_rng, (1, 4, h//8, w//8)) #channel first
+        latents = jax.random.normal(latents_rng, (1, 3, h//8, w//8)) #channel first, 3 channels?
         latents = latents.repeat(f, 0) #latents.repeat(f, 1, 1, 1)
         result = self.inference(image=control,
                                 prompt=prompt + ', ' + added_prompt,
