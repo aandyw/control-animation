@@ -95,5 +95,6 @@ if on_huggingspace:
     demo.launch(debug=True)
 else:
     _, _, link = demo.queue(api_open=False).launch(
-        file_directories=['temporal'], share=args.public_access)
+        file_directories=['temporal'], share=args.public_access,
+        debug=True)
     print(link)
