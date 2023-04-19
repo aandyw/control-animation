@@ -92,7 +92,7 @@ class Model:
             kwargs["frame_ids"] = frame_ids
         return self.pipe(prompt=prompt[frame_ids].tolist(),
                         params=self.params,
-                        prng_seed=self.prng_seed,
+                        prng_seed=prng_seed,
                          negative_prompt=negative_prompt[frame_ids].tolist(),
                          latents=latents,
                          **kwargs)
@@ -139,7 +139,7 @@ class Model:
         else:
             return self.pipe(prompt=prompt, negative_prompt=negative_prompt, 
                             params=self.params,
-                            prng_seed=self.prng_seed, **kwargs).images
+                            prng_seed=self.rng, **kwargs).images
 
     def process_controlnet_pose(self,
                                 video_path,
