@@ -247,7 +247,7 @@ class FlaxStableDiffusionControlNetPipeline(FlaxDiffusionPipeline):
             ).input_ids
         else:
             uncond_input = neg_prompt_ids
-        negative_prompt_embeds = self.text_encoder(uncond_input, params=params["text_encoder"])[0]
+        negative_prompt_embeds = shard(self.text_encoder(uncond_input, params=params["text_encoder"])[0])
         context = jnp.concatenate([negative_prompt_embeds, prompt_embeds])
 
         image = jnp.concatenate([image] * 2)
