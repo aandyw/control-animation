@@ -139,7 +139,9 @@ class Model:
             result = np.concatenate(result)
             return result
         else:
-            return self.pipe(prompt=prompt, negative_prompt=negative_prompt, 
+            prompt_ids = self.pipe.prepare_text_inputs(prompt)
+            n_prompt_ids = self.pipe.prepare_text_inputs(negative_prompt)
+            return self.pipe(prompt_ids=prompt_ids, neg_prompt_ids=n_prompt_ids, 
                             params=self.params,
                             prng_seed=self.rng, **kwargs).images
 
