@@ -54,18 +54,18 @@ with gr.Blocks(css='style.css') as demo:
         <img style="margin-top: 0em; margin-bottom: 0em" src="https://bit.ly/3gLdBN6" alt="Duplicate Space"></a>
         </p>""")
 
-    with gr.Tab('Zero-Shot Text2Video'):
-        create_demo_text_to_video(model)
-    with gr.Tab('Video Instruct Pix2Pix'):
-        create_demo_pix2pix_video(model)
+    # with gr.Tab('Zero-Shot Text2Video'):
+    #     create_demo_text_to_video(model)
+    # with gr.Tab('Video Instruct Pix2Pix'):
+    #     create_demo_pix2pix_video(model)
     with gr.Tab('Pose Conditional'):
         create_demo_pose(model)
-    with gr.Tab('Edge Conditional'):
-        create_demo_canny(model)
-    with gr.Tab('Edge Conditional and Dreambooth Specialized'):
-        create_demo_canny_db(model)
-    with gr.Tab('Depth Conditional'):
-        create_demo_depth(model)
+    # with gr.Tab('Edge Conditional'):
+    #     create_demo_canny(model)
+    # with gr.Tab('Edge Conditional and Dreambooth Specialized'):
+    #     create_demo_canny_db(model)
+    # with gr.Tab('Depth Conditional'):
+    #     create_demo_depth(model)
     '''
     '''
     gr.HTML(
