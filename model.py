@@ -131,7 +131,7 @@ class Model:
                         prng_seed=prng_seed,
                         neg_prompt_ids=n_prompt_ids[frame_ids],
                         latents=latents[frame_ids],
-                        **kwargs
+                        # **kwargs
                         )
 
     def inference(self, split_to_chunks=False, chunk_size=8, **kwargs):
