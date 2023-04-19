@@ -175,7 +175,8 @@ class Model:
             model_id, subfolder="tokenizer"
             )
             scheduler, scheduler_state = FlaxDDIMScheduler.from_pretrained(
-                model_id)
+            model_id, subfolder ="scheduler"
+            )
             self.set_model(ModelType.ControlNetPose,
                             model_id=model_id,
                             tokenizer=tokenizer,
