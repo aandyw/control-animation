@@ -151,7 +151,7 @@ class Model:
                                 seed=42,
                                 eta=0.0,
                                 resolution=512,
-                                use_cf_attn=True,
+                                use_cf_attn=False,#should be True
                                 save_path=None):
         print("Module Pose")
         video_path = gradio_utils.motion_to_video_path(video_path)
