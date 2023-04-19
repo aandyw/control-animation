@@ -210,7 +210,7 @@ class Model:
                                 controlnet_conditioning_scale=controlnet_conditioning_scale,
                                 # eta=eta,
                                 latents=latents,
-                                output_type='numpy',
+                                # output_type='numpy',
                                 split_to_chunks=True,
                                 chunk_size=chunk_size,
                                 #merging_ratio=merging_ratio,
