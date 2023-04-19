@@ -78,9 +78,9 @@ class Model:
         if not hasattr(self, "pipe") or self.pipe is None:
             return
         prng_seed = jax.random.split(self.rng, jax.device_count())
-        prompt = np.array(kwargs.pop('prompt'))
+        prompt = kwargs.pop('prompt')
         prompt_ids = self.pipe.prepare_text_inputs(prompt)
-        negative_prompt = np.array(kwargs.pop('negative_prompt', ''))
+        negative_prompt = kwargs.pop('negative_prompt', '')
         n_prompt_ids = self.pipe.prepare_text_inputs(negative_prompt)
         latents = None
         frame_ids = jnp.array(frame_ids)
