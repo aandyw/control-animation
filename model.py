@@ -134,12 +134,13 @@ class Model:
             kwargs['video_length'] = frame_ids.shape[0]
         if self.model_type == ModelType.Text2Video:
             kwargs["frame_ids"] = frame_ids
-        return self.pipe(prompt_ids=prompt_ids[frame_ids],
+        return self.pipe(
+                        prompt_ids=prompt_ids[frame_ids],
                         params=self.params,
                         prng_seed=prng_seed,
                         neg_prompt_ids=n_prompt_ids[frame_ids],
                         latents=latents,
-                        #**kwargs
+                        **kwargs
                         )
 
     def inference(self, split_to_chunks=False, chunk_size=8, **kwargs):
@@ -186,18 +187,17 @@ class Model:
             n_prompt_ids = self.pipe.prepare_text_inputs(negative_prompt)
             return self.pipe(prompt_ids=prompt_ids, neg_prompt_ids=n_prompt_ids, 
                             params=self.params,
-                            prng_seed=self.rng,# **kwargs
+                            prng_seed=self.rng,**kwargs
                             ).images
 
     def process_controlnet_pose(self,
                                 video_path,
                                 prompt,
-                                chunk_size=8,
+                                # chunk_size=8,
                                 #merging_ratio=0.0,
-                                num_inference_steps=20,
-                                controlnet_conditioning_scale=1.0,
-                                guidance_scale=9.0,
-                                seed=42,
+                                # num_inference_steps=20,
+                                # controlnet_conditioning_scale=1.0,
+                                # guidance_scale=9.0,
                                 # eta=0.0,
                                 resolution=512,
                                 use_cf_attn=False,#should be True
@@ -253,14 +253,14 @@ class Model:
                                 # height=h,
                                 # width=w,
                                 negative_prompt=negative_prompts,
-                                num_inference_steps=num_inference_steps,
-                                guidance_scale=guidance_scale,
-                                controlnet_conditioning_scale=controlnet_conditioning_scale,
+                                # num_inference_steps=num_inference_steps,
+                                # guidance_scale=guidance_scale,
+                                # controlnet_conditioning_scale=controlnet_conditioning_scale,
                                 # eta=eta,
                                 latents=latents,
                                 # output_type='numpy',
                                 split_to_chunks=False,
-                                chunk_size=chunk_size,
+                                # chunk_size=chunk_size,
                                 #merging_ratio=merging_ratio,
                                 )
         return utils.create_gif(result, fps, path=save_path, watermark=None)
