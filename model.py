@@ -177,6 +177,7 @@ class Model:
                             tokenizer=tokenizer,
                             controlnet=controlnet,
                             controlnet_params=controlnet_params)
+            print("CONFIG: ", self.pipe.scheduler.config)
             self.pipe.scheduler = FlaxDDIMScheduler.from_config(
                 self.pipe.scheduler.config)
             if use_cf_attn:
@@ -198,6 +199,7 @@ class Model:
         f, _, h, w = video.shape
         print(video.shape, control.shape)
         print("========================")
+        print(self.pipe.config.num_train_timesteps)
         # Sample noise that we'll add to the latents
         self.rng, latents_rng = jax.random.split(self.rng)
         latents = jax.random.normal(latents_rng, (1, 4, h//8, w//8)) #channel first
