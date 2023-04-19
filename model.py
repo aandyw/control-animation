@@ -5,22 +5,13 @@ import jax.numpy as jnp
 import tomesd
 import jax
 
-# from diffusers import StableDiffusionInstructPix2PixPipeline, StableDiffusionControlNetPipeline, ControlNetModel, UNet2DConditionModel
-# from diffusers.schedulers import EulerAncestralDiscreteScheduler, DDIMScheduler
-
-from diffusers import FlaxDDIMScheduler
-from diffusers import FlaxControlNetModel, FlaxStableDiffusionControlNetPipeline
-# from text_to_video_pipeline import TextToVideoPipeline
-from transformers import CLIPTokenizer
+from transformers import CLIPTokenizer, CLIPFeatureExtractor, FlaxCLIPTextModel
+from diffusers import FlaxDDIMScheduler, FlaxControlNetModel, FlaxUNet2DConditionModel, FlaxAutoencoderKL, FlaxStableDiffusionControlNetPipeline
 
 import utils
 import gradio_utils
 import os
 on_huggingspace = os.environ.get("SPACE_AUTHOR_NAME") == "PAIR"
-
-
-from transformers import CLIPTokenizer, CLIPFeatureExtractor, FlaxCLIPTextModel
-from diffusers import FlaxUNet2DConditionModel, FlaxAutoencoderKL, FlaxStableDiffusionControlNetPipeline
 
 
 class ModelType(Enum):
@@ -193,7 +184,7 @@ class Model:
     def process_controlnet_pose(self,
                                 video_path,
                                 prompt,
-                                # chunk_size=8,
+                                chunk_size=8,
                                 #merging_ratio=0.0,
                                 # num_inference_steps=20,
                                 # controlnet_conditioning_scale=1.0,
@@ -259,8 +250,8 @@ class Model:
                                 # eta=eta,
                                 latents=latents,
                                 # output_type='numpy',
-                                split_to_chunks=False,
-                                # chunk_size=chunk_size,
+                                split_to_chunks=True,
+                                chunk_size=chunk_size,
                                 # merging_ratio=merging_ratio,
                                 )
         return utils.create_gif(result, fps, path=save_path, watermark=None)
