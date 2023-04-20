@@ -174,12 +174,16 @@ class Model:
         else:
             prompt_ids = self.pipe.prepare_text_inputs(prompt)
             n_prompt_ids = self.pipe.prepare_text_inputs(negative_prompt)
+            latents = kwargs.pop('latents')[frame_ids]
             rng = jax.random.split(self.rng, jax.device_count())
-            return self.pipe(image=shard(image), prompt_ids=shard(prompt_ids), neg_prompt_ids=shard(n_prompt_ids), 
-                            params=self.p_params,
-                            prng_seed=rng, jit = True,
-                            **kwargs
-                            ).images
+            return self.pipe(image=shard(image),
+                             latents=shard(latents),
+                             prompt_ids=shard(prompt_ids),
+                             neg_prompt_ids=shard(n_prompt_ids), 
+                             params=self.p_params,
+                             prng_seed=rng, jit = True,
+                             **kwargs
+                             ).images
 
     def process_controlnet_pose(self,
                                 video_path,
