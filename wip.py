@@ -311,7 +311,7 @@ class FlaxTextToVideoControlNetPipeline(FlaxDiffusionPipeline):
 
         #use motion fields ==>
         xT = xT[:, :, :1]
-        xInit = xT.clone()
+        # xInit = xT.copy()
 
         timesteps_ddpm = [981, 961, 941, 921, 901, 881, 861, 841, 821, 801, 781, 761, 741, 721,
                             701, 681, 661, 641, 621, 601, 581, 561, 541, 521, 501, 481, 461, 441,
@@ -366,7 +366,7 @@ class FlaxTextToVideoControlNetPipeline(FlaxDiffusionPipeline):
 
         # x_t1 = torch.cat([x_t1_1, x_t1_k], dim=2).clone().detach()
 
-        x_t1 = jnp.cat([x_t1_1, x_t1_k], axis=2).clone()
+        x_t1 = jnp.cat([x_t1_1, x_t1_k], axis=2).copy()
 
         ddim_res = self.DDIM_backward(params, num_inference_steps=num_inference_steps, timesteps=timesteps, skip_t=t1, t0=-1, t1=-1, do_classifier_free_guidance=do_classifier_free_guidance,
                                             null_embs=null_embs, text_embeddings=text_embeddings, latents_local=x_t1, guidance_scale=guidance_scale,
