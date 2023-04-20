@@ -293,6 +293,7 @@ class FlaxTextToVideoControlNetPipeline(FlaxDiffusionPipeline):
                                             num_inference_steps: int = 50,
                                             guidance_scale: float = 7.5,
                                             guidance_stop_step: float = 0.5,
+                                            num_videos_per_prompt: Optional[int] = 1,
                                             xT = None,
                                             null_embs = None,
                                             motion_field_strength_x: float = 12,
@@ -307,7 +308,10 @@ class FlaxTextToVideoControlNetPipeline(FlaxDiffusionPipeline):
         self.scheduler.set_timesteps(params["scheduler"], num_inference_steps)
         timesteps = params["scheduler"].timesteps
 
-        xT = prepare_latents(params, prng, latents, batch_size, num_channels_latents, video_length, height, width, self.vae.scaling_factor)
+        # Prepare latent variables
+        num_channels_latents = self.unet.in_channels
+
+        xT = prepare_latents(params, prng, batch_size * num_videos_per_prompt, num_channels_latents, 1, height, width, self.vae.scaling_factor, xT)
 
         #use motion fields ==>
         xT = xT[:, :, :1]
@@ -750,10 +754,11 @@ def preprocess(image, dtype):
     image = image[None].transpose(0, 3, 1, 2)
     return image
 
-def prepare_latents(params, prng, latents, batch_size, num_channels_latents, video_length, height, width, vae_scale_factor):
+def prepare_latents(params, prng, batch_size, num_channels_latents, video_length, height, width, vae_scale_factor, latents=None):
     shape = (batch_size, num_channels_latents, video_length, height //
             vae_scale_factor, width // vae_scale_factor)
     # scale the initial noise by the standard deviation required by the scheduler
-    latents = jax.random.normal(prng, shape)
+    if latents is None:
+        latents = jax.random.normal(prng, shape)
     latents = latents * params["scheduler"].init_noise_sigma
     return latents
