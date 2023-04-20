@@ -6,6 +6,7 @@ import tomesd
 import jax
 from flax.training.common_utils import shard
 from flax import jax_utils
+import einops
 
 from transformers import CLIPTokenizer, CLIPFeatureExtractor, FlaxCLIPTextModel
 from diffusers import FlaxDDIMScheduler, FlaxControlNetModel, FlaxUNet2DConditionModel, FlaxAutoencoderKL, FlaxStableDiffusionControlNetPipeline
@@ -15,6 +16,7 @@ import gradio_utils
 import os
 on_huggingspace = os.environ.get("SPACE_AUTHOR_NAME") == "PAIR"
 
+unshard = lambda x: einops.rearrange(x, 'd b ... -> (d b) ...')
 
 class ModelType(Enum):
     Pix2Pix_Video = 1,
@@ -174,17 +176,17 @@ class Model:
         else:
             prompt_ids = self.pipe.prepare_text_inputs(prompt)
             n_prompt_ids = self.pipe.prepare_text_inputs(negative_prompt)
-            latents = kwargs.pop('latents')[frame_ids]
+            latents = kwargs.pop('latents')
             rng = jax.random.split(self.rng, jax.device_count())
-            return self.pipe(image=shard(image),
+            return unshard(self.pipe(image=shard(image),
                              latents=shard(latents),
                              prompt_ids=shard(prompt_ids),
                              neg_prompt_ids=shard(n_prompt_ids), 
                              params=self.p_params,
                              prng_seed=rng, jit = True,
                              **kwargs
-                             ).images
-
+                             ).images)
+        
     def process_controlnet_pose(self,
                                 video_path,
                                 prompt,
