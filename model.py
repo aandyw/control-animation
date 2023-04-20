@@ -40,13 +40,7 @@ class Model:
             ModelType.ControlNetPose: FlaxStableDiffusionControlNetPipeline,
             # ModelType.ControlNetDepth: StableDiffusionControlNetPipeline,
         }
-        self.controlnet_attn_proc = utils.CrossFrameAttnProcessor(
-            unet_chunk_size=2)
-        self.pix2pix_attn_proc = utils.CrossFrameAttnProcessor(
-            unet_chunk_size=3)
-        self.text2video_attn_proc = utils.CrossFrameAttnProcessor(
-            unet_chunk_size=2)
-
+        
         self.pipe = None
         self.model_type = None
 
