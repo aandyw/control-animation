@@ -16,6 +16,8 @@ import decord
 import jax
 import torch
 
+import flax.linen as nn
+
 # apply_canny = CannyDetector()
 apply_openpose = OpenposeDetector()
 # apply_midas = MidasDetector()
@@ -177,52 +179,71 @@ def post_process_gif(list_of_results, image_resolution):
     imageio.mimsave(output_file, list_of_results, fps=4)
     return output_file
 
+class FlaxCrossFrameAttn(nn.Module):
+    r"""
+    Cross Attention 2D Mid-level block - original architecture from Unet transformers: https://arxiv.org/abs/2103.06104
+    Parameters:
+        in_channels (:obj:`int`):
+            Input channels
+        dropout (:obj:`float`, *optional*, defaults to 0.0):
+            Dropout rate
+        num_layers (:obj:`int`, *optional*, defaults to 1):
+            Number of attention blocks layers
+        attn_num_head_channels (:obj:`int`, *optional*, defaults to 1):
+            Number of attention heads of each spatial transformer block
+        use_memory_efficient_attention (`bool`, *optional*, defaults to `False`):
+            enable memory efficient attention https://arxiv.org/abs/2112.05682
+        dtype (:obj:`jnp.dtype`, *optional*, defaults to jnp.float32):
+            Parameters `dtype`
+    """
+    in_channels: int
+    dropout: float = 0.0
+    num_layers: int = 1
+    attn_num_head_channels: int = 1
+    use_linear_projection: bool = False
+    use_memory_efficient_attention: bool = False
+    dtype: jnp.dtype = jnp.float32
 
-class CrossFrameAttnProcessor:
-    def __init__(self, unet_chunk_size=2):
-        self.unet_chunk_size = unet_chunk_size
+    def setup(self):
+        # there is always at least one resnet
+        resnets = [
+            FlaxResnetBlock2D(
+                in_channels=self.in_channels,
+                out_channels=self.in_channels,
+                dropout_prob=self.dropout,
+                dtype=self.dtype,
+            )
+        ]
 
-    def __call__(
-            self,
-            attn,
-            hidden_states,
-            encoder_hidden_states=None,
-            attention_mask=None):
-        batch_size, sequence_length, _ = hidden_states.shape
-        attention_mask = attn.prepare_attention_mask(attention_mask, sequence_length, batch_size)
-        query = attn.to_q(hidden_states)
+        attentions = []
 
-        is_cross_attention = encoder_hidden_states is not None
-        if encoder_hidden_states is None:
-            encoder_hidden_states = hidden_states
-        elif attn.cross_attention_norm:
-            encoder_hidden_states = attn.norm_cross(encoder_hidden_states)
-        key = attn.to_k(encoder_hidden_states)
-        value = attn.to_v(encoder_hidden_states)
-        # Sparse Attention
-        if not is_cross_attention:
-            video_length = key.size()[0] // self.unet_chunk_size
-            # former_frame_index = torch.arange(video_length) - 1
-            # former_frame_index[0] = 0
-            former_frame_index = [0] * video_length
-            key = rearrange(key, "(b f) d c -> b f d c", f=video_length)
-            key = key[:, former_frame_index]
-            key = rearrange(key, "b f d c -> (b f) d c")
-            value = rearrange(value, "(b f) d c -> b f d c", f=video_length)
-            value = value[:, former_frame_index]
-            value = rearrange(value, "b f d c -> (b f) d c")
+        for _ in range(self.num_layers):
+            attn_block = FlaxTransformer2DModel(
+                in_channels=self.in_channels,
+                n_heads=self.attn_num_head_channels,
+                d_head=self.in_channels // self.attn_num_head_channels,
+                depth=1,
+                use_linear_projection=self.use_linear_projection,
+                use_memory_efficient_attention=self.use_memory_efficient_attention,
+                dtype=self.dtype,
+            )
+            attentions.append(attn_block)
 
-        query = attn.head_to_batch_dim(query)
-        key = attn.head_to_batch_dim(key)
-        value = attn.head_to_batch_dim(value)
+            res_block = FlaxResnetBlock2D(
+                in_channels=self.in_channels,
+                out_channels=self.in_channels,
+                dropout_prob=self.dropout,
+                dtype=self.dtype,
+            )
+            resnets.append(res_block)
 
-        attention_probs = attn.get_attention_scores(query, key, attention_mask)
-        hidden_states = torch.bmm(attention_probs, value)
-        hidden_states = attn.batch_to_head_dim(hidden_states)
+        self.resnets = resnets
+        self.attentions = attentions
 
-        # linear proj
-        hidden_states = attn.to_out[0](hidden_states)
-        # dropout
-        hidden_states = attn.to_out[1](hidden_states)
+    def __call__(self, hidden_states, temb, encoder_hidden_states, deterministic=True):
+        hidden_states = self.resnets[0](hidden_states, temb)
+        for attn, resnet in zip(self.attentions, self.resnets[1:]):
+            hidden_states = attn(hidden_states, encoder_hidden_states, deterministic=deterministic)
+            hidden_states = resnet(hidden_states, temb, deterministic=deterministic)
 
         return hidden_states

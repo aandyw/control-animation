@@ -53,36 +53,24 @@ class Model:
         self.states = {}
         self.model_name = ""
 
+        self.from_local = True #if the attn model is available in local (after adaptation by adapt_attn.py)
+
     def set_model(self, model_type: ModelType, model_id: str, controlnet, controlnet_params, tokenizer, scheduler, scheduler_state, **kwargs):
         if hasattr(self, "pipe") and self.pipe is not None:
             del self.pipe
             self.pipe = None
         gc.collect()
-        # self.pipe, self.params = FlaxStableDiffusionControlNetPipeline.from_pretrained(
-        #                             model_id,
-        #                             tokenizer=tokenizer,
-        #                             controlnet=controlnet,
-        #                             scheduler=scheduler,
-        #                             safety_checker=None,
-        #                             # dtype=weight_dtype,
-        #                             # revision=args.revision,
-        #                             from_pt=True,
-        #                         )
-        # model_id = "tuwonga/zukki_style"
-        # # model_id = "runwayml/stable-diffusion-v1-5"
         scheduler, scheduler_state = FlaxDDIMScheduler.from_pretrained(
             model_id,
             subfolder="scheduler",
             from_pt =True
         )
-        # controlnet_id = "fusing/stable-diffusion-v1-5-controlnet-openpose"
-        # controlnet, controlnet_params = FlaxControlNetModel.from_pretrained(
-        #     controlnet_id,
-        #     from_pt=True,
-        # )
         tokenizer = CLIPTokenizer.from_pretrained(model_id, subfolder="tokenizer")
         feature_extractor = CLIPFeatureExtractor.from_pretrained(model_id, subfolder="feature_extractor")
-        unet, unet_params = FlaxUNet2DConditionModel.from_pretrained(model_id, subfolder="unet", from_pt=True)
+        if self.from_local:
+            unet, unet_params = FlaxUNet2DConditionModel.from_pretrained(f'./{model_id.split("/")[-1]}', subfolder="unet", from_pt=True)
+        else:
+            unet, unet_params = FlaxUNet2DConditionModel.from_pretrained(model_id, subfolder="unet", from_pt=True)
         vae, vae_params = FlaxAutoencoderKL.from_pretrained(model_id, subfolder="vae", from_pt=True)
         text_encoder = FlaxCLIPTextModel.from_pretrained(model_id, subfolder="text_encoder", from_pt=True)
         self.pipe = FlaxStableDiffusionControlNetPipeline(vae=vae,
@@ -115,10 +103,6 @@ class Model:
         frame_ids = jnp.array(frame_ids)
         if 'latents' in kwargs:
             latents = kwargs.pop('latents')[frame_ids]
-        # if 'image' in kwargs:
-        #     kwargs['image'] = kwargs['image'][frame_ids]
-        # if 'video_length' in kwargs:
-        #     kwargs['video_length'] = frame_ids.shape[0]
         if self.model_type == ModelType.Text2Video:
             kwargs["frame_ids"] = frame_ids
         return self.pipe(
@@ -143,10 +127,6 @@ class Model:
             tomesd.apply_patch(self.pipe, ratio=merging_ratio)
 
         f = image.shape[0]
-        # if 'image' in kwargs:
-        #     f = kwargs['image'].shape[0]
-        # else:
-        #     f = kwargs['video_length']
 
         assert 'prompt' in kwargs
         prompt = [kwargs.pop('prompt')] * f
@@ -192,7 +172,7 @@ class Model:
                                 prompt,
                                 chunk_size=8,
                                 #merging_ratio=0.0,
-                                # num_inference_steps=20,
+                                num_inference_steps=20,
                                 # controlnet_conditioning_scale=1.0,
                                 # guidance_scale=9.0,
                                 # eta=0.0,
@@ -204,12 +184,20 @@ class Model:
         if self.model_type != ModelType.ControlNetPose:
             model_id = "tuwonga/zukki_style"
             controlnet_id = "fusing/stable-diffusion-v1-5-controlnet-openpose"
-            controlnet, controlnet_params = FlaxControlNetModel.from_pretrained(
-                controlnet_id,
-                # revision=args.controlnet_revision,
-                from_pt=True,
-                # dtype=jnp.float32,
-            )
+            if self.from_local:
+                controlnet, controlnet_params = FlaxControlNetModel.from_pretrained(
+                    controlnet_id.split("/")[-1],
+                    # revision=args.controlnet_revision,
+                    from_pt=True,
+                    # dtype=jnp.float32,
+                )
+            else:
+                controlnet, controlnet_params = FlaxControlNetModel.from_pretrained(
+                    controlnet_id,
+                    # revision=args.controlnet_revision,
+                    from_pt=True,
+                    # dtype=jnp.float32,
+                )
             tokenizer = CLIPTokenizer.from_pretrained(
             model_id, subfolder="tokenizer"
             )
@@ -241,9 +229,9 @@ class Model:
         control = utils.pre_process_pose(
             video, apply_pose_detect=False)
         f, _, h, w = video.shape
-        # Sample noise that we'll add to the latents
+
         self.rng, latents_rng = jax.random.split(self.rng)
-        latents = jax.random.normal(latents_rng, (1, 4, h//8, w//8)) #channel first
+        latents = jax.random.normal(latents_rng, (1, 4, h//8, w//8))
         latents = latents.repeat(f, 0) #latents.repeat(f, 1, 1, 1)
         result = self.inference(image=control,
                                 prompt=prompt + ', ' + added_prompt,
