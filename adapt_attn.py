@@ -72,7 +72,7 @@ def main(model_path, controlnet_path):
 
     controlnet.set_attn_processor(
         processor=controlnet_attn_proc)
-    
+
     unet.save_pretrained(save_directory=model_path.split("/")[-1] + "/unet")
     controlnet.save_pretrained(save_directory=controlnet_path.split("/")[-1])
 
