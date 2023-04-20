@@ -28,7 +28,7 @@ from diffusers.pipelines.stable_diffusion.safety_checker_flax import FlaxStableD
 logger = logging.get_logger(__name__)  # pylint: disable=invalid-name
 
 # Set to True to use python for loop instead of jax.fori_loop for easier debugging
-DEBUG = False
+DEBUG = True
 
 EXAMPLE_DOC_STRING = """
     Examples:
@@ -218,6 +218,7 @@ class FlaxTextToVideoControlNetPipeline(FlaxDiffusionPipeline):
                 text_embeddings[0] = null_embs[i][0]
             te = jnp.concatenate([repeat(text_embeddings[0, :, :], "c k -> f c k", f=f),
                                 repeat(text_embeddings[1, :, :], "c k -> f c k", f=f)])
+            print(jnp.array(latent_model_input).shape)
             noise_pred = jax.lax.stop_gradient(self.unet.apply({"params": params["unet"]},
                                                                 jnp.array(latent_model_input),
                                                                 jnp.array(t, dtype=jnp.int32),
@@ -256,7 +257,12 @@ class FlaxTextToVideoControlNetPipeline(FlaxDiffusionPipeline):
             #         callback(i, t, latents)
 
         # for i, t in enumerate(timesteps):
-        latents, x_t0_1, x_t1_1 = jax.lax.fori_loop(0, len(timesteps), loop_timesteps, (latents, None, None))
+        if DEBUG:
+            x_t0_1, x_t1_1 = None, None
+            for i in range(len(timesteps)):
+                latents, x_t0_1, x_t1_1 = loop_timesteps(i, (latents, x_t0_1, x_t1_1))
+        else:
+            latents, x_t0_1, x_t1_1 = jax.lax.fori_loop(0, len(timesteps), loop_timesteps, (latents, None, None))
         latents = rearrange(latents, "(b f) c w h -> b c f  w h", f=f)
 
         # res = {"x0": latents.detach().clone()}
