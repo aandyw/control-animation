@@ -155,7 +155,7 @@ class Model:
             latents = kwargs.pop('latents')
             # rng = jax.random.split(self.rng, jax.device_count())
             prng, self.rng = jax.random.split(self.rng)
-            prng = prng.repeat(jax.device_count(), 0)#same prng seed on every device
+            prng = jax.numpy.stack([prng] * jax.device_count())#same prng seed on every device
             return unshard(self.pipe(image=shard(image),
                              latents=shard(latents),
                              prompt_ids=shard(prompt_ids),
