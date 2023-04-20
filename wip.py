@@ -504,7 +504,7 @@ class FlaxTextToVideoControlNetPipeline(FlaxDiffusionPipeline):
                 raise ValueError(f"Unexpected latents shape, got {latents.shape}, expected {latents_shape}")
         
         seed_t2vz, prng_seed = jax.random.split(prng_seed)
-        latents = self.prepare_latents_text_to_video_zero(params, latents, prng=seed_t2vz, text_embeddings=context,
+        latents = self.prepare_latents_text_to_video_zero(params, seed_t2vz, latents, text_embeddings=context,
                                                      video_length=batch_size, height=height, width = width,
                                                      num_inference_steps=num_inference_steps,
                                                      guidance_scale=guidance_scale,
