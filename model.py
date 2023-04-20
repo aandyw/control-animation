@@ -230,8 +230,8 @@ class Model:
         f, _, h, w = video.shape
 
         self.rng, latents_rng = jax.random.split(self.rng)
-        latents = jax.random.normal(latents_rng, (1, 1, 4, h//8, w//8))
-        latents = latents.repeat(f, 1) #latents.repeat(f, 1, 1, 1)
+        latents = jax.random.normal(latents_rng, (1, 4, h//8, w//8))
+        latents = latents.repeat(f, 0) #latents.repeat(f, 1, 1, 1)
 
         result = self.inference(image=control,
                                 prompt=prompt + ', ' + added_prompt,
