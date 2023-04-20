@@ -40,7 +40,7 @@ class Model:
             ModelType.ControlNetPose: FlaxStableDiffusionControlNetPipeline,
             # ModelType.ControlNetDepth: StableDiffusionControlNetPipeline,
         }
-        
+
         self.pipe = None
         self.model_type = None
 
@@ -130,23 +130,25 @@ class Model:
 
         # Processing chunk-by-chunk
         if split_to_chunks:
-            chunk_ids = np.arange(0, f, chunk_size - 1)
-            result = []
-            for i in range(len(chunk_ids)):
-                ch_start = chunk_ids[i]
-                ch_end = f if i == len(chunk_ids) - 1 else chunk_ids[i + 1]
-                frame_ids = [0] + list(range(ch_start, ch_end))
-                print(f'Processing chunk {i + 1} / {len(chunk_ids)}')
-                result.append(self.inference_chunk(image=image,
-                                                   frame_ids=frame_ids,
-                                                   prompt=prompt,
-                                                   negative_prompt=negative_prompt,
-                                                   **kwargs).images[1:])
-                frames_counter += len(chunk_ids)-1
-                if on_huggingspace and frames_counter >= 80:
-                    break
-            result = np.concatenate(result)
-            return result
+            pass
+            ## not tested
+            # chunk_ids = np.arange(0, f, chunk_size - 1)
+            # result = []
+            # for i in range(len(chunk_ids)):
+            #     ch_start = chunk_ids[i]
+            #     ch_end = f if i == len(chunk_ids) - 1 else chunk_ids[i + 1]
+            #     frame_ids = [0] + list(range(ch_start, ch_end))
+            #     print(f'Processing chunk {i + 1} / {len(chunk_ids)}')
+            #     result.append(self.inference_chunk(image=image,
+            #                                        frame_ids=frame_ids,
+            #                                        prompt=prompt,
+            #                                        negative_prompt=negative_prompt,
+            #                                        **kwargs).images[1:])
+            #     frames_counter += len(chunk_ids)-1
+            #     if on_huggingspace and frames_counter >= 80:
+            #         break
+            # result = np.concatenate(result)
+            # return result
         else:
             prompt_ids = self.pipe.prepare_text_inputs(prompt)
             n_prompt_ids = self.pipe.prepare_text_inputs(negative_prompt)
@@ -167,16 +169,16 @@ class Model:
                                 chunk_size=8,
                                 #merging_ratio=0.0,
                                 num_inference_steps=20,
-                                # controlnet_conditioning_scale=1.0,
-                                # guidance_scale=9.0,
+                                controlnet_conditioning_scale=1.0,
+                                guidance_scale=9.0,
                                 # eta=0.0,
                                 resolution=512,
-                                use_cf_attn=False,#should be True
                                 save_path=None):
         print("Module Pose")
         video_path = gradio_utils.motion_to_video_path(video_path)
         if self.model_type != ModelType.ControlNetPose:
-            model_id = "tuwonga/zukki_style"
+            #model_id = "tuwonga/zukki_style"
+            model_id="runwayml/stable-diffusion-v1-5"
             controlnet_id = "fusing/stable-diffusion-v1-5-controlnet-openpose"
             if self.from_local:
                 controlnet, controlnet_params = FlaxControlNetModel.from_pretrained(
@@ -206,12 +208,6 @@ class Model:
                             scheduler=scheduler,
                             scheduler_state=scheduler_state)
 
-            # if use_cf_attn:
-            #     self.pipe.unet.set_attn_processor(
-            #         processor=self.controlnet_attn_proc)
-            #     self.pipe.controlnet.set_attn_processor(
-            #         processor=self.controlnet_attn_proc)
-
         video_path = gradio_utils.motion_to_video_path(
             video_path) if 'Motion' in video_path else video_path
 
@@ -232,9 +228,9 @@ class Model:
                                 # height=h,
                                 # width=w,
                                 negative_prompt=negative_prompts,
-                                # num_inference_steps=num_inference_steps,
-                                # guidance_scale=guidance_scale,
-                                # controlnet_conditioning_scale=controlnet_conditioning_scale,
+                                num_inference_steps=num_inference_steps,
+                                guidance_scale=guidance_scale,
+                                controlnet_conditioning_scale=controlnet_conditioning_scale,
                                 # eta=eta,
                                 latents=latents,
                                 # output_type='numpy',
