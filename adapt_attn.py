@@ -65,7 +65,7 @@ def main(model_path, controlnet_path):
                     model_path, subfolder="unet")
 
     controlnet = ControlNetModel.from_pretrained(
-                    model_path, subfolder="vae")
+                    controlnet_path)
 
     unet.set_attn_processor(
         processor=controlnet_attn_proc)
