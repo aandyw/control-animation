@@ -307,10 +307,10 @@ class FlaxTextToVideoControlNetPipeline(FlaxDiffusionPipeline):
         # Prepare timesteps
         self.scheduler.set_timesteps(params["scheduler"], num_inference_steps)
         timesteps = params["scheduler"].timesteps
-
         # Prepare latent variables
         num_channels_latents = self.unet.in_channels
-
+        batch_size = video_length
+        
         xT = prepare_latents(params, prng, batch_size * num_videos_per_prompt, num_channels_latents, 1, height, width, self.vae.scaling_factor, xT)
 
         #use motion fields ==>
