@@ -1,5 +1,4 @@
 import gradio as gr
-import torch
 
 from model import Model, ModelType
 from app_canny import create_demo as create_demo_canny
@@ -10,9 +9,10 @@ from app_canny_db import create_demo as create_demo_canny_db
 from app_depth import create_demo as create_demo_depth
 import argparse
 import os
+import jax.numpy as jnp
 
 on_huggingspace = os.environ.get("SPACE_AUTHOR_NAME") == "PAIR"
-model = Model(device='cuda', dtype=torch.float16)
+model = Model(device='cuda', dtype=jnp.float16)
 parser = argparse.ArgumentParser()
 parser.add_argument('--public_access', action='store_true',
                     help="if enabled, the app can be access from a public url", default=False)

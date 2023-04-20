@@ -62,11 +62,11 @@ class Model:
         tokenizer = CLIPTokenizer.from_pretrained(model_id, subfolder="tokenizer")
         feature_extractor = CLIPFeatureExtractor.from_pretrained(model_id, subfolder="feature_extractor")
         if self.from_local:
-            unet, unet_params = FlaxUNet2DConditionModel.from_pretrained(f'./{model_id.split("/")[-1]}', subfolder="unet", from_pt=True)
+            unet, unet_params = FlaxUNet2DConditionModel.from_pretrained(f'./{model_id.split("/")[-1]}', subfolder="unet", from_pt=True, dtype=self.dtype)
         else:
-            unet, unet_params = FlaxUNet2DConditionModel.from_pretrained(model_id, subfolder="unet", from_pt=True)
-        vae, vae_params = FlaxAutoencoderKL.from_pretrained(model_id, subfolder="vae", from_pt=True)
-        text_encoder = FlaxCLIPTextModel.from_pretrained(model_id, subfolder="text_encoder", from_pt=True)
+            unet, unet_params = FlaxUNet2DConditionModel.from_pretrained(model_id, subfolder="unet", from_pt=True, dtype=self.dtype)
+        vae, vae_params = FlaxAutoencoderKL.from_pretrained(model_id, subfolder="vae", from_pt=True, dtype=self.dtype)
+        text_encoder = FlaxCLIPTextModel.from_pretrained(model_id, subfolder="text_encoder", from_pt=True, dtype=self.dtype)
         self.pipe = FlaxStableDiffusionControlNetPipeline(vae=vae,
                                                         text_encoder=text_encoder,
                                                         tokenizer=tokenizer,
@@ -174,7 +174,7 @@ class Model:
                                 controlnet_conditioning_scale=1.0,
                                 guidance_scale=9.0,
                                 # eta=0.0, #this doesn't exist in the flax pipeline, relates to DDIM scheduler eta
-                                resolution=256,
+                                resolution=512,
                                 save_path=None):
         print("Module Pose")
         video_path = gradio_utils.motion_to_video_path(video_path)
@@ -187,14 +187,14 @@ class Model:
                     controlnet_id.split("/")[-1],
                     # revision=args.controlnet_revision,
                     from_pt=True,
-                    # dtype=jnp.float32,
+                    dtype=self.dtype,
                 )
             else:
                 controlnet, controlnet_params = FlaxControlNetModel.from_pretrained(
                     controlnet_id,
                     # revision=args.controlnet_revision,
                     from_pt=True,
-                    # dtype=jnp.float32,
+                    dtype=self.dtype,
                 )
             tokenizer = CLIPTokenizer.from_pretrained(
             model_id, subfolder="tokenizer"
