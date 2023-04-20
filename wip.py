@@ -13,17 +13,17 @@ from transformers import CLIPFeatureExtractor, CLIPTokenizer, FlaxCLIPTextModel
 
 from einops import rearrange, repeat
 
-from ...models import FlaxAutoencoderKL, FlaxControlNetModel, FlaxUNet2DConditionModel
-from ...schedulers import (
+from diffusers.models import FlaxAutoencoderKL, FlaxControlNetModel, FlaxUNet2DConditionModel
+from diffusers.schedulers import (
     FlaxDDIMScheduler,
     FlaxDPMSolverMultistepScheduler,
     FlaxLMSDiscreteScheduler,
     FlaxPNDMScheduler,
 )
-from ...utils import PIL_INTERPOLATION, logging, replace_example_docstring
-from ..pipeline_flax_utils import FlaxDiffusionPipeline
-from . import FlaxStableDiffusionPipelineOutput
-from .safety_checker_flax import FlaxStableDiffusionSafetyChecker
+from diffusers.utils import PIL_INTERPOLATION, logging, replace_example_docstring
+from diffusers.pipelines.pipeline_flax_utils import FlaxDiffusionPipeline
+from diffusers.pipelines.stable_diffusion import FlaxStableDiffusionPipelineOutput
+from diffusers.pipelines.stable_diffusion.safety_checker_flax import FlaxStableDiffusionSafetyChecker
 
 logger = logging.get_logger(__name__)  # pylint: disable=invalid-name
 
