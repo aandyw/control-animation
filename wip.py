@@ -193,71 +193,67 @@ class FlaxTextToVideoControlNetPipeline(FlaxDiffusionPipeline):
         x_t1_1 = None
 
         # with self.progress_bar(total=num_inference_steps) as progress_bar:
-
         def loop_timesteps(i, val):
             latents, x_t0_1, x_t1_1 = val
             t = timesteps[i]
-            if t > skip_t:
-                pass
-            else:
-                latent_model_input = jnp.concatenate(
-                    [latents] * 2) if do_classifier_free_guidance else latents
-                
-                # latent_model_input = self.scheduler.scale_model_input(
-                #     latent_model_input, t)
+            latent_model_input = jnp.concatenate(
+                [latents] * 2) if do_classifier_free_guidance else latents
+            
+            # latent_model_input = self.scheduler.scale_model_input(
+            #     latent_model_input, t)
 
-                latent_model_input = self.scheduler.scale_model_input(
-                    params["scheduler"], latent_model_input, timestep=t
-                )
+            latent_model_input = self.scheduler.scale_model_input(
+                params["scheduler"], latent_model_input, timestep=t
+            )
 
-                # predict the noise residual
-                # with torch.no_grad():
-                #     if null_embs is not None:
-                #         text_embeddings[0] = null_embs[i][0]
-                #     te = torch.cat([repeat(text_embeddings[0, :, :], "c k -> f c k", f=f),
-                #                    repeat(text_embeddings[1, :, :], "c k -> f c k", f=f)])
-                #     noise_pred = self.unet(
-                #         latent_model_input, t, encoder_hidden_states=te).sample.to(dtype=latents_dtype)
-                if null_embs is not None:
-                    text_embeddings[0] = null_embs[i][0]
-                te = jnp.concatenate([repeat(text_embeddings[0, :, :], "c k -> f c k", f=f),
-                                    repeat(text_embeddings[1, :, :], "c k -> f c k", f=f)])
-                noise_pred = jax.lax.stop_gradient(self.unet.apply({"params": params["unet"]},
-                                                                    jnp.array(latent_model_input),
-                                                                    jnp.array(t, dtype=jnp.int32),
-                                                                    te,
-                                                                    )
-                                                )
+            # predict the noise residual
+            # with torch.no_grad():
+            #     if null_embs is not None:
+            #         text_embeddings[0] = null_embs[i][0]
+            #     te = torch.cat([repeat(text_embeddings[0, :, :], "c k -> f c k", f=f),
+            #                    repeat(text_embeddings[1, :, :], "c k -> f c k", f=f)])
+            #     noise_pred = self.unet(
+            #         latent_model_input, t, encoder_hidden_states=te).sample.to(dtype=latents_dtype)
+            if null_embs is not None:
+                text_embeddings[0] = null_embs[i][0]
+            te = jnp.concatenate([repeat(text_embeddings[0, :, :], "c k -> f c k", f=f),
+                                repeat(text_embeddings[1, :, :], "c k -> f c k", f=f)])
+            noise_pred = jax.lax.stop_gradient(self.unet.apply({"params": params["unet"]},
+                                                                jnp.array(latent_model_input),
+                                                                jnp.array(t, dtype=jnp.int32),
+                                                                te,
+                                                                )
+                                            )
 
-                # perform guidance
-                if do_classifier_free_guidance:
-                    noise_pred_uncond, noise_pred_text = noise_pred.chunk(
-                        2)
-                    noise_pred = noise_pred_uncond + guidance_scale * \
-                        (noise_pred_text - noise_pred_uncond)
+            # perform guidance
+            if do_classifier_free_guidance:
+                noise_pred_uncond, noise_pred_text = noise_pred.chunk(
+                    2)
+                noise_pred = noise_pred_uncond + guidance_scale * \
+                    (noise_pred_text - noise_pred_uncond)
 
-                if i >= guidance_stop_step * len(timesteps):
-                    alpha = 0
-                # compute the previous noisy sample x_t -> x_t-1
-                latents = self.scheduler.step(
-                    params["scheduler"],
-                    noise_pred, t, latents).prev_sample
-                # latents = latents - alpha * grads / (torch.norm(grads) + 1e-10)
-                # call the callback, if provided
+            if i >= guidance_stop_step * len(timesteps):
+                alpha = 0
+            # compute the previous noisy sample x_t -> x_t-1
+            latents = self.scheduler.step(
+                params["scheduler"],
+                noise_pred, t, latents).prev_sample
+            # latents = latents - alpha * grads / (torch.norm(grads) + 1e-10)
+            # call the callback, if provided
 
-                if i < len(timesteps)-1 and timesteps[i+1] == t0:
-                    # x_t0_1 = latents.detach().clone()
-                    x_t0_1 = latents.copy()
-                    print(f"latent t0 found at i = {i}, t = {t}")
-                elif i < len(timesteps)-1 and timesteps[i+1] == t1:
-                    # x_t1_1 = latents.detach().clone()
-                    x_t1_1 = latents.copy()
-                    print(f"latent t1 found at i={i}, t = {t}")
-                return (latents, x_t0_1, x_t1_1)
-                # if i == len(timesteps) - 1 or ((i + 1) > num_warmup_steps and (i + 1) % self.scheduler.order == 0):
-                #     progress_bar.update()
-                #     if callback is not None and i % callback_steps == 0:
-                #         callback(i, t, latents)
+            if i < len(timesteps)-1 and timesteps[i+1] == t0:
+                # x_t0_1 = latents.detach().clone()
+                x_t0_1 = latents.copy()
+                print(f"latent t0 found at i = {i}, t = {t}")
+            elif i < len(timesteps)-1 and timesteps[i+1] == t1:
+                # x_t1_1 = latents.detach().clone()
+                x_t1_1 = latents.copy()
+                print(f"latent t1 found at i={i}, t = {t}")
+            return (latents, x_t0_1, x_t1_1)
+            # if i == len(timesteps) - 1 or ((i + 1) > num_warmup_steps and (i + 1) % self.scheduler.order == 0):
+            #     progress_bar.update()
+            #     if callback is not None and i % callback_steps == 0:
+            #         callback(i, t, latents)
 
         # for i, t in enumerate(timesteps):
         latents, x_t0_1, x_t1_1 = jax.lax.fori_loop(0, len(timesteps), loop_timesteps, (latents, None, None))
