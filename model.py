@@ -223,12 +223,12 @@ class Model:
             video, apply_pose_detect=False)
         f, _, h, w = video.shape
 
-        control = jnp.expand_dims(control, 0).repeat(jax.num_devices(), 0)
+        control = jnp.expand_dims(control, 0).repeat(jax.device_count(), 0)
 
         self.rng, latents_rng = jax.random.split(self.rng)
         latents = jax.random.normal(latents_rng, (1, 1, 4, h//8, w//8))
         latents = latents.repeat(f, 1) #latents.repeat(f, 1, 1, 1)
-        latents = latents.repeat(jax.num_devices(), 0)
+        latents = latents.repeat(jax.device_count(), 0)
 
         result = self.inference(image=control,
                                 prompt=prompt + ', ' + added_prompt,
