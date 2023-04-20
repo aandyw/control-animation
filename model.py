@@ -170,7 +170,7 @@ class Model:
                              params=self.p_params,
                              prng_seed=prng, jit = True,
                              **kwargs
-                             ).images)[0]
+                             ).images).mean(axis=0)
         
     def process_controlnet_pose(self,
                                 video_path,
