@@ -16,12 +16,6 @@ import decord
 import jax
 import torch
 
-def numpy_to_torch(array):
-    array = jax.device_get(array)
-    tensor = torch.from_numpy(array)
-    tensor = tensor.permute(0, 3, 1, 2)
-    return tensor
-
 # apply_canny = CannyDetector()
 apply_openpose = OpenposeDetector()
 # apply_midas = MidasDetector()
@@ -107,8 +101,7 @@ def create_video(frames, fps, rescale=False, path=None, watermark=None):
 
     outputs = []
     for i, x in enumerate(frames):
-        x = rearrange(x, "h w c -> c h w")
-        x = torchvision.utils.make_grid(numpy_to_torch(x), nrow=4)
+        x = torchvision.utils.make_grid(torch.Tensor(x), nrow=4)
         if rescale:
             x = (x + 1.0) / 2.0  # -1,1 -> 0,1
         x = (x * 255).numpy().astype(np.uint8)
@@ -129,7 +122,7 @@ def create_gif(frames, fps, rescale=False, path=None, watermark=None):
 
     outputs = []
     for i, x in enumerate(frames):
-        x = torchvision.utils.make_grid(numpy_to_torch(x), nrow=4)
+        x = torchvision.utils.make_grid(torch.Tensor(x), nrow=4)
         if rescale:
             x = (x + 1.0) / 2.0  # -1,1 -> 0,1
         x = (x * 255).numpy().astype(np.uint8)
