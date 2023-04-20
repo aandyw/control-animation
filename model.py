@@ -155,15 +155,16 @@ class Model:
             latents = kwargs.pop('latents')
             # rng = jax.random.split(self.rng, jax.device_count())
             prng, self.rng = jax.random.split(self.rng)
-            prng = jax.numpy.stack([prng] * jax.device_count())#same prng seed on every device
-            return unshard(self.pipe(image=shard(image),
+            #prng = jax.numpy.stack([prng] * jax.device_count())#same prng seed on every device
+            prng = jax.random.split(prng, jax.device_count())
+            return (self.pipe(image=shard(image),
                              latents=shard(latents),
                              prompt_ids=shard(prompt_ids),
                              neg_prompt_ids=shard(n_prompt_ids), 
                              params=self.p_params,
                              prng_seed=prng, jit = True,
                              **kwargs
-                             ).images)
+                             ).images)[0]
         
     def process_controlnet_pose(self,
                                 video_path,
@@ -222,9 +223,13 @@ class Model:
             video, apply_pose_detect=False)
         f, _, h, w = video.shape
 
+        control = jnp.expand_dims(control, 0).repeat(jax.num_devices(), 0)
+
         self.rng, latents_rng = jax.random.split(self.rng)
-        latents = jax.random.normal(latents_rng, (1, 4, h//8, w//8))
-        latents = latents.repeat(f, 0) #latents.repeat(f, 1, 1, 1)
+        latents = jax.random.normal(latents_rng, (1, 1, 4, h//8, w//8))
+        latents = latents.repeat(f, 1) #latents.repeat(f, 1, 1, 1)
+        latents = latents.repeat(jax.num_devices(), 0)
+
         result = self.inference(image=control,
                                 prompt=prompt + ', ' + added_prompt,
                                 # height=h,
