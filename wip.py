@@ -307,7 +307,7 @@ class FlaxTextToVideoControlNetPipeline(FlaxDiffusionPipeline):
         self.scheduler.set_timesteps(params["scheduler"], num_inference_steps)
         timesteps = params["scheduler"].timesteps
 
-        xT = prepare_latents(params, latents)
+        xT = prepare_latents(params, prng, latents, batch_size, num_channels_latents, video_length, height, width, self.vae.scaling_factor)
 
         #use motion fields ==>
         xT = xT[:, :, :1]
@@ -750,7 +750,10 @@ def preprocess(image, dtype):
     image = image[None].transpose(0, 3, 1, 2)
     return image
 
-def prepare_latents(params, latents):
+def prepare_latents(params, prng, latents, batch_size, num_channels_latents, video_length, height, width, vae_scale_factor):
+    shape = (batch_size, num_channels_latents, video_length, height //
+            vae_scale_factor, width // vae_scale_factor)
     # scale the initial noise by the standard deviation required by the scheduler
+    latents = jax.random.normal(prng, shape)
     latents = latents * params["scheduler"].init_noise_sigma
     return latents
