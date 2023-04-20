@@ -120,7 +120,7 @@ class Model:
             # if merging_ratio > 0:
             tomesd.apply_patch(self.pipe, ratio=merging_ratio)
 
-        f = image.shape[1]
+        f = image.shape[0]
 
         assert 'prompt' in kwargs
         prompt = [kwargs.pop('prompt')] * f
