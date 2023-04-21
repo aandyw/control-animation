@@ -121,11 +121,11 @@ class Model:
             # if merging_ratio > 0:
             tomesd.apply_patch(self.pipe, ratio=merging_ratio)
 
-        f = image.shape[0]
+        # f = image.shape[0]
 
         assert 'prompt' in kwargs
-        prompt = [kwargs.pop('prompt')] * f
-        negative_prompt = [kwargs.pop('negative_prompt', '')] * f
+        prompt = [kwargs.pop('prompt')] 
+        negative_prompt = [kwargs.pop('negative_prompt', '')]
 
         frames_counter = 0
 
@@ -157,7 +157,7 @@ class Model:
             # rng = jax.random.split(self.rng, jax.device_count())
             prng, self.rng = jax.random.split(self.rng)
             #prng = jax.numpy.stack([prng] * jax.device_count())#same prng seed on every device
-            prng = jax.random.split(prng, jax.device_count())
+            prng_seed = jax.random.split(prng, jax.device_count())
             def replicate_devices(array):
                 return jnp.expand_dims(array, 0).repeat(jax.device_count(), 0)
             image = replicate_devices(image)
@@ -169,8 +169,7 @@ class Model:
                              prompt_ids=prompt_ids,
                              neg_prompt_ids=n_prompt_ids, 
                              params=self.p_params,
-                             prng_seed=prng, jit = True,
-                             **kwargs
+                             prng_seed=prng_seed, jit = True,
                              ).images).mean(axis=0)
         
     def process_controlnet_pose(self,
