@@ -28,7 +28,7 @@ from diffusers.pipelines.stable_diffusion.safety_checker_flax import FlaxStableD
 logger = logging.get_logger(__name__)  # pylint: disable=invalid-name
 
 # Set to True to use python for loop instead of jax.fori_loop for easier debugging
-DEBUG = False
+DEBUG = True
 
 EXAMPLE_DOC_STRING = """
     Examples:
@@ -212,7 +212,7 @@ class FlaxTextToVideoControlNetPipeline(FlaxDiffusionPipeline):
                 te = jnp.stack([text_embeddings[0, :, :]]*f + [text_embeddings[-1,:,:]]*f)
                 
                 timestep = jnp.broadcast_to(t, latent_model_input.shape[0])
-                
+
                 print(latents_local.shape, text_embeddings.shape, te.shape)
 
                 down_block_res_samples, mid_block_res_sample = self.controlnet.apply(
