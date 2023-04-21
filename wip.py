@@ -28,7 +28,7 @@ from diffusers.pipelines.stable_diffusion.safety_checker_flax import FlaxStableD
 logger = logging.get_logger(__name__)  # pylint: disable=invalid-name
 
 # Set to True to use python for loop instead of jax.fori_loop for easier debugging
-DEBUG = True
+DEBUG = False
 
 EXAMPLE_DOC_STRING = """
     Examples:
@@ -180,7 +180,7 @@ class FlaxTextToVideoControlNetPipeline(FlaxDiffusionPipeline):
 
 
     def DDIM_backward(self, params, num_inference_steps, timesteps, skip_t, t0, t1, do_classifier_free_guidance, null_embs, text_embeddings, latents_local,
-                        guidance_scale, guidance_stop_step, callback, callback_steps, num_warmup_steps):
+                        guidance_scale, guidance_stop_step, callback, callback_steps, num_warmup_steps, controlnet_image, controlnet_conditioning_scale):
         entered = False
         scheduler_state = self.scheduler.set_timesteps(params["scheduler"], num_inference_steps)
         f = latents_local.shape[2]
@@ -212,15 +212,26 @@ class FlaxTextToVideoControlNetPipeline(FlaxDiffusionPipeline):
                 te = jnp.stack([text_embeddings[0, :, :]]*f + [text_embeddings[-1,:,:]]*f)
                 
                 print(latents_local.shape, text_embeddings.shape, te.shape)
-                
+
+                down_block_res_samples, mid_block_res_sample = self.controlnet.apply(
+                    {"params": params["controlnet"]},
+                    jnp.array(latent_model_input),
+                    jnp.array(timestep, dtype=jnp.int32),
+                    encoder_hidden_states=te,
+                    controlnet_cond=controlnet_image,
+                    conditioning_scale=controlnet_conditioning_scale,
+                    return_dict=False,
+                )
+
                 timestep = jnp.broadcast_to(t, latent_model_input.shape[0])
                 #print(jnp.array(latent_model_input).shape, te.shape, timestep.shape)
-                noise_pred = jax.lax.stop_gradient(self.unet.apply({"params": params["unet"]},
+                noise_pred = self.unet.apply({"params": params["unet"]},
                                                                     jnp.array(latent_model_input),
                                                                     jnp.array(timestep, dtype=jnp.int32),
                                                                     encoder_hidden_states=te,
+                                                                    down_block_additional_residuals=down_block_res_samples,
+                                                                    mid_block_additional_residual=mid_block_res_sample,
                                                                     ).sample
-                                                )
                 # perform guidance
                 if do_classifier_free_guidance:
                     noise_pred_uncond, noise_pred_text = noise_pred.split(
@@ -335,7 +346,10 @@ class FlaxTextToVideoControlNetPipeline(FlaxDiffusionPipeline):
                                             callback = None,
                                             callback_steps: Optional[int] = 1,
                                             t0: int = 44,
-                                            t1: int = 47,):
+                                            t1: int = 47,
+                                            controlnet_image=None,
+                                            controlnet_conditioning_scale=0,
+                                            ):
         
         frame_ids = list(range(video_length))
 
@@ -373,9 +387,12 @@ class FlaxTextToVideoControlNetPipeline(FlaxDiffusionPipeline):
         shape = (batch_size, num_channels_latents, 1, height //
                 self.vae.scaling_factor, width // self.vae.scaling_factor)
         
+        print("xT shape: ", xT.shape)
+
         ddim_res = self.DDIM_backward(params, num_inference_steps=num_inference_steps, timesteps=timesteps, skip_t=1000, t0=t0, t1=t1, do_classifier_free_guidance=do_classifier_free_guidance,
                                 null_embs=null_embs, text_embeddings=text_embeddings, latents_local=xT, guidance_scale=guidance_scale, guidance_stop_step=guidance_stop_step,
-                                callback=callback, callback_steps=callback_steps, num_warmup_steps=num_warmup_steps)
+                                callback=callback, callback_steps=callback_steps, num_warmup_steps=num_warmup_steps, controlnet_image=controlnet_image,
+                                controlnet_conditioning_scale=controlnet_conditioning_scale)
 
         x0 = ddim_res["x0"]
 
@@ -396,12 +413,6 @@ class FlaxTextToVideoControlNetPipeline(FlaxDiffusionPipeline):
 
         # assuming t0=t1=1000, if t0 = 1000
 
-        # if t1 > t0:
-        #     x_t1_k = self.DDPM_forward(
-        #         params=params, prng=prng, x0=x_t0_k, t0=t0, tMax=t1, shape=shape, text_embeddings=text_embeddings)
-        # else:
-        #     x_t1_k = x_t0_k
-
         x_t1_k = jax.lax.cond(t1 > t0,
                      lambda:self.DDPM_forward(
                                         params=params, prng=prng, x0=x_t0_k, t0=t0, tMax=t1, shape=shape, text_embeddings=text_embeddings
@@ -409,29 +420,22 @@ class FlaxTextToVideoControlNetPipeline(FlaxDiffusionPipeline):
                     lambda:x_t0_k
         )
 
-        # if x_t1_1 is None:
-        #     raise Exception
-
-        # x_t1 = torch.cat([x_t1_1, x_t1_k], dim=2).clone().detach()
-
         x_t1 = jnp.concatenate([x_t1_1, x_t1_k], axis=2).copy()
         print("x_t1 shape: ", x_t1.shape)
-        return x_t1
 
-        # ddim_res = self.DDIM_backward(params, num_inference_steps=num_inference_steps, timesteps=timesteps, skip_t=t1, t0=-1, t1=-1, do_classifier_free_guidance=do_classifier_free_guidance,
-        #                                     null_embs=null_embs, text_embeddings=text_embeddings, latents_local=x_t1, guidance_scale=guidance_scale,
-        #                                     guidance_stop_step=guidance_stop_step, callback=callback, callback_steps=callback_steps, num_warmup_steps=num_warmup_steps)
+        ddim_res = self.DDIM_backward(params, num_inference_steps=num_inference_steps, timesteps=timesteps, skip_t=t1, t0=-1, t1=-1, do_classifier_free_guidance=do_classifier_free_guidance,
+                                            null_embs=null_embs, text_embeddings=text_embeddings, latents_local=x_t1, guidance_scale=guidance_scale,
+                                            guidance_stop_step=guidance_stop_step, callback=callback, callback_steps=callback_steps, num_warmup_steps=num_warmup_steps, controlnet_image=controlnet_image,
+                                            controlnet_conditioning_scale=controlnet_conditioning_scale)
         
-        # x0 = ddim_res["x0"]
-        # print("shape x0: ", x0.shape)
-        # del ddim_res
-        # del x_t1
-        # del x_t1_1
-        # del x_t1_k
-        
-        # # latents = x0
+        x0 = ddim_res["x0"]
+        print("x0 shape: ", x0.shape)
+        del ddim_res
+        del x_t1
+        del x_t1_1
+        del x_t1_k
 
-        # return x0
+        return x0
 
         # image = self.decode_latents(latents)
 
@@ -559,61 +563,62 @@ class FlaxTextToVideoControlNetPipeline(FlaxDiffusionPipeline):
                                                      video_length=batch_size, height=height, width = width,
                                                      num_inference_steps=num_inference_steps,
                                                      guidance_scale=guidance_scale,
+                                                     controlnet_image=image, controlnet_conditioning_scale=controlnet_conditioning_scale
                                                      )
 
-        def loop_body(step, args):
-            latents, scheduler_state = args
-            # For classifier free guidance, we need to do two forward passes.
-            # Here we concatenate the unconditional and text embeddings into a single batch
-            # to avoid doing two forward passes
-            latents_input = jnp.concatenate([latents] * 2)
+        # def loop_body(step, args):
+        #     latents, scheduler_state = args
+        #     # For classifier free guidance, we need to do two forward passes.
+        #     # Here we concatenate the unconditional and text embeddings into a single batch
+        #     # to avoid doing two forward passes
+        #     latents_input = jnp.concatenate([latents] * 2)
 
-            t = jnp.array(scheduler_state.timesteps, dtype=jnp.int32)[step]
-            timestep = jnp.broadcast_to(t, latents_input.shape[0])
+        #     t = jnp.array(scheduler_state.timesteps, dtype=jnp.int32)[step]
+        #     timestep = jnp.broadcast_to(t, latents_input.shape[0])
 
-            latents_input = self.scheduler.scale_model_input(scheduler_state, latents_input, t)
+        #     latents_input = self.scheduler.scale_model_input(scheduler_state, latents_input, t)
 
-            down_block_res_samples, mid_block_res_sample = self.controlnet.apply(
-                {"params": params["controlnet"]},
-                jnp.array(latents_input),
-                jnp.array(timestep, dtype=jnp.int32),
-                encoder_hidden_states=context,
-                controlnet_cond=image,
-                conditioning_scale=controlnet_conditioning_scale,
-                return_dict=False,
-            )
+        #     down_block_res_samples, mid_block_res_sample = self.controlnet.apply(
+        #         {"params": params["controlnet"]},
+        #         jnp.array(latents_input),
+        #         jnp.array(timestep, dtype=jnp.int32),
+        #         encoder_hidden_states=context,
+        #         controlnet_cond=image,
+        #         conditioning_scale=controlnet_conditioning_scale,
+        #         return_dict=False,
+        #     )
 
-            # predict the noise residual
-            noise_pred = self.unet.apply(
-                {"params": params["unet"]},
-                jnp.array(latents_input),
-                jnp.array(timestep, dtype=jnp.int32),
-                encoder_hidden_states=context,
-                down_block_additional_residuals=down_block_res_samples,
-                mid_block_additional_residual=mid_block_res_sample,
-            ).sample
+        #     # predict the noise residual
+        #     noise_pred = self.unet.apply(
+        #         {"params": params["unet"]},
+        #         jnp.array(latents_input),
+        #         jnp.array(timestep, dtype=jnp.int32),
+        #         encoder_hidden_states=context,
+        #         down_block_additional_residuals=down_block_res_samples,
+        #         mid_block_additional_residual=mid_block_res_sample,
+        #     ).sample
 
-            # perform guidance
-            noise_pred_uncond, noise_prediction_text = jnp.split(noise_pred, 2, axis=0)
-            noise_pred = noise_pred_uncond + guidance_scale * (noise_prediction_text - noise_pred_uncond)
+        #     # perform guidance
+        #     noise_pred_uncond, noise_prediction_text = jnp.split(noise_pred, 2, axis=0)
+        #     noise_pred = noise_pred_uncond + guidance_scale * (noise_prediction_text - noise_pred_uncond)
 
-            # compute the previous noisy sample x_t -> x_t-1
-            latents, scheduler_state = self.scheduler.step(scheduler_state, noise_pred, t, latents).to_tuple()
-            return latents, scheduler_state
+        #     # compute the previous noisy sample x_t -> x_t-1
+        #     latents, scheduler_state = self.scheduler.step(scheduler_state, noise_pred, t, latents).to_tuple()
+        #     return latents, scheduler_state
 
-        scheduler_state = self.scheduler.set_timesteps(
-            params["scheduler"], num_inference_steps=num_inference_steps, shape=latents_shape
-        )
+        # scheduler_state = self.scheduler.set_timesteps(
+        #     params["scheduler"], num_inference_steps=num_inference_steps, shape=latents_shape
+        # )
 
-        # scale the initial noise by the standard deviation required by the scheduler
-        latents = latents * params["scheduler"].init_noise_sigma
+        # # scale the initial noise by the standard deviation required by the scheduler
+        # latents = latents * params["scheduler"].init_noise_sigma
 
-        if DEBUG:
-            # run with python for loop
-            for i in range(num_inference_steps):
-                latents, scheduler_state = loop_body(i, (latents, scheduler_state))
-        else:
-            latents, _ = jax.lax.fori_loop(0, num_inference_steps, loop_body, (latents, scheduler_state))
+        # if DEBUG:
+        #     # run with python for loop
+        #     for i in range(num_inference_steps):
+        #         latents, scheduler_state = loop_body(i, (latents, scheduler_state))
+        # else:
+        #     latents, _ = jax.lax.fori_loop(0, num_inference_steps, loop_body, (latents, scheduler_state))
 
         # scale and decode the image latents with vae
         latents = 1 / self.vae.config.scaling_factor * latents
