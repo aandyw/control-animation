@@ -206,8 +206,9 @@ class FlaxTextToVideoControlNetPipeline(FlaxDiffusionPipeline):
                 )
 
                 # te = text_embeddings
-                te = jnp.concatenate([repeat(text_embeddings[0, :, :], "c k -> f c k", f=f),
-                   repeat(text_embeddings[-1, :, :], "c k -> f c k", f=f)])
+                # te = jnp.concatenate([repeat(text_embeddings[0, :, :], "c k -> f c k", f=f),
+                #    repeat(text_embeddings[-1, :, :], "c k -> f c k", f=f)])
+                te = jnp.stack([text_embeddings[0, :, :]]*f + [text_embeddings[-1,:,:]*f])
                 
                 print(latents_local.shape, text_embeddings.shape, te.shape)
                 
