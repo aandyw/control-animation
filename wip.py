@@ -225,7 +225,7 @@ class FlaxTextToVideoControlNetPipeline(FlaxDiffusionPipeline):
                                                                 jnp.array(latent_model_input),
                                                                 jnp.array(timestep, dtype=jnp.int32),
                                                                 encoder_hidden_states=te,
-                                                                ).sample
+                                                                )
                                             )
 
 
