@@ -287,6 +287,34 @@ class FlaxTextToVideoControlNetPipeline(FlaxDiffusionPipeline):
             res["x_t1_1"] = x_t1_1.copy()
         return res
     
+    def warp_latents_independently(self, latents, reference_flow):
+        _, _, H, W = reference_flow.shape
+        b, _, f, h, w = latents.shape
+        assert b == 1
+        # coords0 = coords_grid(f, H, W, device=latents.device).to(latents.dtype)
+
+        coords0 = coords_grid(f, H, W)
+        coords_t0 = coords0 + reference_flow
+
+        coords_t0 = coords_t0.at[:, 0].set(coords_t0.at[:, 0] / W)
+        coords_t0 = coords_t0.at[:, 1].set(coords_t0.at[:, 1] / H)
+        # coords_t0[:, 0] /= W
+        # coords_t0[:, 1] /= H
+
+        coords_t0 = coords_t0 * 2.0 - 1.0
+
+        # coords_t0 = T.Resize((h, w))(coords_t0) #TODO
+        f, c, _, _ = coords_t0.shape
+        coords_t0 = jax.image.resize(coords_t0, (f, c, h, w), "linear")
+
+        coords_t0 = rearrange(coords_t0, 'f c h w -> f h w c')
+
+        latents_0 = rearrange(latents[0], 'c f h w -> f  c  h w')
+        warped = grid_sample_vmap(latents_0, coords_t0)
+
+        warped = rearrange(warped, '(b f) c h w -> b c f h w', f=f)
+        return warped
+
     def create_motion_field(self, motion_field_strength_x, motion_field_strength_y, frame_ids, video_length, latents):
 
         # reference_flow = torch.zeros(
@@ -801,3 +829,11 @@ def prepare_latents(params, prng, batch_size, num_channels_latents, video_length
         latents = jax.random.normal(prng, shape)
     latents = latents * params["scheduler"].init_noise_sigma
     return latents
+
+def grid_sample_vmap(latents, grid):
+    return jax.vmap(jax.vmap(jax.vmap(jax.vmap(lambda l, g: jax.scipy.ndimage.map_coordinates(l, g, order=1, mode="nearest"), in_axes=(None, 0)), in_axes=(None,0)), in_axes=(0, None)))(latents, grid)
+
+def coords_grid(batch, ht, wd):
+    coords = jnp.meshgrid(jnp.arange(ht), jnp.arange(wd), indexing="ij")
+    coords = jnp.stack(coords[::-1], axis=0)
+    return coords[None].repeat(batch, 0)
