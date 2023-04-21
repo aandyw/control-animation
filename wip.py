@@ -444,7 +444,7 @@ class FlaxTextToVideoControlNetPipeline(FlaxDiffusionPipeline):
         timesteps = params["scheduler"].timesteps
         # Prepare latent variables
         num_channels_latents = self.unet.in_channels
-        batch_size = video_length
+        batch_size = 1
         vae_scale_factor = 2 ** (len(self.vae.config.block_out_channels) - 1)
 
         xT = prepare_latents(params, prng, batch_size * num_videos_per_prompt, num_channels_latents, 1, height, width, vae_scale_factor, xT)
