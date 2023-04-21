@@ -245,15 +245,22 @@ class FlaxTextToVideoControlNetPipeline(FlaxDiffusionPipeline):
             # latents = latents - alpha * grads / (torch.norm(grads) + 1e-10)
             # call the callback, if provided
 
-            if i < len(timesteps)-1 and timesteps[i+1] == t0:
-                # x_t0_1 = latents.detach().clone()
-                x_t0_1 = latents.copy()
-                print(f"latent t0 found at i = {i}, t = {t}")
-            elif i < len(timesteps)-1 and timesteps[i+1] == t1:
-                # x_t1_1 = latents.detach().clone()
-                x_t1_1 = latents.copy()
-                print(f"latent t1 found at i={i}, t = {t}")
+            # if i < len(timesteps)-1 and timesteps[i+1] == t0:
+            #     # x_t0_1 = latents.detach().clone()
+            #     x_t0_1 = latents.copy()
+            #     # print(f"latent t0 found at i = {i}, t = {t}")
+
+            x_t0_1 = jax.lax.cond(i < len(timesteps)-1 and timesteps[i+1] == t0, latents.copy(), x_t0_1)
+            
+            # elif i < len(timesteps)-1 and timesteps[i+1] == t1:
+            #     # x_t1_1 = latents.detach().clone()
+            #     x_t1_1 = latents.copy()
+            #     # print(f"latent t1 found at i={i}, t = {t}")
+            
+            x_t1_1 = jax.lax.cond(i < len(timesteps)-1 and timesteps[i+1] == t1, latents.copy(), x_t1_1)
+            
             return (latents, x_t0_1, x_t1_1, scheduler_state)
+        
             # if i == len(timesteps) - 1 or ((i + 1) > num_warmup_steps and (i + 1) % self.scheduler.order == 0):
             #     progress_bar.update()
             #     if callback is not None and i % callback_steps == 0:
