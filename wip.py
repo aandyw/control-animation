@@ -421,14 +421,15 @@ class FlaxTextToVideoControlNetPipeline(FlaxDiffusionPipeline):
                                             guidance_stop_step=guidance_stop_step, callback=callback, callback_steps=callback_steps, num_warmup_steps=num_warmup_steps)
         
         x0 = ddim_res["x0"]
+        print("shape x0: ", x0.shape)
         del ddim_res
         del x_t1
         del x_t1_1
         del x_t1_k
         
-        latents = x0
+        # latents = x0
 
-        return latents
+        return x0
 
         # image = self.decode_latents(latents)
 
