@@ -9,7 +9,7 @@ from flax import jax_utils
 import einops
 
 from transformers import CLIPTokenizer, CLIPFeatureExtractor, FlaxCLIPTextModel
-from diffusers import FlaxDDIMScheduler, FlaxControlNetModel, FlaxUNet2DConditionModel, FlaxAutoencoderKL, FlaxStableDiffusionControlNetPipeline
+from diffusers import FlaxDDIMScheduler, FlaxControlNetModel, FlaxUNet2DConditionModel, FlaxAutoencoderKL #, FlaxStableDiffusionControlNetPipeline
 from wip import FlaxTextToVideoControlNetPipeline
 
 import utils

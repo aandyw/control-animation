@@ -515,10 +515,10 @@ class FlaxTextToVideoControlNetPipeline(FlaxDiffusionPipeline):
         
         x0 = ddim_res["x0"]
         print("x0 shape: ", x0.shape)
-        del ddim_res
-        del x_t1
-        del x_t1_1
-        del x_t1_k
+        # del ddim_res
+        # del x_t1
+        # del x_t1_1
+        # del x_t1_k
 
         return x0
 
