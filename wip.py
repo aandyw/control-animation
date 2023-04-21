@@ -214,12 +214,13 @@ class FlaxTextToVideoControlNetPipeline(FlaxDiffusionPipeline):
             #                    repeat(text_embeddings[1, :, :], "c k -> f c k", f=f)])
             #     noise_pred = self.unet(
             #         latent_model_input, t, encoder_hidden_states=te).sample.to(dtype=latents_dtype)
-            if null_embs is not None:
-                text_embeddings[0] = null_embs[i][0]
-            te = jnp.concatenate([repeat(text_embeddings[0, :, :], "c k -> f c k", f=f),
-                                repeat(text_embeddings[1, :, :], "c k -> f c k", f=f)])
+            # if null_embs is not None:
+            #     text_embeddings[0] = null_embs[i][0]
+            # te = jnp.concatenate([repeat(text_embeddings[0, :, :], "c k -> f c k", f=f),
+            #                     repeat(text_embeddings[1, :, :], "c k -> f c k", f=f)])
+            te = text_embeddings
             timestep = jnp.broadcast_to(t, latent_model_input.shape[0])
-            print(jnp.array(latent_model_input).shape, te.shape, t.shape)
+            print(jnp.array(latent_model_input).shape, te.shape, timestep.shape)
             noise_pred = jax.lax.stop_gradient(self.unet.apply({"params": params["unet"]},
                                                                 jnp.array(latent_model_input),
                                                                 jnp.array(timestep, dtype=jnp.int32),
