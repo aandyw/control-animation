@@ -218,13 +218,14 @@ class FlaxTextToVideoControlNetPipeline(FlaxDiffusionPipeline):
                 text_embeddings[0] = null_embs[i][0]
             te = jnp.concatenate([repeat(text_embeddings[0, :, :], "c k -> f c k", f=f),
                                 repeat(text_embeddings[1, :, :], "c k -> f c k", f=f)])
-            print(jnp.array(latent_model_input).shape)
+            print(jnp.array(latent_model_input).shape, te.shape, t.shape)
             noise_pred = jax.lax.stop_gradient(self.unet.apply({"params": params["unet"]},
                                                                 jnp.array(latent_model_input),
                                                                 jnp.array(t, dtype=jnp.int32),
                                                                 te,
-                                                                )
+                                                                ).sample
                                             )
+
 
             # perform guidance
             if do_classifier_free_guidance:
