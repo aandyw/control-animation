@@ -28,7 +28,7 @@ from diffusers.pipelines.stable_diffusion.safety_checker_flax import FlaxStableD
 logger = logging.get_logger(__name__)  # pylint: disable=invalid-name
 
 # Set to True to use python for loop instead of jax.fori_loop for easier debugging
-DEBUG = True
+DEBUG = False
 
 EXAMPLE_DOC_STRING = """
     Examples:
@@ -709,12 +709,10 @@ class FlaxTextToVideoControlNetPipeline(FlaxDiffusionPipeline):
         latents = 1 / self.vae.config.scaling_factor * latents
         # video_length = latents.shape[2]
         latents = rearrange(latents, "b c f h w -> (b f) c h w")
-        print("vae ...")
         video = self.vae.apply({"params": params["vae"]}, latents, method=self.vae.decode).sample
-        print("vae ok")
-        print(video.shape)
         # video = rearrange(video, "(b f) c h w -> b c f h w", f=video_length)[0]
         video = (video / 2 + 0.5).clip(0, 1).transpose(0, 2, 3, 1)
+        print("returning video")
         return video
 
     @replace_example_docstring(EXAMPLE_DOC_STRING)
