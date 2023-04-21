@@ -415,21 +415,23 @@ class FlaxTextToVideoControlNetPipeline(FlaxDiffusionPipeline):
         # x_t1 = torch.cat([x_t1_1, x_t1_k], dim=2).clone().detach()
 
         x_t1 = jnp.concatenate([x_t1_1, x_t1_k], axis=2).copy()
+        print("x_t1 shape: ", x_t1.shape)
+        return x_t1
 
-        ddim_res = self.DDIM_backward(params, num_inference_steps=num_inference_steps, timesteps=timesteps, skip_t=t1, t0=-1, t1=-1, do_classifier_free_guidance=do_classifier_free_guidance,
-                                            null_embs=null_embs, text_embeddings=text_embeddings, latents_local=x_t1, guidance_scale=guidance_scale,
-                                            guidance_stop_step=guidance_stop_step, callback=callback, callback_steps=callback_steps, num_warmup_steps=num_warmup_steps)
+        # ddim_res = self.DDIM_backward(params, num_inference_steps=num_inference_steps, timesteps=timesteps, skip_t=t1, t0=-1, t1=-1, do_classifier_free_guidance=do_classifier_free_guidance,
+        #                                     null_embs=null_embs, text_embeddings=text_embeddings, latents_local=x_t1, guidance_scale=guidance_scale,
+        #                                     guidance_stop_step=guidance_stop_step, callback=callback, callback_steps=callback_steps, num_warmup_steps=num_warmup_steps)
         
-        x0 = ddim_res["x0"]
-        print("shape x0: ", x0.shape)
-        del ddim_res
-        del x_t1
-        del x_t1_1
-        del x_t1_k
+        # x0 = ddim_res["x0"]
+        # print("shape x0: ", x0.shape)
+        # del ddim_res
+        # del x_t1
+        # del x_t1_1
+        # del x_t1_k
         
-        # latents = x0
+        # # latents = x0
 
-        return x0
+        # return x0
 
         # image = self.decode_latents(latents)
 
@@ -615,10 +617,12 @@ class FlaxTextToVideoControlNetPipeline(FlaxDiffusionPipeline):
 
         # scale and decode the image latents with vae
         latents = 1 / self.vae.config.scaling_factor * latents
-        image = self.vae.apply({"params": params["vae"]}, latents, method=self.vae.decode).sample
-
-        image = (image / 2 + 0.5).clip(0, 1).transpose(0, 2, 3, 1)
-        return image
+        latents = rearrange(latents, "b c f h w -> (b f) c h w")
+        video_length = latents.shape[2]
+        video = self.vae.apply({"params": params["vae"]}, latents, method=self.vae.decode).sample
+        video = rearrange(video, "(b f) c h w -> b c f h w", f=video_length)
+        video = (video / 2 + 0.5).clip(0, 1).transpose(0, 2, 3, 1)
+        return video
 
     @replace_example_docstring(EXAMPLE_DOC_STRING)
     def __call__(
