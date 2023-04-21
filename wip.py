@@ -213,7 +213,7 @@ class FlaxTextToVideoControlNetPipeline(FlaxDiffusionPipeline):
                 
                 timestep = jnp.broadcast_to(t, latent_model_input.shape[0])
 
-                print(latents_local.shape, text_embeddings.shape, te.shape)
+                # print(latents_local.shape, text_embeddings.shape, te.shape)
 
                 #print(jnp.array(latent_model_input).shape, te.shape, timestep.shape)
                 noise_pred = self.unet.apply({"params": params["unet"]},
@@ -298,7 +298,7 @@ class FlaxTextToVideoControlNetPipeline(FlaxDiffusionPipeline):
                 
                 timestep = jnp.broadcast_to(t, latent_model_input.shape[0])
 
-                print(latents_local.shape, text_embeddings.shape, te.shape)
+                # print(latents_local.shape, text_embeddings.shape, te.shape)
 
                 down_block_res_samples, mid_block_res_sample = self.controlnet.apply(
                     {"params": params["controlnet"]},
@@ -462,7 +462,7 @@ class FlaxTextToVideoControlNetPipeline(FlaxDiffusionPipeline):
         t0 = timesteps_ddpm[t0]
         t1 = timesteps_ddpm[t1]
 
-        print(f"t0 = {t0} t1 = {t1}")
+        # print(f"t0 = {t0} t1 = {t1}")
         x_t1_1 = None
 
         # Denoising loop
@@ -473,7 +473,7 @@ class FlaxTextToVideoControlNetPipeline(FlaxDiffusionPipeline):
         shape = (batch_size, num_channels_latents, 1, height //
                 self.vae.scaling_factor, width // self.vae.scaling_factor)
         
-        print("xT shape: ", xT.shape)
+        # print("xT shape: ", xT.shape)
 
         ddim_res = self.DDIM_backward(params, num_inference_steps=num_inference_steps, timesteps=timesteps, skip_t=1000, t0=t0, t1=t1, do_classifier_free_guidance=do_classifier_free_guidance,
                                 null_embs=null_embs, text_embeddings=text_embeddings, latents_local=xT, guidance_scale=guidance_scale, guidance_stop_step=guidance_stop_step,
@@ -485,10 +485,10 @@ class FlaxTextToVideoControlNetPipeline(FlaxDiffusionPipeline):
             x_t0_1 = ddim_res["x_t0_1"]
         if "x_t1_1" in ddim_res:
             x_t1_1 = ddim_res["x_t1_1"]
-        del ddim_res
-        del xT
+        # del ddim_res
+        # del xT
 
-        del x0
+        # del x0
 
         # x_t0_k = x_t0_1[:, :, :1, :, :].repeat(1, 1, video_length-1, 1, 1)
         x_t0_k = x_t0_1[:, :, :1, :, :].repeat(video_length-1, 2)
@@ -506,7 +506,7 @@ class FlaxTextToVideoControlNetPipeline(FlaxDiffusionPipeline):
         )
 
         x_t1 = jnp.concatenate([x_t1_1, x_t1_k], axis=2).copy()
-        print("x_t1 shape: ", x_t1.shape)
+        # print("x_t1 shape: ", x_t1.shape)
 
         ddim_res = self.DDIM_backward_w_controlnet(params, num_inference_steps=num_inference_steps, timesteps=timesteps, skip_t=t1, t0=-1, t1=-1, do_classifier_free_guidance=do_classifier_free_guidance,
                                             null_embs=null_embs, text_embeddings=text_embeddings, latents_local=x_t1, guidance_scale=guidance_scale,
@@ -514,13 +514,12 @@ class FlaxTextToVideoControlNetPipeline(FlaxDiffusionPipeline):
                                             controlnet_conditioning_scale=controlnet_conditioning_scale)
         
         x0 = ddim_res["x0"]
-        print("x0 shape: ", x0.shape)
+        # print("x0 shape: ", x0.shape)
         # del ddim_res
         # del x_t1
         # del x_t1_1
         # del x_t1_k
-
-        return x0
+        return x0.copy()
 
         # image = self.decode_latents(latents)
 
@@ -708,11 +707,13 @@ class FlaxTextToVideoControlNetPipeline(FlaxDiffusionPipeline):
 
         # scale and decode the image latents with vae
         latents = 1 / self.vae.config.scaling_factor * latents
-        video_length = latents.shape[2]
+        # video_length = latents.shape[2]
         latents = rearrange(latents, "b c f h w -> (b f) c h w")
+        print("vae ...")
         video = self.vae.apply({"params": params["vae"]}, latents, method=self.vae.decode).sample
-        # video = rearrange(video, "(b f) c h w -> b c f h w", f=video_length)
-        video = (video / 2 + 0.5).clip(0, 1).transpose(0, 2, 3, 1)
+        print("vae ok")
+        video = rearrange(video, "(b f) c h w -> b c f h w", f=video_length)[0]
+        video = (video / 2 + 0.5).clip(0, 1)#.transpose(0, 2, 3, 1)
         return video
 
     @replace_example_docstring(EXAMPLE_DOC_STRING)
