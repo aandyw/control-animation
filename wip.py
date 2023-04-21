@@ -268,11 +268,11 @@ class FlaxTextToVideoControlNetPipeline(FlaxDiffusionPipeline):
 
         # for i, t in enumerate(timesteps):
         if DEBUG:
-            x_t0_1, x_t1_1 = None, None
+            x_t0_1, x_t1_1 = jnp.zeros_like(latents), jnp.zeros_like(latents)
             for i in range(len(timesteps)):
                 latents, x_t0_1, x_t1_1, scheduler_state = loop_timesteps(i, (latents, x_t0_1, x_t1_1, scheduler_state))
         else:
-            latents, x_t0_1, x_t1_1, scheduler_state = jax.lax.fori_loop(0, len(timesteps), loop_timesteps, (latents, None, None, scheduler_state))
+            latents, x_t0_1, x_t1_1, scheduler_state = jax.lax.fori_loop(0, len(timesteps), loop_timesteps, (latents, jnp.zeros_like(latents), jnp.zeros_like(latents), scheduler_state))
         latents = rearrange(latents, "(b f) c w h -> b c f  w h", f=f)
 
         # res = {"x0": latents.detach().clone()}
