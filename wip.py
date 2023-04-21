@@ -220,7 +220,7 @@ class FlaxTextToVideoControlNetPipeline(FlaxDiffusionPipeline):
             #                     repeat(text_embeddings[1, :, :], "c k -> f c k", f=f)])
             te = text_embeddings
             timestep = jnp.broadcast_to(t, latent_model_input.shape[0])
-            print(jnp.array(latent_model_input).shape, te.shape, timestep.shape)
+            #print(jnp.array(latent_model_input).shape, te.shape, timestep.shape)
             noise_pred = jax.lax.stop_gradient(self.unet.apply({"params": params["unet"]},
                                                                 jnp.array(latent_model_input),
                                                                 jnp.array(timestep, dtype=jnp.int32),
@@ -296,8 +296,8 @@ class FlaxTextToVideoControlNetPipeline(FlaxDiffusionPipeline):
         coords0 = coords_grid(f, H, W)
         coords_t0 = coords0 + reference_flow
 
-        coords_t0 = coords_t0.at[:, 0].set(coords_t0.at[:, 0] / W)
-        coords_t0 = coords_t0.at[:, 1].set(coords_t0.at[:, 1] / H)
+        coords_t0 = coords_t0.at[:, 0].set(coords_t0[:, 0] / W)
+        coords_t0 = coords_t0.at[:, 1].set(coords_t0[:, 1] / H)
         # coords_t0[:, 0] /= W
         # coords_t0[:, 1] /= H
 
@@ -831,6 +831,8 @@ def prepare_latents(params, prng, batch_size, num_channels_latents, video_length
     return latents
 
 def grid_sample_vmap(latents, grid):
+    # there is no alternative to torch.functional.nn.grid_sample in jax
+    # this implementation is following the algorithm described @ https://pytorch.org/docs/stable/generated/torch.nn.functional.grid_sample.html
     return jax.vmap(jax.vmap(jax.vmap(jax.vmap(lambda l, g: jax.scipy.ndimage.map_coordinates(l, g, order=1, mode="nearest"), in_axes=(None, 0)), in_axes=(None,0)), in_axes=(0, None)))(latents, grid)
 
 def coords_grid(batch, ht, wd):
