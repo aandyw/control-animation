@@ -250,14 +250,14 @@ class FlaxTextToVideoControlNetPipeline(FlaxDiffusionPipeline):
             #     x_t0_1 = latents.copy()
             #     # print(f"latent t0 found at i = {i}, t = {t}")
 
-            x_t0_1 = jax.lax.cond(i < len(timesteps)-1 and timesteps[i+1] == t0, latents.copy(), x_t0_1)
+            x_t0_1 = jax.lax.cond(i < len(timesteps)-1 and timesteps[i+1] == t0, lambda : latents.copy(), lambda : x_t0_1)
             
             # elif i < len(timesteps)-1 and timesteps[i+1] == t1:
             #     # x_t1_1 = latents.detach().clone()
             #     x_t1_1 = latents.copy()
             #     # print(f"latent t1 found at i={i}, t = {t}")
-            
-            x_t1_1 = jax.lax.cond(i < len(timesteps)-1 and timesteps[i+1] == t1, latents.copy(), x_t1_1)
+
+            x_t1_1 = jax.lax.cond(i < len(timesteps)-1 and timesteps[i+1] == t1, lambda : latents.copy(), lambda : x_t1_1)
             
             return (latents, x_t0_1, x_t1_1, scheduler_state)
         
