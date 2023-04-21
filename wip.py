@@ -437,7 +437,7 @@ class FlaxTextToVideoControlNetPipeline(FlaxDiffusionPipeline):
 
         # x_t1 = torch.cat([x_t1_1, x_t1_k], dim=2).clone().detach()
 
-        x_t1 = jnp.cat([x_t1_1, x_t1_k], axis=2).copy()
+        x_t1 = jnp.concatenate([x_t1_1, x_t1_k], axis=2).copy()
 
         ddim_res = self.DDIM_backward(params, num_inference_steps=num_inference_steps, timesteps=timesteps, skip_t=t1, t0=-1, t1=-1, do_classifier_free_guidance=do_classifier_free_guidance,
                                             null_embs=null_embs, text_embeddings=text_embeddings, latents_local=x_t1, guidance_scale=guidance_scale,
