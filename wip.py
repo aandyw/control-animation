@@ -286,8 +286,31 @@ class FlaxTextToVideoControlNetPipeline(FlaxDiffusionPipeline):
             # res["x_t1_1"] = x_t1_1.detach().clone()
             res["x_t1_1"] = x_t1_1.copy()
         return res
+    
+    def create_motion_field(self, motion_field_strength_x, motion_field_strength_y, frame_ids, video_length, latents):
 
+        # reference_flow = torch.zeros(
+        #     (video_length-1, 2, 512, 512), device=latents.device, dtype=latents.dtype)
+        reference_flow = jnp.zeros(
+            (video_length-1, 2, 512, 512), dtype=latents.dtype)    
 
+        for fr_idx, frame_id in enumerate(frame_ids):
+            reference_flow = reference_flow.at[fr_idx, 0, :,
+                           :].set(motion_field_strength_x*(frame_id))
+            reference_flow = reference_flow.at[fr_idx, 1, :,
+                           :].set(motion_field_strength_y*(frame_id))
+        return reference_flow
+    
+    def create_motion_field_and_warp_latents(self, motion_field_strength_x, motion_field_strength_y, frame_ids, video_length, latents):
+
+        motion_field = self.create_motion_field(motion_field_strength_x=motion_field_strength_x,
+                                                motion_field_strength_y=motion_field_strength_y, latents=latents, video_length=video_length, frame_ids=frame_ids)
+        for idx, latent in enumerate(latents):
+            # latents[idx] = self.warp_latents_independently(
+            #     latent[None], motion_field)
+            latents = latents.at[idx].set(self.warp_latents_independently(
+                latent[None], motion_field))
+        return motion_field, latents
 
     def prepare_latents_text_to_video_zero(self, params,
                                             prng,
@@ -309,8 +332,9 @@ class FlaxTextToVideoControlNetPipeline(FlaxDiffusionPipeline):
                                             callback_steps: Optional[int] = 1,
                                             t0: int = 44,
                                             t1: int = 47,):
-        #timesteps DDPM
-        #[...]
+        
+        frame_ids = list(range(video_length))
+
         # Prepare timesteps
         params["scheduler"] = self.scheduler.set_timesteps(params["scheduler"], num_inference_steps)
         timesteps = params["scheduler"].timesteps
@@ -367,14 +391,21 @@ class FlaxTextToVideoControlNetPipeline(FlaxDiffusionPipeline):
             motion_field_strength_x=motion_field_strength_x, motion_field_strength_y=motion_field_strength_y, latents=x_t0_k, video_length=video_length, frame_ids=frame_ids[1:])
 
         # assuming t0=t1=1000, if t0 = 1000
-        if t1 > t0:
-            x_t1_k = self.DDPM_forward(
-                params=params, prng=prng, x0=x_t0_k, t0=t0, tMax=t1, shape=shape, text_embeddings=text_embeddings)
-        else:
-            x_t1_k = x_t0_k
+        # if t1 > t0:
+        #     x_t1_k = self.DDPM_forward(
+        #         params=params, prng=prng, x0=x_t0_k, t0=t0, tMax=t1, shape=shape, text_embeddings=text_embeddings)
+        # else:
+        #     x_t1_k = x_t0_k
 
-        if x_t1_1 is None:
-            raise Exception
+        jax.lax.cond(t1 > t0,
+                     lambda:self.DDPM_forward(
+                                        params=params, prng=prng, x0=x_t0_k, t0=t0, tMax=t1, shape=shape, text_embeddings=text_embeddings
+                                        ),
+                    lambda:x_t0_k
+        )
+
+        # if x_t1_1 is None:
+        #     raise Exception
 
         # x_t1 = torch.cat([x_t1_1, x_t1_k], dim=2).clone().detach()
 
