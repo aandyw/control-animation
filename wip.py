@@ -225,13 +225,13 @@ class FlaxTextToVideoControlNetPipeline(FlaxDiffusionPipeline):
                                                                 jnp.array(latent_model_input),
                                                                 jnp.array(timestep, dtype=jnp.int32),
                                                                 encoder_hidden_states=te,
-                                                                )
+                                                                ).sample
                                             )
 
 
             # perform guidance
             if do_classifier_free_guidance:
-                noise_pred_uncond, noise_pred_text = noise_pred.chunk(
+                noise_pred_uncond, noise_pred_text = noise_pred.split(
                     2)
                 noise_pred = noise_pred_uncond + guidance_scale * \
                     (noise_pred_text - noise_pred_uncond)
