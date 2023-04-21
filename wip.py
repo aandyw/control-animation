@@ -211,6 +211,8 @@ class FlaxTextToVideoControlNetPipeline(FlaxDiffusionPipeline):
                 f = latents.shape[0]
                 te = jnp.stack([text_embeddings[0, :, :]]*f + [text_embeddings[-1,:,:]]*f)
                 
+                timestep = jnp.broadcast_to(t, latent_model_input.shape[0])
+                
                 print(latents_local.shape, text_embeddings.shape, te.shape)
 
                 down_block_res_samples, mid_block_res_sample = self.controlnet.apply(
@@ -223,7 +225,6 @@ class FlaxTextToVideoControlNetPipeline(FlaxDiffusionPipeline):
                     return_dict=False,
                 )
 
-                timestep = jnp.broadcast_to(t, latent_model_input.shape[0])
                 #print(jnp.array(latent_model_input).shape, te.shape, timestep.shape)
                 noise_pred = self.unet.apply({"params": params["unet"]},
                                                                     jnp.array(latent_model_input),
