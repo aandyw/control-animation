@@ -233,9 +233,9 @@ class FlaxTextToVideoControlNetPipeline(FlaxDiffusionPipeline):
                     scheduler_state,
                     noise_pred, t, latents).prev_sample
                 
-                x_t0_1 = jax.lax.cond(i < len(timesteps)-1 and timesteps[i+1] == t0, lambda x, latents : latents, lambda  x, latents : x, x_t0_1, latents.copy())
+                x_t0_1 = jax.lax.cond(i < len(timesteps)-1 and timesteps[i+1] == t0, lambda :latents, lambda :x_t0_1)
 
-                x_t1_1 = jax.lax.cond(i < len(timesteps)-1 and timesteps[i+1] == t1, lambda x, latents : latents, lambda  x, latents : x, x_t1_1, latents.copy())
+                x_t1_1 = jax.lax.cond(i < len(timesteps)-1 and timesteps[i+1] == t1, lambda :latents, lambda :x_t1_1)
             
                 return (latents, x_t0_1, x_t1_1, scheduler_state)
 
