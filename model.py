@@ -68,7 +68,7 @@ class Model:
             unet, unet_params = FlaxUNet2DConditionModel.from_pretrained(model_id, subfolder="unet", from_pt=True, dtype=self.dtype)
         vae, vae_params = FlaxAutoencoderKL.from_pretrained(model_id, subfolder="vae", from_pt=True, dtype=self.dtype)
         text_encoder = FlaxCLIPTextModel.from_pretrained(model_id, subfolder="text_encoder", from_pt=True, dtype=self.dtype)
-        self.pipe = FlaxStableDiffusionControlNetPipeline(vae=vae,
+        self.pipe = FlaxTextToVideoControlNetPipeline(vae=vae,
                                                         text_encoder=text_encoder,
                                                         tokenizer=tokenizer,
                                                         unet=unet,
