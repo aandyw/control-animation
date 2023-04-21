@@ -235,7 +235,7 @@ class FlaxTextToVideoControlNetPipeline(FlaxDiffusionPipeline):
             
                 return (latents, x_t0_1, x_t1_1, scheduler_state)
 
-            (latents, x_t0_1, x_t1_1, scheduler_state) = jax.lax.cond(t > skip_t, lambda val:val, continue_loop)
+            (latents, x_t0_1, x_t1_1, scheduler_state) = jax.lax.cond(t > skip_t, lambda val:val, continue_loop, (latents, x_t0_1, x_t1_1, scheduler_state))
 
             return (latents, x_t0_1, x_t1_1, scheduler_state)
         
