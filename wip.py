@@ -187,8 +187,6 @@ class FlaxTextToVideoControlNetPipeline(FlaxDiffusionPipeline):
 
         latents_local = rearrange(latents_local, "b c f w h -> (b f) c w h")
 
-        print(latents_local.shape, text_embeddings.shape)
-
         # latents = latents_local.detach().clone()
         latents = latents_local.copy()
         x_t0_1 = None
@@ -210,6 +208,8 @@ class FlaxTextToVideoControlNetPipeline(FlaxDiffusionPipeline):
                 # te = text_embeddings
                 te = jnp.concatenate([repeat(text_embeddings[0, :, :], "c k -> f c k", f=f),
                    repeat(text_embeddings[-1, :, :], "c k -> f c k", f=f)])
+                
+                print(latents_local.shape, text_embeddings.shape, te.shape)
                 
                 timestep = jnp.broadcast_to(t, latent_model_input.shape[0])
                 #print(jnp.array(latent_model_input).shape, te.shape, timestep.shape)
