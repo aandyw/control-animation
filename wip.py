@@ -425,7 +425,7 @@ class FlaxTextToVideoControlNetPipeline(FlaxDiffusionPipeline):
         # else:
         #     x_t1_k = x_t0_k
 
-        jax.lax.cond(t1 > t0,
+        x_t1_k = jax.lax.cond(t1 > t0,
                      lambda:self.DDPM_forward(
                                         params=params, prng=prng, x0=x_t0_k, t0=t0, tMax=t1, shape=shape, text_embeddings=text_embeddings
                                         ),
