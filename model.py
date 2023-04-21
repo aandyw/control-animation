@@ -170,7 +170,7 @@ class Model:
                              neg_prompt_ids=n_prompt_ids, 
                              params=self.p_params,
                              prng_seed=prng_seed, jit = True,
-                             ).images).mean(axis=0)
+                             ).images)[0]
         
     def process_controlnet_pose(self,
                                 video_path,

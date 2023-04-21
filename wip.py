@@ -712,8 +712,9 @@ class FlaxTextToVideoControlNetPipeline(FlaxDiffusionPipeline):
         print("vae ...")
         video = self.vae.apply({"params": params["vae"]}, latents, method=self.vae.decode).sample
         print("vae ok")
-        video = rearrange(video, "(b f) c h w -> b c f h w", f=video_length)[0]
-        video = (video / 2 + 0.5).clip(0, 1)#.transpose(0, 2, 3, 1)
+        print(video.shape)
+        # video = rearrange(video, "(b f) c h w -> b c f h w", f=video_length)[0]
+        video = (video / 2 + 0.5).clip(0, 1).transpose(0, 2, 3, 1)
         return video
 
     @replace_example_docstring(EXAMPLE_DOC_STRING)
