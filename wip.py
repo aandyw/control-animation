@@ -337,7 +337,7 @@ class FlaxTextToVideoControlNetPipeline(FlaxDiffusionPipeline):
             # latents[idx] = self.warp_latents_independently(
             #     latent[None], motion_field)
             latents = latents.at[idx].set(self.warp_latents_independently(
-                latent[None], motion_field))
+                latent[None], motion_field)[0])
         return motion_field, latents
 
     def prepare_latents_text_to_video_zero(self, params,
