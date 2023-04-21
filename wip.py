@@ -182,7 +182,7 @@ class FlaxTextToVideoControlNetPipeline(FlaxDiffusionPipeline):
     def DDIM_backward(self, params, num_inference_steps, timesteps, skip_t, t0, t1, do_classifier_free_guidance, null_embs, text_embeddings, latents_local,
                         guidance_scale, guidance_stop_step, callback, callback_steps, num_warmup_steps):
         entered = False
-
+        scheduler_state = self.scheduler.set_timesteps(params["scheduler"], num_inference_steps)
         f = latents_local.shape[2]
 
         latents_local = rearrange(latents_local, "b c f w h -> (b f) c w h")
@@ -194,7 +194,7 @@ class FlaxTextToVideoControlNetPipeline(FlaxDiffusionPipeline):
 
         # with self.progress_bar(total=num_inference_steps) as progress_bar:
         def loop_timesteps(i, val):
-            latents, x_t0_1, x_t1_1 = val
+            latents, x_t0_1, x_t1_1, scheduler_state = val
             t = timesteps[i]
             latent_model_input = jnp.concatenate(
                 [latents] * 2) if do_classifier_free_guidance else latents
@@ -203,7 +203,7 @@ class FlaxTextToVideoControlNetPipeline(FlaxDiffusionPipeline):
             #     latent_model_input, t)
 
             latent_model_input = self.scheduler.scale_model_input(
-                params["scheduler"], latent_model_input, timestep=t
+                scheduler_state, latent_model_input, timestep=t
             )
 
             # predict the noise residual
@@ -240,7 +240,7 @@ class FlaxTextToVideoControlNetPipeline(FlaxDiffusionPipeline):
                 alpha = 0
             # compute the previous noisy sample x_t -> x_t-1
             latents = self.scheduler.step(
-                params["scheduler"],
+                scheduler_state,
                 noise_pred, t, latents).prev_sample
             # latents = latents - alpha * grads / (torch.norm(grads) + 1e-10)
             # call the callback, if provided
@@ -253,7 +253,7 @@ class FlaxTextToVideoControlNetPipeline(FlaxDiffusionPipeline):
                 # x_t1_1 = latents.detach().clone()
                 x_t1_1 = latents.copy()
                 print(f"latent t1 found at i={i}, t = {t}")
-            return (latents, x_t0_1, x_t1_1)
+            return (latents, x_t0_1, x_t1_1, scheduler_state)
             # if i == len(timesteps) - 1 or ((i + 1) > num_warmup_steps and (i + 1) % self.scheduler.order == 0):
             #     progress_bar.update()
             #     if callback is not None and i % callback_steps == 0:
@@ -263,9 +263,9 @@ class FlaxTextToVideoControlNetPipeline(FlaxDiffusionPipeline):
         if DEBUG:
             x_t0_1, x_t1_1 = None, None
             for i in range(len(timesteps)):
-                latents, x_t0_1, x_t1_1 = loop_timesteps(i, (latents, x_t0_1, x_t1_1))
+                latents, x_t0_1, x_t1_1, scheduler_state = loop_timesteps(i, (latents, x_t0_1, x_t1_1, scheduler_state))
         else:
-            latents, x_t0_1, x_t1_1 = jax.lax.fori_loop(0, len(timesteps), loop_timesteps, (latents, None, None))
+            latents, x_t0_1, x_t1_1, scheduler_state = jax.lax.fori_loop(0, len(timesteps), loop_timesteps, (latents, None, None, scheduler_state))
         latents = rearrange(latents, "(b f) c w h -> b c f  w h", f=f)
 
         # res = {"x0": latents.detach().clone()}
@@ -305,7 +305,7 @@ class FlaxTextToVideoControlNetPipeline(FlaxDiffusionPipeline):
         #timesteps DDPM
         #[...]
         # Prepare timesteps
-        self.scheduler.set_timesteps(params["scheduler"], num_inference_steps)
+        params["scheduler"] = self.scheduler.set_timesteps(params["scheduler"], num_inference_steps)
         timesteps = params["scheduler"].timesteps
         # Prepare latent variables
         num_channels_latents = self.unet.in_channels
