@@ -233,9 +233,9 @@ class FlaxTextToVideoControlNetPipeline(FlaxDiffusionPipeline):
                     scheduler_state,
                     noise_pred, t, latents).prev_sample
                 
-                x_t0_1 = jax.lax.cond(i < len(timesteps)-1 and timesteps[i+1] == t0, lambda :latents, lambda :x_t0_1)
+                x_t0_1 = jax.lax.cond(i < len(timesteps)-1 and timesteps[i+1] == t0, lambda :latents.copy(), lambda :x_t0_1)
 
-                x_t1_1 = jax.lax.cond(i < len(timesteps)-1 and timesteps[i+1] == t1, lambda :latents, lambda :x_t1_1)
+                x_t1_1 = jax.lax.cond(i < len(timesteps)-1 and timesteps[i+1] == t1, lambda :latents.copy(), lambda :x_t1_1)
             
                 return (latents, x_t0_1, x_t1_1, scheduler_state)
 
@@ -330,9 +330,9 @@ class FlaxTextToVideoControlNetPipeline(FlaxDiffusionPipeline):
                     scheduler_state,
                     noise_pred, t, latents).prev_sample
                 
-                x_t0_1 = jax.lax.cond(i < len(timesteps)-1 and timesteps[i+1] == t0, lambda :latents, lambda :x_t0_1)
+                x_t0_1 = jax.lax.cond(i < len(timesteps)-1 and timesteps[i+1] == t0, lambda :latents.copy(), lambda :x_t0_1)
 
-                x_t1_1 = jax.lax.cond(i < len(timesteps)-1 and timesteps[i+1] == t1, lambda :latents, lambda :x_t1_1)
+                x_t1_1 = jax.lax.cond(i < len(timesteps)-1 and timesteps[i+1] == t1, lambda :latents.copy(), lambda :x_t1_1)
             
                 return (latents, x_t0_1, x_t1_1, scheduler_state)
 
@@ -507,10 +507,14 @@ class FlaxTextToVideoControlNetPipeline(FlaxDiffusionPipeline):
         x_t1 = jnp.concatenate([x_t1_1, x_t1_k], axis=2).copy()
         # print("x_t1 shape: ", x_t1.shape)
 
-        ddim_res = self.DDIM_backward_w_controlnet(params, num_inference_steps=num_inference_steps, timesteps=timesteps, skip_t=t1, t0=-1, t1=-1, do_classifier_free_guidance=do_classifier_free_guidance,
+        # ddim_res = self.DDIM_backward_w_controlnet(params, num_inference_steps=num_inference_steps, timesteps=timesteps, skip_t=t1, t0=-1, t1=-1, do_classifier_free_guidance=do_classifier_free_guidance,
+        #                                     null_embs=null_embs, text_embeddings=text_embeddings, latents_local=x_t1, guidance_scale=guidance_scale,
+        #                                     guidance_stop_step=guidance_stop_step, callback=callback, callback_steps=callback_steps, num_warmup_steps=num_warmup_steps, controlnet_image=controlnet_image,
+        #                                     controlnet_conditioning_scale=controlnet_conditioning_scale)
+        
+        ddim_res = self.DDIM_backward(params, num_inference_steps=num_inference_steps, timesteps=timesteps, skip_t=t1, t0=-1, t1=-1, do_classifier_free_guidance=do_classifier_free_guidance,
                                             null_embs=null_embs, text_embeddings=text_embeddings, latents_local=x_t1, guidance_scale=guidance_scale,
-                                            guidance_stop_step=guidance_stop_step, callback=callback, callback_steps=callback_steps, num_warmup_steps=num_warmup_steps, controlnet_image=controlnet_image,
-                                            controlnet_conditioning_scale=controlnet_conditioning_scale)
+                                            guidance_stop_step=guidance_stop_step, callback=callback, callback_steps=callback_steps, num_warmup_steps=num_warmup_steps)
         
         x0 = ddim_res["x0"]
         # print("x0 shape: ", x0.shape)
