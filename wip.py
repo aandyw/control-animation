@@ -28,7 +28,7 @@ from diffusers.pipelines.stable_diffusion.safety_checker_flax import FlaxStableD
 logger = logging.get_logger(__name__)  # pylint: disable=invalid-name
 
 # Set to True to use python for loop instead of jax.fori_loop for easier debugging
-DEBUG = False
+DEBUG = True
 
 EXAMPLE_DOC_STRING = """
     Examples:
@@ -245,10 +245,10 @@ class FlaxTextToVideoControlNetPipeline(FlaxDiffusionPipeline):
         
         if DEBUG:
             x_t0_1, x_t1_1 = jnp.zeros_like(latents), jnp.zeros_like(latents)
-            for i in range(len(timesteps)):
+            for i in range(num_inference_steps):
                 latents, x_t0_1, x_t1_1, scheduler_state = loop_timesteps(i, (latents, x_t0_1, x_t1_1, scheduler_state))
         else:
-            latents, x_t0_1, x_t1_1, scheduler_state = jax.lax.fori_loop(0, len(timesteps), loop_timesteps, (latents, jnp.zeros_like(latents), jnp.zeros_like(latents), scheduler_state))
+            latents, x_t0_1, x_t1_1, scheduler_state = jax.lax.fori_loop(0, num_inference_steps, loop_timesteps, (latents, jnp.zeros_like(latents), jnp.zeros_like(latents), scheduler_state))
         latents = rearrange(latents, "(b f) c w h -> b c f  w h", f=f)
 
         # res = {"x0": latents.detach().clone()}
@@ -330,9 +330,9 @@ class FlaxTextToVideoControlNetPipeline(FlaxDiffusionPipeline):
                     scheduler_state,
                     noise_pred, t, latents).prev_sample
                 
-                x_t0_1 = jax.lax.cond(i < len(timesteps)-1 and timesteps[i+1] == t0, lambda x, latents : latents, lambda  x, latents : x, x_t0_1, latents.copy())
+                x_t0_1 = jax.lax.cond(i < len(timesteps)-1 and timesteps[i+1] == t0, lambda :latents, lambda :x_t0_1)
 
-                x_t1_1 = jax.lax.cond(i < len(timesteps)-1 and timesteps[i+1] == t1, lambda x, latents : latents, lambda  x, latents : x, x_t1_1, latents.copy())
+                x_t1_1 = jax.lax.cond(i < len(timesteps)-1 and timesteps[i+1] == t1, lambda :latents, lambda :x_t1_1)
             
                 return (latents, x_t0_1, x_t1_1, scheduler_state)
 
@@ -342,10 +342,10 @@ class FlaxTextToVideoControlNetPipeline(FlaxDiffusionPipeline):
         
         if DEBUG:
             x_t0_1, x_t1_1 = jnp.zeros_like(latents), jnp.zeros_like(latents)
-            for i in range(len(timesteps)):
+            for i in range(num_inference_steps):
                 latents, x_t0_1, x_t1_1, scheduler_state = loop_timesteps(i, (latents, x_t0_1, x_t1_1, scheduler_state))
         else:
-            latents, x_t0_1, x_t1_1, scheduler_state = jax.lax.fori_loop(0, len(timesteps), loop_timesteps, (latents, jnp.zeros_like(latents), jnp.zeros_like(latents), scheduler_state))
+            latents, x_t0_1, x_t1_1, scheduler_state = jax.lax.fori_loop(0, num_inference_steps, loop_timesteps, (latents, jnp.zeros_like(latents), jnp.zeros_like(latents), scheduler_state))
         latents = rearrange(latents, "(b f) c w h -> b c f  w h", f=f)
 
         # res = {"x0": latents.detach().clone()}
@@ -364,7 +364,6 @@ class FlaxTextToVideoControlNetPipeline(FlaxDiffusionPipeline):
         _, _, H, W = reference_flow.shape
         b, _, f, h, w = latents.shape
         assert b == 1
-        # coords0 = coords_grid(f, H, W, device=latents.device).to(latents.dtype)
 
         coords0 = coords_grid(f, H, W)
         coords_t0 = coords0 + reference_flow

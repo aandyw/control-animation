@@ -28,6 +28,9 @@ class ModelType(Enum):
     ControlNetDepth = 6,
 
 
+def replicate_devices(array):
+    return jnp.expand_dims(array, 0).repeat(jax.device_count(), 0)
+
 class Model:
     def __init__(self, device, dtype, **kwargs):
         self.device = device
@@ -86,30 +89,26 @@ class Model:
         self.model_type = model_type
         self.model_name = model_id
 
-    def inference_chunk(self, image, frame_ids, **kwargs):
-        if not hasattr(self, "pipe") or self.pipe is None:
-            return
-        prng_seed = jax.random.split(self.rng, jax.device_count())
-        prompt = kwargs.pop('prompt')
+    def inference_chunk(self, image, frame_ids, prompt, negative_prompt, **kwargs):
+
         prompt_ids = self.pipe.prepare_text_inputs(prompt)
-        negative_prompt = kwargs.pop('negative_prompt', '')
         n_prompt_ids = self.pipe.prepare_text_inputs(negative_prompt)
-        latents = None
-        frame_ids = jnp.array(frame_ids)
-        if 'latents' in kwargs:
-            latents = kwargs.pop('latents')[frame_ids]
-        if self.model_type == ModelType.Text2Video:
-            kwargs["frame_ids"] = frame_ids
-        return self.pipe(
-                        image=image[frame_ids],
-                        prompt_ids=prompt_ids[frame_ids],
-                        params=self.p_params,
-                        prng_seed=prng_seed,
-                        neg_prompt_ids=n_prompt_ids[frame_ids],
-                        latents=latents[frame_ids],
-                        jit=True,
-                        # **kwargs
-                        )
+        latents = kwargs.pop('latents')
+        # rng = jax.random.split(self.rng, jax.device_count())
+        prng, self.rng = jax.random.split(self.rng)
+        #prng = jax.numpy.stack([prng] * jax.device_count())#same prng seed on every device
+        prng_seed = jax.random.split(prng, jax.device_count())
+        image = replicate_devices(image[frame_ids])
+        latents = replicate_devices(latents)
+        prompt_ids = replicate_devices(prompt_ids)
+        n_prompt_ids = replicate_devices(n_prompt_ids)
+        return (self.pipe(image=image,
+                            latents=latents,
+                            prompt_ids=prompt_ids,
+                            neg_prompt_ids=n_prompt_ids, 
+                            params=self.p_params,
+                            prng_seed=prng_seed, jit = True,
+                            ).images)[0]
 
     def inference(self, image, split_to_chunks=False, chunk_size=8, **kwargs):
         if not hasattr(self, "pipe") or self.pipe is None:
@@ -131,25 +130,25 @@ class Model:
 
         # Processing chunk-by-chunk
         if split_to_chunks:
-            pass
-            ## not tested
-            # chunk_ids = np.arange(0, f, chunk_size - 1)
-            # result = []
-            # for i in range(len(chunk_ids)):
-            #     ch_start = chunk_ids[i]
-            #     ch_end = f if i == len(chunk_ids) - 1 else chunk_ids[i + 1]
-            #     frame_ids = [0] + list(range(ch_start, ch_end))
-            #     print(f'Processing chunk {i + 1} / {len(chunk_ids)}')
-            #     result.append(self.inference_chunk(image=image,
-            #                                        frame_ids=frame_ids,
-            #                                        prompt=prompt,
-            #                                        negative_prompt=negative_prompt,
-            #                                        **kwargs).images[1:])
-            #     frames_counter += len(chunk_ids)-1
-            #     if on_huggingspace and frames_counter >= 80:
-            #         break
-            # result = np.concatenate(result)
-            # return result
+            # not tested
+            f = image.shape[0]
+            chunk_ids = np.arange(0, f, chunk_size - 1)
+            result = []
+            for i in range(len(chunk_ids)):
+                ch_start = chunk_ids[i]
+                ch_end = f if i == len(chunk_ids) - 1 else chunk_ids[i + 1]
+                frame_ids = [0] + list(range(ch_start, ch_end))
+                print(f'Processing chunk {i + 1} / {len(chunk_ids)}')
+                result.append(self.inference_chunk(image=image,
+                                                   frame_ids=frame_ids,
+                                                   prompt=prompt,
+                                                   negative_prompt=negative_prompt,
+                                                   **kwargs).images[1:])
+                frames_counter += len(chunk_ids)-1
+                if on_huggingspace and frames_counter >= 80:
+                    break
+            result = np.concatenate(result)
+            return result
         else:
             prompt_ids = self.pipe.prepare_text_inputs(prompt)
             n_prompt_ids = self.pipe.prepare_text_inputs(negative_prompt)
@@ -158,8 +157,6 @@ class Model:
             prng, self.rng = jax.random.split(self.rng)
             #prng = jax.numpy.stack([prng] * jax.device_count())#same prng seed on every device
             prng_seed = jax.random.split(prng, jax.device_count())
-            def replicate_devices(array):
-                return jnp.expand_dims(array, 0).repeat(jax.device_count(), 0)
             image = replicate_devices(image)
             latents = replicate_devices(latents)
             prompt_ids = replicate_devices(prompt_ids)
