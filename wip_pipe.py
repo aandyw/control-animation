@@ -401,7 +401,6 @@ class testPipeline(FlaxDiffusionPipeline):
         #                                     guidance_stop_step=guidance_stop_step, callback=callback, callback_steps=callback_steps, num_warmup_steps=num_warmup_steps, controlnet_image=controlnet_image,
         #                                     controlnet_conditioning_scale=controlnet_conditioning_scale)
         print("x_t1 shape: ", x_t1.shape)
-        return x_t1
         ddim_res = self.DDIM_backward(params, num_inference_steps=num_inference_steps, timesteps=timesteps, skip_t=t1, t0=-1, t1=-1, do_classifier_free_guidance=do_classifier_free_guidance,
                                             null_embs=null_embs, text_embeddings=text_embeddings, latents_local=x_t1, guidance_scale=guidance_scale,
                                             guidance_stop_step=guidance_stop_step, callback=callback, callback_steps=callback_steps, num_warmup_steps=num_warmup_steps)
