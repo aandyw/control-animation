@@ -10,9 +10,10 @@ import einops
 
 from transformers import CLIPTokenizer, CLIPFeatureExtractor, FlaxCLIPTextModel
 from diffusers import FlaxDDIMScheduler, FlaxControlNetModel, FlaxUNet2DConditionModel, FlaxAutoencoderKL #, FlaxStableDiffusionControlNetPipeline
-from wip import FlaxTextToVideoControlNetPipeline
 
-from wip_pipe import testPipeline
+from flax_text_to_video_pipeline import FlaxTextToVideoPipeline
+# from wip import FlaxTextToVideoControlNetPipeline
+# from wip_pipe import testPipeline
 
 import utils
 import gradio_utils
@@ -73,7 +74,7 @@ class Model:
             unet, unet_params = FlaxUNet2DConditionModel.from_pretrained(model_id, subfolder="unet", from_pt=True, dtype=self.dtype)
         vae, vae_params = FlaxAutoencoderKL.from_pretrained(model_id, subfolder="vae", from_pt=True, dtype=self.dtype)
         text_encoder = FlaxCLIPTextModel.from_pretrained(model_id, subfolder="text_encoder", from_pt=True, dtype=self.dtype)
-        self.pipe = testPipeline(vae=vae,
+        self.pipe = FlaxTextToVideoPipeline(vae=vae,
                                                         text_encoder=text_encoder,
                                                         tokenizer=tokenizer,
                                                         unet=unet,
