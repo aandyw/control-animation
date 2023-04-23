@@ -147,36 +147,6 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
         x_t0_1 = None
         x_t1_1 = None
         def loop_body(step, args):
-        #     latents, scheduler_state = args
-        #     # For classifier free guidance, we need to do two forward passes.
-        #     # Here we concatenate the unconditional and text embeddings into a single batch
-        #     # to avoid doing two forward passes
-        #     latents_input = jnp.concatenate([latents] * 2)
-        #     t = jnp.array(scheduler_state.timesteps, dtype=jnp.int32)[step]
-        #     timestep = jnp.broadcast_to(t, latents_input.shape[0])
-        #     latents_input = self.scheduler.scale_model_input(scheduler_state, latents_input, t)
-        #     down_block_res_samples, mid_block_res_sample = self.controlnet.apply(
-        #         {"params": params["controlnet"]},
-        #         jnp.array(latents_input),
-        #         jnp.array(timestep, dtype=jnp.int32),
-        #         encoder_hidden_states=context,
-        #         controlnet_cond=image,
-        #         conditioning_scale=controlnet_conditioning_scale,
-        #         return_dict=False,
-        #     )
-        #     # predict the noise residual
-        #     noise_pred = self.unet.apply(
-        #         {"params": params["unet"]},
-        #         jnp.array(latents_input),
-        #         jnp.array(timestep, dtype=jnp.int32),
-        #         encoder_hidden_states=context,
-        #         down_block_additional_residuals=down_block_res_samples,
-        #         mid_block_additional_residual=mid_block_res_sample,
-        #     ).sample
-        #     # perform guidance
-        #     noise_pred_uncond, noise_prediction_text = jnp.split(noise_pred, 2, axis=0)
-        #     noise_pred = noise_pred_uncond + guidance_scale * (noise_prediction_text - noise_pred_uncond)
-        #     
             latents, x_t0_1, x_t1_1, scheduler_state = args
             t = jnp.array(scheduler_state.timesteps, dtype=jnp.int32)[step]
             def continue_loop(val):
@@ -323,7 +293,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
                 self.vae.scaling_factor, width // self.vae.scaling_factor)
         ddim_res = self.DDIM_backward(params, num_inference_steps=num_inference_steps, timesteps=timesteps, skip_t=1000, t0=t0, t1=t1, do_classifier_free_guidance=do_classifier_free_guidance,
                                 text_embeddings=text_embeddings, latents_local=xT, guidance_scale=guidance_scale,
-                                controlnet_image=controlnet_image, controlnet_conditioning_scale=controlnet_conditioning_scale)
+                                controlnet_image=jnp.concatenate([controlnet_image[0]] * 2), controlnet_conditioning_scale=controlnet_conditioning_scale)
         x0 = ddim_res["x0"]
         if "x_t0_1" in ddim_res:
             x_t0_1 = ddim_res["x_t0_1"]
