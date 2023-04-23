@@ -476,7 +476,7 @@ class FlaxTextToVideoControlNetPipeline(FlaxDiffusionPipeline):
 
         ddim_res = self.DDIM_backward_w_controlnet(params, num_inference_steps=num_inference_steps, timesteps=timesteps, skip_t=1000, t0=t0, t1=t1, do_classifier_free_guidance=do_classifier_free_guidance,
                                 null_embs=null_embs, text_embeddings=text_embeddings, latents_local=xT, guidance_scale=guidance_scale, guidance_stop_step=guidance_stop_step,
-                                callback=callback, callback_steps=callback_steps, num_warmup_steps=num_warmup_steps, controlnet_image, controlnet_conditioning_scale)
+                                callback=callback, callback_steps=callback_steps, num_warmup_steps=num_warmup_steps, controlnet_image=controlnet_image, controlnet_conditioning_scale=controlnet_conditioning_scale)
 
         x0 = ddim_res["x0"]
 
