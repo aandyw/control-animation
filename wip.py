@@ -368,12 +368,12 @@ class FlaxTextToVideoControlNetPipeline(FlaxDiffusionPipeline):
         coords0 = coords_grid(f, H, W)
         coords_t0 = coords0 + reference_flow
 
-        coords_t0 = coords_t0.at[:, 0].set(coords_t0[:, 0] / W)
-        coords_t0 = coords_t0.at[:, 1].set(coords_t0[:, 1] / H)
+        coords_t0 = coords_t0.at[:, 0].set(coords_t0[:, 0] * w / W)
+        coords_t0 = coords_t0.at[:, 1].set(coords_t0[:, 1] * h / H)
         # coords_t0[:, 0] /= W
         # coords_t0[:, 1] /= H
 
-        coords_t0 = coords_t0 * 2.0 - 1.0
+        # coords_t0 = coords_t0 * 2.0 - 1.0
 
         # coords_t0 = T.Resize((h, w))(coords_t0) #TODO
         f, c, _, _ = coords_t0.shape
@@ -382,7 +382,7 @@ class FlaxTextToVideoControlNetPipeline(FlaxDiffusionPipeline):
         coords_t0 = rearrange(coords_t0, 'f c h w -> f h w c')
 
         latents_0 = rearrange(latents[0], 'c f h w -> f  c  h w')
-        warped = grid_sample_vmap(latents_0, coords_t0)
+        warped = grid_sample(latents_0, coords_t0)
 
         warped = rearrange(warped, '(b f) c h w -> b c f h w', f=f)
         return warped
@@ -906,12 +906,27 @@ def prepare_latents(params, prng, batch_size, num_channels_latents, video_length
     latents = latents * params["scheduler"].init_noise_sigma
     return latents
 
-def grid_sample_vmap(latents, grid):
-    # there is no alternative to torch.functional.nn.grid_sample in jax
-    # this implementation is following the algorithm described @ https://pytorch.org/docs/stable/generated/torch.nn.functional.grid_sample.html
-    return jax.vmap(jax.vmap(jax.vmap(jax.vmap(lambda l, g: jax.scipy.ndimage.map_coordinates(l, g, order=1, mode="nearest"), in_axes=(None, 0)), in_axes=(None,0)), in_axes=(0, None)))(latents, grid)
-
 def coords_grid(batch, ht, wd):
     coords = jnp.meshgrid(jnp.arange(ht), jnp.arange(wd), indexing="ij")
     coords = jnp.stack(coords[::-1], axis=0)
     return coords[None].repeat(batch, 0)
+
+def adapt_pos(x, y, W, H):
+  x_w_mirror = ((x + W - 1) % (2*(W - 1))) - W + 1
+  x_adapted = jnp.where(x_w_mirror > 0, x_w_mirror, - (x_w_mirror))
+  y_w_mirror = ((y + H - 1) % (2*(H - 1))) - H + 1
+  y_adapted = jnp.where(y_w_mirror > 0, y_w_mirror, - (y_w_mirror))
+  return y_adapted, x_adapted
+
+def safe_get(img, x,y,W,H):
+  #x_, y_ = adapt_pos(x,y,W,H)
+  return img[adapt_pos(x,y,W,H)]
+
+@jax.vmap #frame
+@partial(jax.vmap, in_axes=(0, None)) #channels
+@partial(jax.vmap, in_axes=(None,0)) #h_grid
+@partial(jax.vmap, in_axes=(None, 0)) #w_grid
+def grid_sample(latents, grid):
+    # this is an alternative to torch.functional.nn.grid_sample in jax
+    # this implementation is following the algorithm described @ https://pytorch.org/docs/stable/generated/torch.nn.functional.grid_sample.html
+    return safe_get(latents, jnp.array(grid[0], dtype=jnp.int16), jnp.array(grid[1], dtype=jnp.int16), latents.shape[0], latents.shape[1])

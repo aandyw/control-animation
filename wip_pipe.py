@@ -740,7 +740,7 @@ def prepare_latents(params, prng, batch_size, num_channels_latents, video_length
 def grid_sample_vmap(latents, grid):
     # there is no alternative to torch.functional.nn.grid_sample in jax
     # this implementation is following the algorithm described @ https://pytorch.org/docs/stable/generated/torch.nn.functional.grid_sample.html
-    return jax.vmap(jax.vmap(jax.vmap(jax.vmap(lambda l, g: jax.scipy.ndimage.map_coordinates(l, g, order=1, mode="nearest"), in_axes=(None, 0)), in_axes=(None,0)), in_axes=(0, None)))(latents, grid)
+    return jax.vmap(jax.vmap(jax.vmap(jax.vmap(lambda l, g: jax.scipy.ndimage.map_coordinates(l, g, order=1, mode="reflect"), in_axes=(None, 0)), in_axes=(None,0)), in_axes=(0, None)))(latents, grid)
 
 def coords_grid(batch, ht, wd):
     coords = jnp.meshgrid(jnp.arange(ht), jnp.arange(wd), indexing="ij")
