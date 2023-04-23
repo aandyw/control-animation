@@ -383,7 +383,6 @@ class testPipeline(FlaxDiffusionPipeline):
         # del xT
         # del x0
         # x_t0_k = x_t0_1[:, :, :1, :, :].repeat(1, 1, video_length-1, 1, 1)
-        return x0
         x_t0_k = x_t0_1[:, :, :1, :, :].repeat(video_length-1, 2)
         reference_flow, x_t0_k = self.create_motion_field_and_warp_latents(
             motion_field_strength_x=motion_field_strength_x, motion_field_strength_y=motion_field_strength_y, latents=x_t0_k, video_length=video_length, frame_ids=frame_ids[1:])
@@ -402,6 +401,7 @@ class testPipeline(FlaxDiffusionPipeline):
         #                                     guidance_stop_step=guidance_stop_step, callback=callback, callback_steps=callback_steps, num_warmup_steps=num_warmup_steps, controlnet_image=controlnet_image,
         #                                     controlnet_conditioning_scale=controlnet_conditioning_scale)
         print("x_t1 shape: ", x_t1.shape)
+        return x_t1
         ddim_res = self.DDIM_backward(params, num_inference_steps=num_inference_steps, timesteps=timesteps, skip_t=t1, t0=-1, t1=-1, do_classifier_free_guidance=do_classifier_free_guidance,
                                             null_embs=null_embs, text_embeddings=text_embeddings, latents_local=x_t1, guidance_scale=guidance_scale,
                                             guidance_stop_step=guidance_stop_step, callback=callback, callback_steps=callback_steps, num_warmup_steps=num_warmup_steps)
