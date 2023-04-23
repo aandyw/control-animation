@@ -561,7 +561,8 @@ class testPipeline(FlaxDiffusionPipeline):
         latents = 1 / self.vae.config.scaling_factor * latents
         # video_length = latents.shape[2]
         latents = rearrange(latents, "b c f h w -> (b f) c h w")
-        video = self.vae.apply({"params": params["vae"]}, latents, method=self.vae.decode).sample
+        video = latents
+        # video = self.vae.apply({"params": params["vae"]}, latents, method=self.vae.decode).sample
         # video = rearrange(video, "(b f) c h w -> b c f h w", f=video_length)[0]
         video = (video / 2 + 0.5).clip(0, 1).transpose(0, 2, 3, 1)
         print("returning video")
