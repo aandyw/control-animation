@@ -375,7 +375,6 @@ class testPipeline(FlaxDiffusionPipeline):
                                 null_embs=null_embs, text_embeddings=text_embeddings, latents_local=xT, guidance_scale=guidance_scale, guidance_stop_step=guidance_stop_step,
                                 callback=callback, callback_steps=callback_steps, num_warmup_steps=num_warmup_steps)
         x0 = ddim_res["x0"]
-        return x0
         if "x_t0_1" in ddim_res:
             x_t0_1 = ddim_res["x_t0_1"]
         if "x_t1_1" in ddim_res:
@@ -394,13 +393,15 @@ class testPipeline(FlaxDiffusionPipeline):
                                         ),
                     lambda:x_t0_k
         )
+        print(f"shapes: x_t1_1 {x_t1_1.shape}, t_t1_k: {x_t1_k.shape}")
         x_t1 = jnp.concatenate([x_t1_1, x_t1_k], axis=2).copy()
         # print("x_t1 shape: ", x_t1.shape)
         # ddim_res = self.DDIM_backward_w_controlnet(params, num_inference_steps=num_inference_steps, timesteps=timesteps, skip_t=t1, t0=-1, t1=-1, do_classifier_free_guidance=do_classifier_free_guidance,
         #                                     null_embs=null_embs, text_embeddings=text_embeddings, latents_local=x_t1, guidance_scale=guidance_scale,
         #                                     guidance_stop_step=guidance_stop_step, callback=callback, callback_steps=callback_steps, num_warmup_steps=num_warmup_steps, controlnet_image=controlnet_image,
         #                                     controlnet_conditioning_scale=controlnet_conditioning_scale)
-        
+        print("x_t1 shape: ", x_t1.shape)
+        return x_t1
         ddim_res = self.DDIM_backward(params, num_inference_steps=num_inference_steps, timesteps=timesteps, skip_t=t1, t0=-1, t1=-1, do_classifier_free_guidance=do_classifier_free_guidance,
                                             null_embs=null_embs, text_embeddings=text_embeddings, latents_local=x_t1, guidance_scale=guidance_scale,
                                             guidance_stop_step=guidance_stop_step, callback=callback, callback_steps=callback_steps, num_warmup_steps=num_warmup_steps)
