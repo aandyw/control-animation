@@ -383,6 +383,7 @@ class testPipeline(FlaxDiffusionPipeline):
         # del xT
         # del x0
         # x_t0_k = x_t0_1[:, :, :1, :, :].repeat(1, 1, video_length-1, 1, 1)
+        return x0
         x_t0_k = x_t0_1[:, :, :1, :, :].repeat(video_length-1, 2)
         reference_flow, x_t0_k = self.create_motion_field_and_warp_latents(
             motion_field_strength_x=motion_field_strength_x, motion_field_strength_y=motion_field_strength_y, latents=x_t0_k, video_length=video_length, frame_ids=frame_ids[1:])
