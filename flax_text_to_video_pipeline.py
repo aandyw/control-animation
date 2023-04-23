@@ -272,8 +272,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
         # Prepare latent variables
         num_channels_latents = self.unet.in_channels
         batch_size = 1
-        vae_scale_factor = 2 ** (4 - 1)
-        xT = prepare_latents(params, prng, batch_size * num_videos_per_prompt, num_channels_latents, 1, height, width, vae_scale_factor, xT)
+        xT = prepare_latents(params, prng, batch_size * num_videos_per_prompt, num_channels_latents, 1, height, width, self.vae_scale_factor, xT)
         #use motion fields ==>
         xT = xT[:, :, :1]
         timesteps_ddpm = [981, 961, 941, 921, 901, 881, 861, 841, 821, 801, 781, 761, 741, 721,
@@ -286,15 +285,17 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
         x_t1_1 = None
 
         # Denoising loop
-        num_warmup_steps = len(timesteps) - \
-            num_inference_steps * 1
         batch_size, num_channels_latents, *_ = latents.shape
         shape = (batch_size, num_channels_latents, 1, height //
                 self.vae.scaling_factor, width // self.vae.scaling_factor)
+
+        #  perform ∆t backward steps by stable diffusion
         ddim_res = self.DDIM_backward(params, num_inference_steps=num_inference_steps, timesteps=timesteps, skip_t=1000, t0=t0, t1=t1, do_classifier_free_guidance=do_classifier_free_guidance,
                                 text_embeddings=text_embeddings, latents_local=xT, guidance_scale=guidance_scale,
-                                controlnet_image=jnp.concatenate([controlnet_image[0]] * 2), controlnet_conditioning_scale=controlnet_conditioning_scale)
+                                controlnet_image=jnp.stack([controlnet_image[0]] * 2), controlnet_conditioning_scale=controlnet_conditioning_scale)
         x0 = ddim_res["x0"]
+
+        # apply warping functions
         if "x_t0_1" in ddim_res:
             x_t0_1 = ddim_res["x_t0_1"]
         if "x_t1_1" in ddim_res:
@@ -303,6 +304,8 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
         reference_flow, x_t0_k = self.create_motion_field_and_warp_latents(
             motion_field_strength_x=motion_field_strength_x, motion_field_strength_y=motion_field_strength_y, latents=x_t0_k, video_length=video_length, frame_ids=frame_ids[1:])
         # assuming t0=t1=1000, if t0 = 1000
+
+        # DDPM forward for more motion freedom
         x_t1_k = jax.lax.cond(t1 > t0,
                      lambda:self.DDPM_forward(
                                         params=params, prng=prng, x0=x_t0_k, t0=t0, tMax=t1, shape=shape, text_embeddings=text_embeddings
@@ -310,6 +313,8 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
                     lambda:x_t0_k
         )
         x_t1 = jnp.concatenate([x_t1_1, x_t1_k], axis=2).copy()
+
+        # backward stepts by stable diffusion
         ddim_res = self.DDIM_backward(params, num_inference_steps=num_inference_steps, timesteps=timesteps, skip_t=t1, t0=-1, t1=-1, do_classifier_free_guidance=do_classifier_free_guidance,
                                             text_embeddings=text_embeddings, latents_local=x_t1, guidance_scale=guidance_scale,
                                             controlnet_image=controlnet_image, controlnet_conditioning_scale=controlnet_conditioning_scale)
