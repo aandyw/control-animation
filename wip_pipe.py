@@ -84,9 +84,11 @@ EXAMPLE_DOC_STRING = """
 class testPipeline(FlaxDiffusionPipeline):
     def __init__(
         self,
+        vae: FlaxAutoencoderKL,
         text_encoder: FlaxCLIPTextModel,
         tokenizer: CLIPTokenizer,
         unet: FlaxUNet2DConditionModel,
+        controlnet: FlaxControlNetModel,
         scheduler: Union[
             FlaxDDIMScheduler, FlaxPNDMScheduler, FlaxLMSDiscreteScheduler, FlaxDPMSolverMultistepScheduler
         ],
@@ -96,6 +98,7 @@ class testPipeline(FlaxDiffusionPipeline):
     ):
         super().__init__()
         self.dtype = dtype
+
         if safety_checker is None:
             logger.warn(
                 f"You have disabled the safety checker for {self.__class__} by passing `safety_checker=None`. Ensure"
@@ -105,14 +108,19 @@ class testPipeline(FlaxDiffusionPipeline):
                 " it only for use-cases that involve analyzing network behavior or auditing its results. For more"
                 " information, please have a look at https://github.com/huggingface/diffusers/pull/254 ."
             )
+
         self.register_modules(
+            vae=vae,
             text_encoder=text_encoder,
             tokenizer=tokenizer,
             unet=unet,
+            controlnet=controlnet,
             scheduler=scheduler,
             safety_checker=safety_checker,
             feature_extractor=feature_extractor,
         )
+        self.vae_scale_factor = 2 ** (len(self.vae.config.block_out_channels) - 1)
+
     def DDPM_forward(self, params, prng, x0, t0, tMax, shape, text_embeddings):
         #status=to_test
         # rand_device = "cpu" if device.type == "mps" else device
