@@ -39,14 +39,6 @@ class Model:
         self.device = device
         self.dtype = dtype
         self.rng = jax.random.PRNGKey(0)
-        self.pipe_dict = {
-            # ModelType.Pix2Pix_Video: StableDiffusionInstructPix2PixPipeline,
-            # ModelType.Text2Video: TextToVideoPipeline,
-            # ModelType.ControlNetCanny: StableDiffusionControlNetPipeline,
-            # ModelType.ControlNetCannyDB: StableDiffusionControlNetPipeline,
-            ModelType.ControlNetPose: FlaxTextToVideoControlNetPipeline#FlaxStableDiffusionControlNetPipeline,
-            # ModelType.ControlNetDepth: StableDiffusionControlNetPipeline,
-        }
 
         self.pipe = None
         self.model_type = None
