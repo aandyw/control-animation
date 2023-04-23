@@ -387,6 +387,7 @@ class testPipeline(FlaxDiffusionPipeline):
         reference_flow, x_t0_k = self.create_motion_field_and_warp_latents(
             motion_field_strength_x=motion_field_strength_x, motion_field_strength_y=motion_field_strength_y, latents=x_t0_k, video_length=video_length, frame_ids=frame_ids[1:])
         # assuming t0=t1=1000, if t0 = 1000
+        return x_t0_k
         x_t1_k = jax.lax.cond(t1 > t0,
                      lambda:self.DDPM_forward(
                                         params=params, prng=prng, x0=x_t0_k, t0=t0, tMax=t1, shape=shape, text_embeddings=text_embeddings
