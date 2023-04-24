@@ -11,10 +11,10 @@ import einops
 
 from transformers import CLIPTokenizer, CLIPFeatureExtractor, FlaxCLIPTextModel
 from diffusers import FlaxDDIMScheduler, FlaxControlNetModel, FlaxUNet2DConditionModel, FlaxAutoencoderKL, FlaxStableDiffusionControlNetPipeline
-from pipelines.text_to_video_pipeline import TextToVideoPipeline
+from pipelines.flax_text_to_video_pipeline import FlaxTextToVideoPipeline
 
 import utils.utils
-import utils.gradio_utils
+import utils.gradio_utils as gradio_utils
 import os
 on_huggingspace = os.environ.get("SPACE_AUTHOR_NAME") == "PAIR"
 
@@ -25,16 +25,18 @@ class ModelType(Enum):
     ControlNetPose = 2,
 
 
+def replicate_devices(array):
+    return jnp.expand_dims(array, 0).repeat(jax.device_count(), 0)
+
 class Model:
     def __init__(self, device, dtype, **kwargs):
         self.device = device
         self.dtype = dtype
         self.rng = jax.random.PRNGKey(0)
         self.pipe_dict = {
-            ModelType.Text2Video: TextToVideoPipeline, # TODO: Replace with our TextToVideo JAX Pipeline
+            ModelType.Text2Video: FlaxTextToVideoPipeline, # TODO: Replace with our TextToVideo JAX Pipeline
             ModelType.ControlNetPose: FlaxStableDiffusionControlNetPipeline,
         }
-
         self.pipe = None
         self.model_type = None
 
@@ -61,7 +63,7 @@ class Model:
             unet, unet_params = FlaxUNet2DConditionModel.from_pretrained(model_id, subfolder="unet", from_pt=True, dtype=self.dtype)
         vae, vae_params = FlaxAutoencoderKL.from_pretrained(model_id, subfolder="vae", from_pt=True, dtype=self.dtype)
         text_encoder = FlaxCLIPTextModel.from_pretrained(model_id, subfolder="text_encoder", from_pt=True, dtype=self.dtype)
-        self.pipe = FlaxStableDiffusionControlNetPipeline(vae=vae,
+        self.pipe = FlaxTextToVideoPipeline(vae=vae,
                                                         text_encoder=text_encoder,
                                                         tokenizer=tokenizer,
                                                         unet=unet,
@@ -79,30 +81,26 @@ class Model:
         self.model_type = model_type
         self.model_name = model_id
 
-    def inference_chunk(self, image, frame_ids, **kwargs):
-        if not hasattr(self, "pipe") or self.pipe is None:
-            return
-        prng_seed = jax.random.split(self.rng, jax.device_count())
-        prompt = kwargs.pop('prompt')
-        prompt_ids = self.pipe.prepare_text_inputs(prompt)
-        negative_prompt = kwargs.pop('negative_prompt', '')
-        n_prompt_ids = self.pipe.prepare_text_inputs(negative_prompt)
-        latents = None
-        frame_ids = jnp.array(frame_ids)
-        if 'latents' in kwargs:
-            latents = kwargs.pop('latents')[frame_ids]
-        if self.model_type == ModelType.Text2Video:
-            kwargs["frame_ids"] = frame_ids
-        return self.pipe(
-                        image=image[frame_ids],
-                        prompt_ids=prompt_ids[frame_ids],
-                        params=self.p_params,
-                        prng_seed=prng_seed,
-                        neg_prompt_ids=n_prompt_ids[frame_ids],
-                        latents=latents[frame_ids],
-                        jit=True,
-                        # **kwargs
-                        )
+    # def inference_chunk(self, image, frame_ids, prompt, negative_prompt, **kwargs):
+
+    #     prompt_ids = self.pipe.prepare_text_inputs(prompt)
+    #     n_prompt_ids = self.pipe.prepare_text_inputs(negative_prompt)
+    #     latents = kwargs.pop('latents')
+    #     # rng = jax.random.split(self.rng, jax.device_count())
+    #     prng, self.rng = jax.random.split(self.rng)
+    #     #prng = jax.numpy.stack([prng] * jax.device_count())#same prng seed on every device
+    #     prng_seed = jax.random.split(prng, jax.device_count())
+    #     image = replicate_devices(image[frame_ids])
+    #     latents = replicate_devices(latents)
+    #     prompt_ids = replicate_devices(prompt_ids)
+    #     n_prompt_ids = replicate_devices(n_prompt_ids)
+    #     return (self.pipe(image=image,
+    #                         latents=latents,
+    #                         prompt_ids=prompt_ids,
+    #                         neg_prompt_ids=n_prompt_ids, 
+    #                         params=self.p_params,
+    #                         prng_seed=prng_seed, jit = True,
+    #                         ).images)[0]
 
     def inference(self, image, split_to_chunks=False, chunk_size=8, **kwargs):
         if not hasattr(self, "pipe") or self.pipe is None:
@@ -114,18 +112,19 @@ class Model:
             # if merging_ratio > 0:
             tomesd.apply_patch(self.pipe, ratio=merging_ratio)
 
-        f = image.shape[0]
+        # f = image.shape[0]
 
         assert 'prompt' in kwargs
-        prompt = [kwargs.pop('prompt')] * f
-        negative_prompt = [kwargs.pop('negative_prompt', '')] * f
+        prompt = [kwargs.pop('prompt')] 
+        negative_prompt = [kwargs.pop('negative_prompt', '')]
 
         frames_counter = 0
 
         # Processing chunk-by-chunk
         if split_to_chunks:
             pass
-            ## not tested
+            # # not tested
+            # f = image.shape[0]
             # chunk_ids = np.arange(0, f, chunk_size - 1)
             # result = []
             # for i in range(len(chunk_ids)):
@@ -144,28 +143,36 @@ class Model:
             # result = np.concatenate(result)
             # return result
         else:
-            prompt_ids = self.pipe.prepare_text_inputs(prompt)
-            n_prompt_ids = self.pipe.prepare_text_inputs(negative_prompt)
-            latents = kwargs.pop('latents')
-            # rng = jax.random.split(self.rng, jax.device_count())
-            prng, self.rng = jax.random.split(self.rng)
-            #prng = jax.numpy.stack([prng] * jax.device_count())#same prng seed on every device
-            prng = jax.random.split(prng, jax.device_count())
-            def replicate_devices(array):
-                return jnp.expand_dims(array, 0).repeat(jax.device_count(), 0)
-            image = replicate_devices(image)
-            latents = replicate_devices(latents)
-            prompt_ids = replicate_devices(prompt_ids)
-            n_prompt_ids = replicate_devices(n_prompt_ids)
-            return (self.pipe(image=image,
-                             latents=latents,
-                             prompt_ids=prompt_ids,
-                             neg_prompt_ids=n_prompt_ids, 
-                             params=self.p_params,
-                             prng_seed=prng, jit = True,
-                             **kwargs
-                             ).images).mean(axis=0)
-        
+            if 'jit' in kwargs and kwargs.pop('jit'):
+                prompt_ids = self.pipe.prepare_text_inputs(prompt)
+                n_prompt_ids = self.pipe.prepare_text_inputs(negative_prompt)
+                latents = kwargs.pop('latents')
+                prng, self.rng = jax.random.split(self.rng)
+                prng_seed = jax.random.split(prng, jax.device_count())
+                image = replicate_devices(image)
+                latents = replicate_devices(latents)
+                prompt_ids = replicate_devices(prompt_ids)
+                n_prompt_ids = replicate_devices(n_prompt_ids)
+                return (self.pipe(image=image,
+                                latents=latents,
+                                prompt_ids=prompt_ids,
+                                neg_prompt_ids=n_prompt_ids, 
+                                params=self.p_params,
+                                prng_seed=prng_seed, jit = True,
+                                ).images)[0]
+            else:
+                prompt_ids = self.pipe.prepare_text_inputs(prompt)
+                n_prompt_ids = self.pipe.prepare_text_inputs(negative_prompt)
+                latents = kwargs.pop('latents')
+                prng_seed, self.rng = jax.random.split(self.rng)
+                return self.pipe(image=image,
+                                latents=latents,
+                                prompt_ids=prompt_ids,
+                                neg_prompt_ids=n_prompt_ids, 
+                                params=self.p_params,
+                                prng_seed=prng_seed, jit = False,
+                                ).images
+
     def process_controlnet_pose(self,
                                 video_path,
                                 prompt,
