@@ -1,7 +1,7 @@
 import gradio as gr
 from model import Model
 import os
-from hf_utils import get_model_list
+from utils.hf_utils import get_model_list
 
 on_huggingspace = os.environ.get("SPACE_AUTHOR_NAME") == "PAIR"
 

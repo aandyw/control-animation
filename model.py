@@ -1,3 +1,4 @@
+import torch
 from enum import Enum
 import gc
 import numpy as np
@@ -10,21 +11,18 @@ import einops
 
 from transformers import CLIPTokenizer, CLIPFeatureExtractor, FlaxCLIPTextModel
 from diffusers import FlaxDDIMScheduler, FlaxControlNetModel, FlaxUNet2DConditionModel, FlaxAutoencoderKL, FlaxStableDiffusionControlNetPipeline
+from pipelines.text_to_video_pipeline import TextToVideoPipeline
 
-import utils
-import gradio_utils
+import utils.utils
+import utils.gradio_utils
 import os
 on_huggingspace = os.environ.get("SPACE_AUTHOR_NAME") == "PAIR"
 
 unshard = lambda x: einops.rearrange(x, 'd b ... -> (d b) ...')
 
 class ModelType(Enum):
-    Pix2Pix_Video = 1,
-    Text2Video = 2,
-    ControlNetCanny = 3,
-    ControlNetCannyDB = 4,
-    ControlNetPose = 5,
-    ControlNetDepth = 6,
+    Text2Video = 1,
+    ControlNetPose = 2,
 
 
 class Model:
@@ -33,12 +31,8 @@ class Model:
         self.dtype = dtype
         self.rng = jax.random.PRNGKey(0)
         self.pipe_dict = {
-            # ModelType.Pix2Pix_Video: StableDiffusionInstructPix2PixPipeline,
-            # ModelType.Text2Video: TextToVideoPipeline,
-            # ModelType.ControlNetCanny: StableDiffusionControlNetPipeline,
-            # ModelType.ControlNetCannyDB: StableDiffusionControlNetPipeline,
+            ModelType.Text2Video: TextToVideoPipeline, # TODO: Replace with our TextToVideo JAX Pipeline
             ModelType.ControlNetPose: FlaxStableDiffusionControlNetPipeline,
-            # ModelType.ControlNetDepth: StableDiffusionControlNetPipeline,
         }
 
         self.pipe = None
@@ -176,46 +170,30 @@ class Model:
                                 video_path,
                                 prompt,
                                 chunk_size=8,
-                                #merging_ratio=0.0,
-                                num_inference_steps=50,
+                                watermark='Picsart AI Research',
+                                merging_ratio=0.0,
+                                num_inference_steps=20,
                                 controlnet_conditioning_scale=1.0,
                                 guidance_scale=9.0,
-                                # eta=0.0, #this doesn't exist in the flax pipeline, relates to DDIM scheduler eta
+                                seed=42,
+                                eta=0.0,
                                 resolution=512,
+                                use_cf_attn=True,
                                 save_path=None):
         print("Module Pose")
         video_path = gradio_utils.motion_to_video_path(video_path)
         if self.model_type != ModelType.ControlNetPose:
-            #model_id = "tuwonga/zukki_style"
-            model_id="runwayml/stable-diffusion-v1-5"
-            controlnet_id = "fusing/stable-diffusion-v1-5-controlnet-openpose"
-            if self.from_local:
-                controlnet, controlnet_params = FlaxControlNetModel.from_pretrained(
-                    controlnet_id.split("/")[-1],
-                    # revision=args.controlnet_revision,
-                    from_pt=True,
-                    dtype=self.dtype,
-                )
-            else:
-                controlnet, controlnet_params = FlaxControlNetModel.from_pretrained(
-                    controlnet_id,
-                    # revision=args.controlnet_revision,
-                    from_pt=True,
-                    dtype=self.dtype,
-                )
-            tokenizer = CLIPTokenizer.from_pretrained(
-            model_id, subfolder="tokenizer"
-            )
-            scheduler, scheduler_state = FlaxDDIMScheduler.from_pretrained(
-            "runwayml/stable-diffusion-v1-5", subfolder ="scheduler"
-            )
+            controlnet = FlaxControlNetModel.from_pretrained(
+                "fusing/stable-diffusion-v1-5-controlnet-openpose")
             self.set_model(ModelType.ControlNetPose,
-                            model_id=model_id,
-                            tokenizer=tokenizer,
-                            controlnet=controlnet,
-                            controlnet_params=controlnet_params,
-                            scheduler=scheduler,
-                            scheduler_state=scheduler_state)
+                           model_id="runwayml/stable-diffusion-v1-5", controlnet=controlnet)
+            self.pipe.scheduler = FlaxDDIMScheduler.from_config(
+                self.pipe.scheduler.config)
+            if use_cf_attn:
+                self.pipe.unet.set_attn_processor(
+                    processor=self.controlnet_attn_proc)
+                self.pipe.controlnet.set_attn_processor(
+                    processor=self.controlnet_attn_proc)
 
         video_path = gradio_utils.motion_to_video_path(
             video_path) if 'Motion' in video_path else video_path
@@ -226,26 +204,97 @@ class Model:
         video, fps = utils.prepare_video(
             video_path, resolution, self.device, self.dtype, False, output_fps=4)
         control = utils.pre_process_pose(
-            video, apply_pose_detect=False)
+            video, apply_pose_detect=False).to(self.device).to(self.dtype)
         f, _, h, w = video.shape
-
-        self.rng, latents_rng = jax.random.split(self.rng)
-        latents = jax.random.normal(latents_rng, (1, 4, h//8, w//8))
-        latents = latents.repeat(f, 0) #latents.repeat(f, 1, 1, 1)
-
+        self.generator.manual_seed(seed)
+        latents = torch.randn((1, 4, h//8, w//8), dtype=self.dtype,
+                              device=self.device, generator=self.generator)
+        latents = latents.repeat(f, 1, 1, 1)
         result = self.inference(image=control,
                                 prompt=prompt + ', ' + added_prompt,
-                                # height=h,
-                                # width=w,
+                                height=h,
+                                width=w,
                                 negative_prompt=negative_prompts,
                                 num_inference_steps=num_inference_steps,
                                 guidance_scale=guidance_scale,
                                 controlnet_conditioning_scale=controlnet_conditioning_scale,
-                                # eta=eta,
+                                eta=eta,
                                 latents=latents,
-                                # output_type='numpy',
-                                split_to_chunks=False,
+                                seed=seed,
+                                output_type='numpy',
+                                split_to_chunks=True,
                                 chunk_size=chunk_size,
-                                # merging_ratio=merging_ratio,
+                                merging_ratio=merging_ratio,
                                 )
-        return utils.create_gif(result, fps, path=save_path, watermark=None)
+        return utils.create_gif(result, fps, path=save_path, watermark=gradio_utils.logo_name_to_path(watermark))
+
+    def process_text2video(self,
+                           prompt,
+                           model_name="dreamlike-art/dreamlike-photoreal-2.0",
+                           motion_field_strength_x=12,
+                           motion_field_strength_y=12,
+                           t0=44,
+                           t1=47,
+                           n_prompt="",
+                           chunk_size=8,
+                           video_length=8,
+                           watermark='Picsart AI Research',
+                           merging_ratio=0.0,
+                           seed=0,
+                           resolution=512,
+                           fps=2,
+                           use_cf_attn=True,
+                           use_motion_field=True,
+                           smooth_bg=False,
+                           smooth_bg_strength=0.4,
+                           path=None):
+        print("Module Text2Video")
+        if self.model_type != ModelType.Text2Video or model_name != self.model_name:
+            print("Model update")
+            unet = FlaxUNet2DConditionModel.from_pretrained(
+                model_name, subfolder="unet")
+            self.set_model(ModelType.Text2Video,
+                           model_id=model_name, unet=unet)
+            self.pipe.scheduler = FlaxDDIMScheduler.from_config(
+                self.pipe.scheduler.config)
+            if use_cf_attn:
+                self.pipe.unet.set_attn_processor(
+                    processor=self.text2video_attn_proc)
+        self.generator.manual_seed(seed)
+
+        added_prompt = "high quality, HD, 8K, trending on artstation, high focus, dramatic lighting"
+        negative_prompts = 'longbody, lowres, bad anatomy, bad hands, missing fingers, extra digit, fewer difits, cropped, worst quality, low quality, deformed body, bloated, ugly, unrealistic'
+
+        prompt = prompt.rstrip()
+        if len(prompt) > 0 and (prompt[-1] == "," or prompt[-1] == "."):
+            prompt = prompt.rstrip()[:-1]
+        prompt = prompt.rstrip()
+        prompt = prompt + ", "+added_prompt
+        if len(n_prompt) > 0:
+            negative_prompt = n_prompt
+        else:
+            negative_prompt = None
+
+        result = self.inference(prompt=prompt,
+                                video_length=video_length,
+                                height=resolution,
+                                width=resolution,
+                                num_inference_steps=50,
+                                guidance_scale=7.5,
+                                guidance_stop_step=1.0,
+                                t0=t0,
+                                t1=t1,
+                                motion_field_strength_x=motion_field_strength_x,
+                                motion_field_strength_y=motion_field_strength_y,
+                                use_motion_field=use_motion_field,
+                                smooth_bg=smooth_bg,
+                                smooth_bg_strength=smooth_bg_strength,
+                                seed=seed,
+                                output_type='numpy',
+                                negative_prompt=negative_prompt,
+                                merging_ratio=merging_ratio,
+                                split_to_chunks=True,
+                                chunk_size=chunk_size,
+                                )
+        return utils.create_video(result, fps, path=path, watermark=gradio_utils.logo_name_to_path(watermark))
+    
