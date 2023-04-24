@@ -122,22 +122,15 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
         self.vae_scale_factor = 2 ** (len(self.vae.config.block_out_channels) - 1)
 
     def DDPM_forward(self, params, prng, x0, t0, tMax, shape, text_embeddings):
-        #status=to_test
-        # rand_device = "cpu" if device.type == "mps" else device
         if x0 is None:
             return jax.random.normal(prng, shape, dtype=text_embeddings.dtype)
-            #return torch.randn(shape, generator=generator, device=rand_device, dtype=text_embeddings.dtype).to(device)
         else:
             eps = jax.random.normal(prng, x0.shape, dtype=text_embeddings.dtype)
-            # eps = torch.randn(x0.shape, dtype=text_embeddings.dtype, generator=generator,
-            #                   device=rand_device)
-            # alpha_vec = torch.prod(self.scheduler.alphas[t0:tMax])
-            alpha_vec = params["scheduler"].common.alphas_cumprod[tMax - 1]
-            # xt = torch.sqrt(alpha_vec) * x0 + \
-            #     torch.sqrt(1-alpha_vec) * eps
+            alpha_vec = jnp.prod(params["scheduler"].common.alphas[t0:tMax])
             xt = jnp.sqrt(alpha_vec) * x0 + \
                 jnp.sqrt(1-alpha_vec) * eps
             return xt
+        
     def DDIM_backward(self, params, num_inference_steps, timesteps, skip_t, t0, t1, do_classifier_free_guidance, text_embeddings, latents_local,
                         guidance_scale, controlnet_image=None, controlnet_conditioning_scale=None):
         scheduler_state = self.scheduler.set_timesteps(params["scheduler"], num_inference_steps)
@@ -179,11 +172,12 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
                         mid_block_additional_residual=mid_block_res_sample,
                     ).sample
                 else:
-                    noise_pred = self.unet.apply({"params": params["unet"]},
-                                                                        jnp.array(latent_model_input),
-                                                                        jnp.array(timestep, dtype=jnp.int32),
-                                                                        encoder_hidden_states=te,
-                                                                        ).sample
+                    noise_pred = self.unet.apply(
+                        {"params": params["unet"]},
+                        jnp.array(latent_model_input),
+                        jnp.array(timestep, dtype=jnp.int32),
+                        encoder_hidden_states=te,
+                        ).sample
                 # perform guidance
                 if do_classifier_free_guidance:
                     noise_pred_uncond, noise_pred_text = jnp.split(noise_pred, 2, axis=0)
@@ -196,12 +190,13 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
                 return (latents, x_t0_1, x_t1_1, scheduler_state)
             (latents, x_t0_1, x_t1_1, scheduler_state) = jax.lax.cond(t > skip_t, lambda val:val, continue_loop, (latents, x_t0_1, x_t1_1, scheduler_state))
             return (latents, x_t0_1, x_t1_1, scheduler_state)
+        latents_shape = latents.shape
+        x_t0_1, x_t1_1 = jnp.zeros(latents_shape), jnp.zeros(latents_shape)
         if DEBUG:
-            x_t0_1, x_t1_1 = jnp.zeros_like(latents), jnp.zeros_like(latents)
             for i in range(num_inference_steps):
                 latents, x_t0_1, x_t1_1, scheduler_state = loop_body(i, (latents, x_t0_1, x_t1_1, scheduler_state))
         else:
-            latents, x_t0_1, x_t1_1, scheduler_state = jax.lax.fori_loop(0, num_inference_steps, loop_body, (latents, jnp.zeros_like(latents), jnp.zeros_like(latents), scheduler_state))
+            latents, x_t0_1, x_t1_1, scheduler_state = jax.lax.fori_loop(0, num_inference_steps, loop_body, (latents, x_t0_1, x_t1_1, scheduler_state))
         latents = rearrange(latents, "(b f) c w h -> b c f  w h", f=f)
         res = {"x0": latents.copy()}
         if x_t0_1 is not None:
@@ -247,24 +242,23 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
         return motion_field, latents
     
     def text_to_video_zero(self, params,
-                                            prng,
-                                            latents,
-                                            text_embeddings,
-                                            video_length: Optional[int],
-                                            do_classifier_free_guidance = True,
-                                            height: Optional[int] = None,
-                                            width: Optional[int] = None,
-                                            num_inference_steps: int = 50,
-                                            guidance_scale: float = 7.5,
-                                            num_videos_per_prompt: Optional[int] = 1,
-                                            xT = None,
-                                            motion_field_strength_x: float = 12,
-                                            motion_field_strength_y: float = 12,
-                                            t0: int = 44,
-                                            t1: int = 47,
-                                            controlnet_image=None,
-                                            controlnet_conditioning_scale=0,
-                                            ):
+                           prng,
+                           text_embeddings,
+                           video_length: Optional[int],
+                           do_classifier_free_guidance = True,
+                           height: Optional[int] = None,
+                           width: Optional[int] = None,
+                           num_inference_steps: int = 50,
+                           guidance_scale: float = 7.5,
+                           num_videos_per_prompt: Optional[int] = 1,
+                           xT = None,
+                           motion_field_strength_x: float = 12,
+                           motion_field_strength_y: float = 12,
+                           t0: int = 44,
+                           t1: int = 47,
+                           controlnet_image=None,
+                           controlnet_conditioning_scale=0,
+                           ):
         frame_ids = list(range(video_length))
         # Prepare timesteps
         params["scheduler"] = self.scheduler.set_timesteps(params["scheduler"], num_inference_steps)
@@ -273,7 +267,6 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
         num_channels_latents = self.unet.in_channels
         batch_size = 1
         xT = prepare_latents(params, prng, batch_size * num_videos_per_prompt, num_channels_latents, 1, height, width, self.vae_scale_factor, xT)
-        #use motion fields ==>
         xT = xT[:, :, :1]
         timesteps_ddpm = [981, 961, 941, 921, 901, 881, 861, 841, 821, 801, 781, 761, 741, 721,
                             701, 681, 661, 641, 621, 601, 581, 561, 541, 521, 501, 481, 461, 441,
@@ -377,6 +370,11 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
         latents: Optional[jnp.array] = None,
         neg_prompt_ids: Optional[jnp.array] = None,
         controlnet_conditioning_scale: float = 1.0,
+        # xT = None, #TODO: pmap these
+        # motion_field_strength_x: float = 12,
+        # motion_field_strength_y: float = 12,
+        # t0: int = 44,
+        # t1: int = 47,
     ):
         height, width = image.shape[-2:]
         video_length = image.shape[0]
@@ -397,31 +395,19 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
         negative_prompt_embeds = self.text_encoder(uncond_input, params=params["text_encoder"])[0]
         context = jnp.concatenate([negative_prompt_embeds, prompt_embeds])
         image = jnp.concatenate([image] * 2)
-        latents_shape = (
-            batch_size,
-            self.unet.config.in_channels,
-            height // self.vae_scale_factor,
-            width // self.vae_scale_factor,
-        )
-        if latents is None:
-            latents = jax.random.normal(prng_seed, shape=latents_shape, dtype=jnp.float32)
-        else:
-            if latents.shape != latents_shape:
-                raise ValueError(f"Unexpected latents shape, got {latents.shape}, expected {latents_shape}")
         seed_t2vz, prng_seed = jax.random.split(prng_seed)
-
         #get the latent following text to video zero
-        latents = self.text_to_video_zero(params, seed_t2vz, latents, text_embeddings=context,
-                                                     video_length=video_length, height=height, width = width,
-                                                     num_inference_steps=num_inference_steps,
-                                                     guidance_scale=guidance_scale,
-                                                     controlnet_image=image, controlnet_conditioning_scale=controlnet_conditioning_scale
-                                                     )
-
+        latents = self.text_to_video_zero(params, seed_t2vz, text_embeddings=context, video_length=video_length,
+                                          height=height, width = width, num_inference_steps=num_inference_steps,
+                                          guidance_scale=guidance_scale, controlnet_image=image, xT=xT, t0=t0, t1=t1,
+                                          motion_field_strength_x=motion_field_strength_x,
+                                          motion_field_strength_y=motion_field_strength_y,
+                                          controlnet_conditioning_scale=controlnet_conditioning_scale
+                                          )
         # scale and decode the image latents with vae
         latents = 1 / self.vae.config.scaling_factor * latents
-        latents = rearrange(latents, "b c f h w -> (b f) c h w")
-        video = latents
+        video = self.vae.apply({"params": params["vae"]}, latents, method=self.vae.decode).sample
+        # latents = rearrange(latents, "b c f h w -> (b f) c h w")
         video = (video / 2 + 0.5).clip(0, 1).transpose(0, 2, 3, 1)
         return video
     
