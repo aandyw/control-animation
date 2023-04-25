@@ -59,9 +59,9 @@ class Model:
         )
         tokenizer = CLIPTokenizer.from_pretrained(model_id, subfolder="tokenizer")
         feature_extractor = CLIPFeatureExtractor.from_pretrained(model_id, subfolder="feature_extractor")
-        unet, unet_params = FlaxUNet2DConditionModel.from_pretrained(model_id, dtype = self.dtype, subfolder="unet", from_pt=True, dtype=self.dtype)
-        vae, vae_params = FlaxAutoencoderKL.from_pretrained(model_id, dtype = self.dtype, subfolder="vae", from_pt=True, dtype=self.dtype)
-        text_encoder = FlaxCLIPTextModel.from_pretrained(model_id, dtype = self.dtype, subfolder="text_encoder", from_pt=True, dtype=self.dtype)
+        unet, unet_params = FlaxUNet2DConditionModel.from_pretrained(model_id, subfolder="unet", from_pt=True, dtype=self.dtype)
+        vae, vae_params = FlaxAutoencoderKL.from_pretrained(model_id, subfolder="vae", from_pt=True, dtype=self.dtype)
+        text_encoder = FlaxCLIPTextModel.from_pretrained(model_id, subfolder="text_encoder", from_pt=True, dtype=self.dtype)
         self.pipe = FlaxTextToVideoPipeline(vae=vae,
                                                         text_encoder=text_encoder,
                                                         tokenizer=tokenizer,
@@ -104,14 +104,6 @@ class Model:
     def inference(self, image, split_to_chunks=False, chunk_size=8, **kwargs):
         if not hasattr(self, "pipe") or self.pipe is None:
             return
-
-        if "merging_ratio" in kwargs:
-            merging_ratio = kwargs.pop("merging_ratio")
-
-            # if merging_ratio > 0:
-            tomesd.apply_patch(self.pipe, ratio=merging_ratio)
-
-        # f = image.shape[0]
 
         assert 'prompt' in kwargs
         prompt = [kwargs.pop('prompt')] 
@@ -177,11 +169,11 @@ class Model:
                                 prompt,
                                 chunk_size=8,
                                 #merging_ratio=0.0,
-                                num_inference_steps=50,
+                                num_inference_steps=10,
                                 controlnet_conditioning_scale=1.0,
                                 guidance_scale=9.0,
                                 # eta=0.0, #this doesn't exist in the flax pipeline, relates to DDIM scheduler eta
-                                resolution=512,
+                                resolution=256,
                                 save_path=None):
         print("Module Pose")
         video_path = gradio_utils.motion_to_video_path(video_path)
