@@ -1,14 +1,15 @@
 import gradio as gr
 
-from model import Model, ModelType
+from pipelines.model import ControlAnimationModel, ModelType
 from app_pose import create_demo as create_demo_pose
 from app_text_to_video import create_demo as create_demo_text_to_video
+from app_control_animation import create_demo as create_demo_animation
 import argparse
 import os
 import jax.numpy as jnp
 
 on_huggingspace = os.environ.get("SPACE_AUTHOR_NAME") == "PAIR"
-model = Model(device='cuda', dtype=jnp.float16)
+model = ControlAnimationModel(device='cuda', dtype=jnp.float16)
 parser = argparse.ArgumentParser()
 parser.add_argument('--public_access', action='store_true',
                     help="if enabled, the app can be access from a public url", default=False)
@@ -50,12 +51,12 @@ with gr.Blocks(css='demo/style.css') as demo:
         <img style="margin-top: 0em; margin-bottom: 0em" src="https://bit.ly/3gLdBN6" alt="Duplicate Space"></a>
         </p>""")
 
+    with gr.Tab('Control Animation'):
+        create_demo_animation(model)
     with gr.Tab('Zero-Shot Text2Video'):
         create_demo_text_to_video(model)
     with gr.Tab('Pose Conditional'):
         create_demo_pose(model)
-    # with gr.Tab('Control Animation'):
-    #     pass
 
 if on_huggingspace:
     demo.queue(max_size=20)

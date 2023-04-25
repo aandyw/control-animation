@@ -1,5 +1,5 @@
 import gradio as gr
-from model import Model
+from pipelines.model import Model
 import os
 from utils.hf_utils import get_model_list
 

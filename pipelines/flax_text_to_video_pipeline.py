@@ -23,6 +23,16 @@ from diffusers.pipelines.stable_diffusion import FlaxStableDiffusionPipelineOutp
 from diffusers.pipelines.stable_diffusion.safety_checker_flax import FlaxStableDiffusionSafetyChecker
 logger = logging.get_logger(__name__)  # pylint: disable=invalid-name
 # Set to True to use python for loop instead of jax.fori_loop for easier debugging
+
+"""
+Text2Video-Zero:
+ - Inputs: Prompt, Pose Control via mp4/gif, First Frame (?)
+ - JAX implementation
+ - 3DUnet to replace 2DUnetConditional
+
+"""
+
+
 DEBUG = True
 EXAMPLE_DOC_STRING = """
     Examples:
@@ -325,6 +335,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
             return_tensors="np",
         )
         return text_input.input_ids
+    
     def prepare_image_inputs(self, image: Union[Image.Image, List[Image.Image]]):
         if not isinstance(image, (Image.Image, list)):
             raise ValueError(f"image has to be of type `PIL.Image.Image` or list but is {type(image)}")
@@ -332,9 +343,11 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
             image = [image]
         processed_images = jnp.concatenate([preprocess(img, jnp.float32) for img in image])
         return processed_images
+    
     def _get_has_nsfw_concepts(self, features, params):
         has_nsfw_concepts = self.safety_checker(features, params)
         return has_nsfw_concepts
+    
     def _run_safety_checker(self, images, safety_model_params, jit=False):
         # safety_model_params should already be replicated when jit is True
         pil_images = [Image.fromarray(image) for image in images]
@@ -359,6 +372,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
                     " instead. Try again with a different prompt and/or seed."
                 )
         return images, has_nsfw_concepts
+    
     def _generate(
         self,
         prompt_ids: jnp.array,

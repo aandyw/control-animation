@@ -9,18 +9,14 @@ from einops import rearrange
 import cv2
 from PIL import Image
 from annotator.util import resize_image, HWC3
-# from annotator.canny import CannyDetector
 from annotator.openpose import OpenposeDetector
-# from annotator.midas import MidasDetector
 import decord
 import jax
 import torch
 
 import flax.linen as nn
 
-# apply_canny = CannyDetector()
 apply_openpose = OpenposeDetector()
-# apply_midas = MidasDetector()
 
 
 def add_watermark(image, watermark_path, wm_rel_size=1/16, boundary=5):

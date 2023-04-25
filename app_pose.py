@@ -1,4 +1,4 @@
-from model import Model
+from pipelines.model import ControlAnimationModel
 import gradio as gr
 import os
 on_huggingspace = os.environ.get("SPACE_AUTHOR_NAME") == "PAIR"
@@ -12,7 +12,7 @@ examples = [
 ]
 
 
-def create_demo(model: Model):
+def create_demo(model: ControlAnimationModel):
     with gr.Blocks() as demo:
         with gr.Row():
             gr.Markdown('## Text and Pose Conditional Video Generation')

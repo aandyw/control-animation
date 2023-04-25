@@ -11,7 +11,7 @@ import einops
 
 from transformers import CLIPTokenizer, CLIPFeatureExtractor, FlaxCLIPTextModel
 from diffusers import FlaxDDIMScheduler, FlaxControlNetModel, FlaxUNet2DConditionModel, FlaxAutoencoderKL, FlaxStableDiffusionControlNetPipeline
-from pipelines.flax_text_to_video_pipeline import FlaxTextToVideoPipeline
+from flax_text_to_video_pipeline import FlaxTextToVideoPipeline
 
 import utils.utils
 import utils.gradio_utils as gradio_utils
@@ -28,7 +28,7 @@ class ModelType(Enum):
 def replicate_devices(array):
     return jnp.expand_dims(array, 0).repeat(jax.device_count(), 0)
 
-class Model:
+class ControlAnimationModel:
     def __init__(self, device, dtype, **kwargs):
         self.device = device
         self.dtype = dtype
