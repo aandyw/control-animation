@@ -2,7 +2,7 @@ from enum import Enum
 import gc
 import numpy as np
 import jax.numpy as jnp
-import tomesd
+# import tomesd
 import jax
 # from flax.training.common_utils import shard
 from flax import jax_utils
