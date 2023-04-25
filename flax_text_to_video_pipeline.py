@@ -399,9 +399,10 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
         #get the latent following text to video zero
         latents = self.text_to_video_zero(params, seed_t2vz, text_embeddings=context, video_length=video_length,
                                           height=height, width = width, num_inference_steps=num_inference_steps,
-                                          guidance_scale=guidance_scale, controlnet_image=image, xT=xT, t0=t0, t1=t1,
-                                          motion_field_strength_x=motion_field_strength_x,
-                                          motion_field_strength_y=motion_field_strength_y,
+                                          guidance_scale=guidance_scale, controlnet_image=image,
+                                        #   xT=xT, t0=t0, t1=t1,
+                                        #   motion_field_strength_x=motion_field_strength_x,
+                                        #   motion_field_strength_y=motion_field_strength_y,
                                           controlnet_conditioning_scale=controlnet_conditioning_scale
                                           )
         # scale and decode the image latents with vae
