@@ -145,15 +145,15 @@ class Model:
             if 'jit' in kwargs and kwargs.pop('jit'):
                 prompt_ids = self.pipe.prepare_text_inputs(prompt)
                 n_prompt_ids = self.pipe.prepare_text_inputs(negative_prompt)
-                latents = kwargs.pop('latents')
+                # latents = kwargs.pop('latents')
                 prng, self.rng = jax.random.split(self.rng)
                 prng_seed = jax.random.split(prng, jax.device_count())
                 image = replicate_devices(image)
-                latents = replicate_devices(latents)
+                # latents = replicate_devices(latents)
                 prompt_ids = replicate_devices(prompt_ids)
                 n_prompt_ids = replicate_devices(n_prompt_ids)
                 return (self.pipe(image=image,
-                                latents=latents,
+                                # latents=latents,
                                 prompt_ids=prompt_ids,
                                 neg_prompt_ids=n_prompt_ids, 
                                 params=self.p_params,
@@ -229,6 +229,7 @@ class Model:
                                 prompt=prompt + ', ' + added_prompt,
                                 # height=h,
                                 # width=w,
+                                jit=True,
                                 negative_prompt=negative_prompts,
                                 num_inference_steps=num_inference_steps,
                                 guidance_scale=guidance_scale,
