@@ -278,7 +278,6 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
         x_t1_1 = None
 
         # Denoising loop
-        batch_size, num_channels_latents, *_ = latents.shape
         shape = (batch_size, num_channels_latents, 1, height //
                 self.vae.scaling_factor, width // self.vae.scaling_factor)
 
