@@ -169,11 +169,11 @@ class Model:
                                 prompt,
                                 chunk_size=8,
                                 #merging_ratio=0.0,
-                                num_inference_steps=10,
+                                num_inference_steps=50,
                                 controlnet_conditioning_scale=1.0,
                                 guidance_scale=9.0,
                                 # eta=0.0, #this doesn't exist in the flax pipeline, relates to DDIM scheduler eta
-                                resolution=256,
+                                resolution=512,
                                 save_path=None):
         print("Module Pose")
         video_path = gradio_utils.motion_to_video_path(video_path)

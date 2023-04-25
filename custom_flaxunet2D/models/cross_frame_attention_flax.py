@@ -22,7 +22,7 @@ import jax.numpy as jnp
 # from diffusers.models.attention_flax import FlaxBasicTransformerBlock
 from diffusers.models.attention_flax import FlaxFeedForward, jax_memory_efficient_attention
 
-def rearrange_3(array, f):
+def rearrange_3(array, f): 
     F, D, C = array.shape
     return jnp.reshape(array, (F // f, f, D, C))
 
@@ -258,7 +258,6 @@ class FlaxCrossFrameTransformer2DModel(nn.Module):
     only_cross_attention: bool = False
     dtype: jnp.dtype = jnp.float32
     use_memory_efficient_attention: bool = False
-    unet_chunk_size: int = 2
 
     def setup(self):
         self.norm = nn.GroupNorm(num_groups=32, epsilon=1e-5)
