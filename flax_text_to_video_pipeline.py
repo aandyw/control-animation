@@ -534,7 +534,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
 )
 def _p_generate(
     pipe,
-    prompt_ids,
+    prompt_ids, 
     image,
     params,
     prng_seed,
@@ -595,7 +595,6 @@ def adapt_pos(x, y, W, H):
   return y_adapted, x_adapted
 
 def safe_get(img, x,y,W,H):
-  #x_, y_ = adapt_pos(x,y,W,H)
   return img[adapt_pos(x,y,W,H)]
 
 @jax.vmap

@@ -9,8 +9,9 @@ from flax import jax_utils
 import einops
 
 from transformers import CLIPTokenizer, CLIPFeatureExtractor, FlaxCLIPTextModel
-from diffusers import FlaxDDIMScheduler, FlaxControlNetModel, FlaxUNet2DConditionModel, FlaxAutoencoderKL #, FlaxStableDiffusionControlNetPipeline
+from diffusers import FlaxDDIMScheduler, FlaxControlNetModel, FlaxAutoencoderKL #FlaxUNet2DConditionModel, FlaxStableDiffusionControlNetPipeline
 
+from .custom_flaxunet2D.unet_2d_condition_flax import FlaxUNet2DConditionModel
 from flax_text_to_video_pipeline import FlaxTextToVideoPipeline
 # from wip import FlaxTextToVideoControlNetPipeline
 # from wip_pipe import testPipeline
@@ -46,8 +47,6 @@ class Model:
         self.states = {}
         self.model_name = ""
 
-        self.from_local = True #if the attn model is available in local (after adaptation by adapt_attn.py)
-
     def set_model(self, model_type: ModelType, model_id: str, controlnet, controlnet_params, tokenizer, scheduler, scheduler_state, **kwargs):
         if hasattr(self, "pipe") and self.pipe is not None:
             del self.pipe
@@ -60,10 +59,7 @@ class Model:
         )
         tokenizer = CLIPTokenizer.from_pretrained(model_id, subfolder="tokenizer")
         feature_extractor = CLIPFeatureExtractor.from_pretrained(model_id, subfolder="feature_extractor")
-        if self.from_local:
-            unet, unet_params = FlaxUNet2DConditionModel.from_pretrained(f'./{model_id.split("/")[-1]}', subfolder="unet", from_pt=True, dtype=self.dtype)
-        else:
-            unet, unet_params = FlaxUNet2DConditionModel.from_pretrained(model_id, subfolder="unet", from_pt=True, dtype=self.dtype)
+        unet, unet_params = FlaxUNet2DConditionModel.from_pretrained(model_id, subfolder="unet", from_pt=True, dtype=self.dtype)
         vae, vae_params = FlaxAutoencoderKL.from_pretrained(model_id, subfolder="vae", from_pt=True, dtype=self.dtype)
         text_encoder = FlaxCLIPTextModel.from_pretrained(model_id, subfolder="text_encoder", from_pt=True, dtype=self.dtype)
         self.pipe = FlaxTextToVideoPipeline(vae=vae,
@@ -193,20 +189,12 @@ class Model:
             #model_id = "tuwonga/zukki_style"
             model_id="runwayml/stable-diffusion-v1-5"
             controlnet_id = "fusing/stable-diffusion-v1-5-controlnet-openpose"
-            if self.from_local:
-                controlnet, controlnet_params = FlaxControlNetModel.from_pretrained(
-                    controlnet_id.split("/")[-1],
-                    # revision=args.controlnet_revision,
-                    from_pt=True,
-                    dtype=self.dtype,
-                )
-            else:
-                controlnet, controlnet_params = FlaxControlNetModel.from_pretrained(
-                    controlnet_id,
-                    # revision=args.controlnet_revision,
-                    from_pt=True,
-                    dtype=self.dtype,
-                )
+            controlnet, controlnet_params = FlaxControlNetModel.from_pretrained(
+                controlnet_id,
+                # revision=args.controlnet_revision,
+                from_pt=True,
+                dtype=self.dtype,
+            )
             tokenizer = CLIPTokenizer.from_pretrained(
             model_id, subfolder="tokenizer"
             )
