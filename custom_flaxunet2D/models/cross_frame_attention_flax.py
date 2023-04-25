@@ -69,6 +69,9 @@ class FlaxCrossFrameAttention(nn.Module):
         self.key = nn.Dense(inner_dim, use_bias=False, dtype=self.dtype, name="to_k")
         self.value = nn.Dense(inner_dim, use_bias=False, dtype=self.dtype, name="to_v")
 
+        self.add_k_proj = nn.Dense(inner_dim, use_bias=False, dtype=self.dtype)
+        self.add_v_proj = nn.Dense(inner_dim, use_bias=False, dtype=self.dtype)
+
         self.proj_attn = nn.Dense(self.query_dim, dtype=self.dtype, name="to_out_0")
 
     def reshape_heads_to_batch_dim(self, tensor):
@@ -87,15 +90,15 @@ class FlaxCrossFrameAttention(nn.Module):
         tensor = tensor.reshape(batch_size // head_size, seq_len, dim * head_size)
         return tensor
 
-    def __call__(self, hidden_states, context=None, cross_frame=False, deterministic=True):
-        
+    def __call__(self, hidden_states, context=None, deterministic=True):
+        is_cross_attention = context is not None
         context = hidden_states if context is None else context
         query_proj = self.query(hidden_states)
         key_proj = self.key(context)
         value_proj = self.value(context)
 
         # Sparse Attention
-        if cross_frame:
+        if not is_cross_attention:
             video_length = 1 if key_proj.shape[0] < self.batch_size else key_proj.shape[0] // self.batch_size
             first_frame_index = [0] * video_length
 
@@ -199,22 +202,18 @@ class FlaxBasicTransformerBlock(nn.Module):
     def __call__(self, hidden_states, context, deterministic=True):
         # self attention
         residual = hidden_states
-        if context is not None and self.only_cross_attention:
-            #cross frame attn
-            hidden_states = self.attn1(self.norm1(hidden_states), context, cross_frame=True, deterministic=deterministic)
-        # elif self.only_cross_attention:
-        #     hidden_states = self.attn1(self.norm1(hidden_states), context, deterministic=deterministic)
+
+        if self.only_cross_attention:
+            hidden_states = self.attn1(self.norm1(hidden_states), context, deterministic=deterministic)
         else:
-            hidden_states = self.attn1(self.norm1(hidden_states), cross_frame=False, deterministic=deterministic)
+            hidden_states = self.attn1(self.norm1(hidden_states), deterministic=deterministic)
         hidden_states = hidden_states + residual
 
         # cross attention
         residual = hidden_states
 
-        if context is not None:
-            hidden_states = self.attn2(self.norm2(hidden_states), context, cross_frame=True, deterministic=deterministic) #cross_frame=True,
-        else:
-            hidden_states = self.attn2(self.norm2(hidden_states), context, cross_frame=False, deterministic=deterministic)
+        hidden_states = self.attn2(self.norm2(hidden_states), context, deterministic=deterministic)
+
         hidden_states = hidden_states + residual
 
         # feed forward
