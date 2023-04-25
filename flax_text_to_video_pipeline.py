@@ -406,8 +406,8 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
                                           )
         # scale and decode the image latents with vae
         latents = 1 / self.vae.config.scaling_factor * latents
+        latents = rearrange(latents, "b c f h w -> (b f) c h w")
         video = self.vae.apply({"params": params["vae"]}, latents, method=self.vae.decode).sample
-        # latents = rearrange(latents, "b c f h w -> (b f) c h w")
         video = (video / 2 + 0.5).clip(0, 1).transpose(0, 2, 3, 1)
         return video
     
