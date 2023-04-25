@@ -11,7 +11,7 @@ import einops
 from transformers import CLIPTokenizer, CLIPFeatureExtractor, FlaxCLIPTextModel
 from diffusers import FlaxDDIMScheduler, FlaxControlNetModel, FlaxAutoencoderKL #FlaxUNet2DConditionModel, FlaxStableDiffusionControlNetPipeline
 
-from .custom_flaxunet2D.unet_2d_condition_flax import FlaxUNet2DConditionModel
+from custom_flaxunet2D.unet_2d_condition_flax import FlaxUNet2DConditionModel
 from flax_text_to_video_pipeline import FlaxTextToVideoPipeline
 # from wip import FlaxTextToVideoControlNetPipeline
 # from wip_pipe import testPipeline
