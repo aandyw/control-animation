@@ -59,9 +59,9 @@ class Model:
         )
         tokenizer = CLIPTokenizer.from_pretrained(model_id, subfolder="tokenizer")
         feature_extractor = CLIPFeatureExtractor.from_pretrained(model_id, subfolder="feature_extractor")
-        unet, unet_params = FlaxUNet2DConditionModel.from_pretrained(model_id, subfolder="unet", from_pt=True, dtype=self.dtype)
-        vae, vae_params = FlaxAutoencoderKL.from_pretrained(model_id, subfolder="vae", from_pt=True, dtype=self.dtype)
-        text_encoder = FlaxCLIPTextModel.from_pretrained(model_id, subfolder="text_encoder", from_pt=True, dtype=self.dtype)
+        unet, unet_params = FlaxUNet2DConditionModel.from_pretrained(model_id, dtype = self.dtype, subfolder="unet", from_pt=True, dtype=self.dtype)
+        vae, vae_params = FlaxAutoencoderKL.from_pretrained(model_id, dtype = self.dtype, subfolder="vae", from_pt=True, dtype=self.dtype)
+        text_encoder = FlaxCLIPTextModel.from_pretrained(model_id, dtype = self.dtype, subfolder="text_encoder", from_pt=True, dtype=self.dtype)
         self.pipe = FlaxTextToVideoPipeline(vae=vae,
                                                         text_encoder=text_encoder,
                                                         tokenizer=tokenizer,
