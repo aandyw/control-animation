@@ -242,3 +242,9 @@ class Model:
                                 # merging_ratio=merging_ratio,
                                 )
         return utils.create_gif(result, fps, path=save_path, watermark=None)
+
+
+if __name__ == "__main__":
+    video_path = "Motion 1"
+    model = Model(device='cuda', dtype=jnp.float16)
+    result = model.process_controlnet_pose(video_path, "An astronaut dancing in the outer space")

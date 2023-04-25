@@ -18,7 +18,6 @@ parser.add_argument('--public_access', action='store_true',
                     help="if enabled, the app can be access from a public url", default=False)
 args = parser.parse_args()
 
-
 with gr.Blocks(css='style.css') as demo:
 
     gr.HTML(
