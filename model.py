@@ -221,7 +221,7 @@ class Model:
                                 prompt=prompt + ', ' + added_prompt,
                                 # height=h,
                                 # width=w,
-                                #jit=True,
+                                jit=True,
                                 negative_prompt=negative_prompts,
                                 num_inference_steps=num_inference_steps,
                                 guidance_scale=guidance_scale,
