@@ -185,8 +185,8 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
                         (noise_pred_text - noise_pred_uncond)
                 # compute the previous noisy sample x_t -> x_t-1
                 latents, scheduler_state = self.scheduler.step(scheduler_state, noise_pred, t, latents).to_tuple()
-                x_t0_1 = jax.lax.cond(i < len(timesteps)-1 and timesteps[i+1] == t0, lambda :latents.copy(), lambda :x_t0_1)
-                x_t1_1 = jax.lax.cond(i < len(timesteps)-1 and timesteps[i+1] == t1, lambda :latents.copy(), lambda :x_t1_1)
+                x_t0_1 = jax.lax.select(i < len(timesteps)-1 and timesteps[i+1] == t0, latents, x_t0_1)
+                x_t1_1 = jax.lax.select(i < len(timesteps)-1 and timesteps[i+1] == t1, latents, x_t1_1)
                 return (latents, x_t0_1, x_t1_1, scheduler_state)
             (latents, x_t0_1, x_t1_1, scheduler_state) = jax.lax.cond(t > skip_t, lambda val:val, continue_loop, (latents, x_t0_1, x_t1_1, scheduler_state))
             return (latents, x_t0_1, x_t1_1, scheduler_state)
@@ -298,11 +298,11 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
         # assuming t0=t1=1000, if t0 = 1000
 
         # DDPM forward for more motion freedom
+        ddpm_fwd = partial(self.DDPM_forward, params=params, prng=prng, x0=x_t0_k, t0=t0,
+                           tMax=t1, shape=shape, text_embeddings=text_embeddings)
         x_t1_k = jax.lax.cond(t1 > t0,
-                     lambda:self.DDPM_forward(
-                                        params=params, prng=prng, x0=x_t0_k, t0=t0, tMax=t1, shape=shape, text_embeddings=text_embeddings
-                                        ),
-                    lambda:x_t0_k
+                              ddpm_fwd,
+                              lambda:x_t0_k
         )
         x_t1 = jnp.concatenate([x_t1_1, x_t1_k], axis=2).copy()
 
