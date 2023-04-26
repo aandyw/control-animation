@@ -140,6 +140,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
         latents = latents_local.copy()
         x_t0_1 = None
         x_t1_1 = None
+        max_timestep = len(timesteps)
         def while_body(args):
             step, latents, x_t0_1, x_t1_1, scheduler_state = args
             t = jnp.array(scheduler_state.timesteps, dtype=jnp.int32)[step]
@@ -184,16 +185,12 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
                     (noise_pred_text - noise_pred_uncond)
             # compute the previous noisy sample x_t -> x_t-1
             latents, scheduler_state = self.scheduler.step(scheduler_state, noise_pred, t, latents).to_tuple()
-            x_t0_1 = jax.lax.select(step < len(timesteps)-1 and timesteps[step+1] == t0, latents, x_t0_1)
-            x_t1_1 = jax.lax.select(step < len(timesteps)-1 and timesteps[step+1] == t1, latents, x_t1_1)
+            x_t0_1 = jax.lax.select(step < max_timestep-1 and timesteps[step+1] == t0, latents, x_t0_1)
+            x_t1_1 = jax.lax.select(step < max_timestep-1 and timesteps[step+1] == t1, latents, x_t1_1)
             return (step + 1, latents, x_t0_1, x_t1_1, scheduler_state)
         latents_shape = latents.shape
         x_t0_1, x_t1_1 = jnp.zeros(latents_shape), jnp.zeros(latents_shape)
 
-        # @partial(jax.jit, static_argnums=(0,))
-        # def cond_fun(val):
-        #     step, *_ = val
-        #     return step < skip_t and step < num_inference_steps
         def cond_fun(arg):
             step, latents, x_t0_1, x_t1_1, scheduler_state = arg
             return (step < skip_t) & (step < num_inference_steps)
