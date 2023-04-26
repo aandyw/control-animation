@@ -140,66 +140,63 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
         latents = latents_local.copy()
         x_t0_1 = None
         x_t1_1 = None
-        def loop_body(step, args):
-            latents, x_t0_1, x_t1_1, scheduler_state = args
+        def while_body(args):
+            step, latents, x_t0_1, x_t1_1, scheduler_state = args
             t = jnp.array(scheduler_state.timesteps, dtype=jnp.int32)[step]
-            def continue_loop(val):
-                latents, x_t0_1, x_t1_1, scheduler_state = val
-                latent_model_input = jnp.concatenate(
-                    [latents] * 2) if do_classifier_free_guidance else latents
-                latent_model_input = self.scheduler.scale_model_input(
-                    scheduler_state, latent_model_input, timestep=t
+            latent_model_input = jnp.concatenate(
+                [latents] * 2) if do_classifier_free_guidance else latents
+            latent_model_input = self.scheduler.scale_model_input(
+                scheduler_state, latent_model_input, timestep=t
+            )
+            f = latents.shape[0]
+            te = jnp.stack([text_embeddings[0, :, :]]*f + [text_embeddings[-1,:,:]]*f)
+            timestep = jnp.broadcast_to(t, latent_model_input.shape[0])
+            if controlnet_image is not None:
+                down_block_res_samples, mid_block_res_sample = self.controlnet.apply(
+                    {"params": params["controlnet"]},
+                    jnp.array(latent_model_input),
+                    jnp.array(timestep, dtype=jnp.int32),
+                    encoder_hidden_states=te,
+                    controlnet_cond=controlnet_image,
+                    conditioning_scale=controlnet_conditioning_scale,
+                    return_dict=False,
                 )
-                f = latents.shape[0]
-                te = jnp.stack([text_embeddings[0, :, :]]*f + [text_embeddings[-1,:,:]]*f)
-                timestep = jnp.broadcast_to(t, latent_model_input.shape[0])
-                if controlnet_image is not None:
-                    down_block_res_samples, mid_block_res_sample = self.controlnet.apply(
-                        {"params": params["controlnet"]},
-                        jnp.array(latent_model_input),
-                        jnp.array(timestep, dtype=jnp.int32),
-                        encoder_hidden_states=te,
-                        controlnet_cond=controlnet_image,
-                        conditioning_scale=controlnet_conditioning_scale,
-                        return_dict=False,
-                    )
-                    # predict the noise residual
-                    noise_pred = self.unet.apply(
-                        {"params": params["unet"]},
-                        jnp.array(latent_model_input),
-                        jnp.array(timestep, dtype=jnp.int32),
-                        encoder_hidden_states=te,
-                        down_block_additional_residuals=down_block_res_samples,
-                        mid_block_additional_residual=mid_block_res_sample,
+                # predict the noise residual
+                noise_pred = self.unet.apply(
+                    {"params": params["unet"]},
+                    jnp.array(latent_model_input),
+                    jnp.array(timestep, dtype=jnp.int32),
+                    encoder_hidden_states=te,
+                    down_block_additional_residuals=down_block_res_samples,
+                    mid_block_additional_residual=mid_block_res_sample,
+                ).sample
+            else:
+                noise_pred = self.unet.apply(
+                    {"params": params["unet"]},
+                    jnp.array(latent_model_input),
+                    jnp.array(timestep, dtype=jnp.int32),
+                    encoder_hidden_states=te,
                     ).sample
-                else:
-                    noise_pred = self.unet.apply(
-                        {"params": params["unet"]},
-                        jnp.array(latent_model_input),
-                        jnp.array(timestep, dtype=jnp.int32),
-                        encoder_hidden_states=te,
-                        ).sample
-                # perform guidance
-                if do_classifier_free_guidance:
-                    noise_pred_uncond, noise_pred_text = jnp.split(noise_pred, 2, axis=0)
-                    noise_pred = noise_pred_uncond + guidance_scale * \
-                        (noise_pred_text - noise_pred_uncond)
-                # compute the previous noisy sample x_t -> x_t-1
-                latents, scheduler_state = self.scheduler.step(scheduler_state, noise_pred, t, latents).to_tuple()
-                x_t0_1 = jax.lax.select(step < len(timesteps)-1 and timesteps[step+1] == t0, latents, x_t0_1)
-                x_t1_1 = jax.lax.select(step < len(timesteps)-1 and timesteps[step+1] == t1, latents, x_t1_1)
-                return (latents, x_t0_1, x_t1_1, scheduler_state)
-            if t > skip_t:
-                (latents, x_t0_1, x_t1_1, scheduler_state) = continue_loop(latents, x_t0_1, x_t1_1, scheduler_state)
-            #(latents, x_t0_1, x_t1_1, scheduler_state) = jax.lax.cond(t > skip_t, lambda val:val, continue_loop, (latents, x_t0_1, x_t1_1, scheduler_state))
-            return (latents, x_t0_1, x_t1_1, scheduler_state)
+            # perform guidance
+            if do_classifier_free_guidance:
+                noise_pred_uncond, noise_pred_text = jnp.split(noise_pred, 2, axis=0)
+                noise_pred = noise_pred_uncond + guidance_scale * \
+                    (noise_pred_text - noise_pred_uncond)
+            # compute the previous noisy sample x_t -> x_t-1
+            latents, scheduler_state = self.scheduler.step(scheduler_state, noise_pred, t, latents).to_tuple()
+            x_t0_1 = jax.lax.select(step < len(timesteps)-1 and timesteps[step+1] == t0, latents, x_t0_1)
+            x_t1_1 = jax.lax.select(step < len(timesteps)-1 and timesteps[step+1] == t1, latents, x_t1_1)
+            return (step + 1, latents, x_t0_1, x_t1_1, scheduler_state)
         latents_shape = latents.shape
         x_t0_1, x_t1_1 = jnp.zeros(latents_shape), jnp.zeros(latents_shape)
+        cond_fun = lambda args: args[0] > skip_t and args[0] < num_inference_steps
         if DEBUG:
-            for i in range(num_inference_steps):
-                latents, x_t0_1, x_t1_1, scheduler_state = loop_body(i, (latents, x_t0_1, x_t1_1, scheduler_state))
+            step = 0
+            while cond_fun((step, latents, x_t0_1, x_t1_1)):
+                step, latents, x_t0_1, x_t1_1, scheduler_state = while_body((step, latents, x_t0_1, x_t1_1, scheduler_state))
+                step = step + 1
         else:
-            latents, x_t0_1, x_t1_1, scheduler_state = jax.lax.fori_loop(0, num_inference_steps, loop_body, (latents, x_t0_1, x_t1_1, scheduler_state))
+            _, latents, x_t0_1, x_t1_1, scheduler_state = jax.lax.while_loop(cond_fun, while_body, (0, latents, x_t0_1, x_t1_1, scheduler_state))
         latents = rearrange(latents, "(b f) c w h -> b c f  w h", f=f)
         res = {"x0": latents.copy()}
         if x_t0_1 is not None:
