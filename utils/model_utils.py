@@ -1,3 +1,3 @@
 
-def load_safetensors():
-    
+def load_safetensors_model(ckpt_pth):
+    return

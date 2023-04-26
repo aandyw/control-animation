@@ -1,9 +1,9 @@
 import gradio as gr
-from pipelines.model import Model
+from pipelines.model import ControlAnimationModel
 import os
 from utils.hf_utils import get_model_list
 
-huggingspace_name = os.environ.get("SPACE_AUTHOR_NAME") 
+huggingspace_name = os.environ.get("SPACE_AUTHOR_NAME")
 on_huggingspace = huggingspace_name if huggingspace_name is not None else False
 
 examples = [
@@ -19,11 +19,10 @@ examples = [
 ]
 
 
-def create_demo(model: Model):
-
+def create_demo(model: ControlAnimationModel):
     with gr.Blocks() as demo:
         with gr.Row():
-            gr.Markdown('## Control Animation')
+            gr.Markdown("## Control Animation")
 
         # with gr.Row():
         #     with gr.Column():
