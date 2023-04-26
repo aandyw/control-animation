@@ -160,7 +160,7 @@ class Model:
                                 # latents=latents,
                                 prompt_ids=prompt_ids,
                                 neg_prompt_ids=n_prompt_ids, 
-                                params=self.p_params,
+                                params=self.params,
                                 prng_seed=prng_seed, jit = False,
                                 ).images
 
