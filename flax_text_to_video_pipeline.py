@@ -141,6 +141,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
         x_t0_1 = None
         x_t1_1 = None
         max_timestep = len(timesteps)
+        timesteps = jnp.array(timesteps)
         def while_body(args):
             step, latents, x_t0_1, x_t1_1, scheduler_state = args
             t = jnp.array(scheduler_state.timesteps, dtype=jnp.int32)[step]
