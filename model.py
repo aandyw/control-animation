@@ -151,6 +151,7 @@ class Model:
                                 prng_seed=prng_seed, jit = True,
                                 ).images)[0]
             else:
+                print("no jit")
                 prompt_ids = self.pipe.prepare_text_inputs(prompt)
                 n_prompt_ids = self.pipe.prepare_text_inputs(negative_prompt)
                 # latents = kwargs.pop('latents')
