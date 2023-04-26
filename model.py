@@ -9,12 +9,11 @@ from flax import jax_utils
 import einops
 
 from transformers import CLIPTokenizer, CLIPFeatureExtractor, FlaxCLIPTextModel
-from diffusers import FlaxDDIMScheduler, FlaxControlNetModel, FlaxAutoencoderKL #FlaxUNet2DConditionModel, FlaxStableDiffusionControlNetPipeline
+from diffusers import FlaxDDIMScheduler, FlaxAutoencoderKL #FlaxUNet2DConditionModel, FlaxStableDiffusionControlNetPipeline
 
 from custom_flaxunet2D.unet_2d_condition_flax import FlaxUNet2DConditionModel
+from custom_flaxunet2D.controlnet_flax import FlaxControlNetModel
 from flax_text_to_video_pipeline import FlaxTextToVideoPipeline
-# from wip import FlaxTextToVideoControlNetPipeline
-# from wip_pipe import testPipeline
 
 import utils
 import gradio_utils
@@ -154,10 +153,10 @@ class Model:
             else:
                 prompt_ids = self.pipe.prepare_text_inputs(prompt)
                 n_prompt_ids = self.pipe.prepare_text_inputs(negative_prompt)
-                latents = kwargs.pop('latents')
+                # latents = kwargs.pop('latents')
                 prng_seed, self.rng = jax.random.split(self.rng)
                 return self.pipe(image=image,
-                                latents=latents,
+                                # latents=latents,
                                 prompt_ids=prompt_ids,
                                 neg_prompt_ids=n_prompt_ids, 
                                 params=self.p_params,
@@ -221,7 +220,7 @@ class Model:
                                 prompt=prompt + ', ' + added_prompt,
                                 # height=h,
                                 # width=w,
-                                jit=True,
+                                #jit=True,
                                 negative_prompt=negative_prompts,
                                 num_inference_steps=num_inference_steps,
                                 guidance_scale=guidance_scale,
