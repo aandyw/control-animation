@@ -189,7 +189,10 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
             return (step + 1, latents, x_t0_1, x_t1_1, scheduler_state)
         latents_shape = latents.shape
         x_t0_1, x_t1_1 = jnp.zeros(latents_shape), jnp.zeros(latents_shape)
-        cond_fun = lambda args: args[0] < skip_t and args[0] < num_inference_steps
+        @partial(jax.jit, static_argnums=(0,))
+        def cond_fun(val):
+            step, *_ = val
+            return step < skip_t and step < num_inference_steps
         if DEBUG:
             step = 0
             while cond_fun((step, latents, x_t0_1, x_t1_1)):
