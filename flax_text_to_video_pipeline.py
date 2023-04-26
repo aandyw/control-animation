@@ -186,8 +186,8 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
                         (noise_pred_text - noise_pred_uncond)
                 # compute the previous noisy sample x_t -> x_t-1
                 latents, scheduler_state = self.scheduler.step(scheduler_state, noise_pred, t, latents).to_tuple()
-                x_t0_1 = jax.lax.select(i < len(timesteps)-1 and timesteps[i+1] == t0, latents, x_t0_1)
-                x_t1_1 = jax.lax.select(i < len(timesteps)-1 and timesteps[i+1] == t1, latents, x_t1_1)
+                x_t0_1 = jax.lax.select(step < len(timesteps)-1 and timesteps[step+1] == t0, latents, x_t0_1)
+                x_t1_1 = jax.lax.select(step < len(timesteps)-1 and timesteps[step+1] == t1, latents, x_t1_1)
                 return (latents, x_t0_1, x_t1_1, scheduler_state)
             (latents, x_t0_1, x_t1_1, scheduler_state) = jax.lax.cond(t > skip_t, lambda val:val, continue_loop, (latents, x_t0_1, x_t1_1, scheduler_state))
             return (latents, x_t0_1, x_t1_1, scheduler_state)
