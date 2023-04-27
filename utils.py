@@ -113,7 +113,7 @@ def create_video(frames, fps, rescale=False, path=None, watermark=None):
         outputs.append(x)
         # imageio.imsave(os.path.join(dir, os.path.splitext(name)[0] + f'_{i}.jpg'), x)
 
-    imageio.mimsave(path, outputs, fps=fps)
+    imageio.mimsave(path, outputs, duration=1000*1/fps)
     return path
 
 def create_gif(frames, fps, rescale=False, path=None, watermark=None):
@@ -133,7 +133,7 @@ def create_gif(frames, fps, rescale=False, path=None, watermark=None):
         outputs.append(x)
         # imageio.imsave(os.path.join(dir, os.path.splitext(name)[0] + f'_{i}.jpg'), x)
 
-    imageio.mimsave(path, outputs, fps=fps)
+    imageio.mimsave(path, outputs, duration=1000*1/fps)
     return path
 
 def prepare_video(video_path:str, resolution:int, device, dtype, normalize=True, start_t:float=0, end_t:float=-1, output_fps:int=-1):
