@@ -13,3 +13,10 @@ Jinja2
 --extra-index-url https://download.pytorch.org/whl/cpu
 torch
 torchvision
+gradio
+einops
+imageio
+decord
+opencv-python
+scikit-image
+bs4
