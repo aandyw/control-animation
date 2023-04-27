@@ -113,7 +113,7 @@ def create_video(frames, fps, rescale=False, path=None, watermark=None):
         outputs.append(x)
         # imageio.imsave(os.path.join(dir, os.path.splitext(name)[0] + f'_{i}.jpg'), x)
 
-    imageio.mimsave(path, outputs, duration=1000*1/fps)
+    imageio.mimsave(path, outputs, duration=1/fps)
     return path
 
 def create_gif(frames, fps, rescale=False, path=None, watermark=None):

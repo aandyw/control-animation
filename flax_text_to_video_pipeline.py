@@ -225,8 +225,23 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
         coords_t0 = jax.image.resize(coords_t0, (f, c, h, w), "linear")
         coords_t0 = rearrange(coords_t0, 'f c h w -> f h w c')
         latents_0 = rearrange(latents[0], 'c f h w -> f  c  h w')
-        warped = grid_sample(latents_0, coords_t0)
+        warped = grid_sample(latents_0, coords_t0, "mirror")
         warped = rearrange(warped, '(b f) c h w -> b c f h w', f=f)
+        return warped
+
+    def warp_vid_independently(self, vid, reference_flow):
+        _, _, H, W = reference_flow.shape
+        f, _, h, w = vid.shape
+        coords0 = coords_grid(f, H, W)
+        coords_t0 = coords0 + reference_flow
+        coords_t0 = coords_t0.at[:, 0].set(coords_t0[:, 0] * w / W)
+        coords_t0 = coords_t0.at[:, 1].set(coords_t0[:, 1] * h / H)
+        f, c, _, _ = coords_t0.shape
+        coords_t0 = jax.image.resize(coords_t0, (f, c, h, w), "linear")
+        coords_t0 = rearrange(coords_t0, 'f c h w -> f h w c')
+        # latents_0 = rearrange(vid, 'c f h w -> f  c  h w')
+        warped = grid_sample(vid, coords_t0, "zeropad")
+        # warped = rearrange(warped, 'f c h w -> b c f h w', f=f)
         return warped
     
     def create_motion_field(self, motion_field_strength_x, motion_field_strength_y, frame_ids, video_length, latents):
@@ -314,10 +329,8 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
 
         # backward stepts by stable diffusion
 
-        #TODO: if a controlnet video is provided, it might need to be warped wrt refence_flow as well
-        # for idx, c_img in enumerate(controlnet_image):
-        #     controlnet_image = controlnet_image.at[idx].set(self.warp_latents_independently(
-        #         c_img[None], reference_flow)[0])
+        #warp the controlnet image following the same flow defined for latent
+        controlnet_image = controlnet_image.at[1:].set(self.warp_vid_independently(controlnet_image[1:], reference_flow))
 
 
         ddim_res = self.DDIM_backward(params, num_inference_steps=num_inference_steps, timesteps=timesteps, skip_t=t1, t0=-1, t1=-1, do_classifier_free_guidance=do_classifier_free_guidance,
@@ -599,7 +612,7 @@ def coords_grid(batch, ht, wd):
     coords = jnp.stack(coords[::-1], axis=0)
     return coords[None].repeat(batch, 0)
 
-def adapt_pos(x, y, W, H):
+def adapt_pos_mirror(x, y, W, H):
   #adapt the position, with mirror padding
   x_w_mirror = ((x + W - 1) % (2*(W - 1))) - W + 1
   x_adapted = jnp.where(x_w_mirror > 0, x_w_mirror, - (x_w_mirror))
@@ -607,15 +620,21 @@ def adapt_pos(x, y, W, H):
   y_adapted = jnp.where(y_w_mirror > 0, y_w_mirror, - (y_w_mirror))
   return y_adapted, x_adapted
 
-def safe_get(img, x,y,W,H):
-  return img[adapt_pos(x,y,W,H)]
+def safe_get_zeropad(img, x,y,W,H):
+  return jnp.where((x < W) & (x > 0) & (y < H) & (y > 0), img[y,x], 0.)
 
-@jax.vmap
-@partial(jax.vmap, in_axes=(0, None))
-@partial(jax.vmap, in_axes=(None,0))
-@partial(jax.vmap, in_axes=(None, 0))
-def grid_sample(latents, grid):
+def safe_get_mirror(img, x,y,W,H):
+  return img[adapt_pos_mirror(x,y,W,H)]
+
+@partial(jax.vmap, in_axes=(0, 0, None))
+@partial(jax.vmap, in_axes=(0, None, None))
+@partial(jax.vmap, in_axes=(None,0, None))
+@partial(jax.vmap, in_axes=(None, 0, None))
+def grid_sample(latents, grid, method):
     # this is an alternative to torch.functional.nn.grid_sample in jax
     # this implementation is following the algorithm described @ https://pytorch.org/docs/stable/generated/torch.nn.functional.grid_sample.html
     # but with coordinates scaled to the size of the image
-    return safe_get(latents, jnp.array(grid[0], dtype=jnp.int16), jnp.array(grid[1], dtype=jnp.int16), latents.shape[0], latents.shape[1])
+    if method == "mirror":
+      return safe_get_mirror(latents, jnp.array(grid[0], dtype=jnp.int16), jnp.array(grid[1], dtype=jnp.int16), latents.shape[0], latents.shape[1])
+    else: #default is zero padding
+      return safe_get_zeropad(latents, jnp.array(grid[0], dtype=jnp.int16), jnp.array(grid[1], dtype=jnp.int16), latents.shape[0], latents.shape[1])
