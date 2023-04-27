@@ -397,11 +397,11 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
         latents: Optional[jnp.array] = None,
         neg_prompt_ids: Optional[jnp.array] = None,
         controlnet_conditioning_scale: float = 1.0,
-        # xT = None, #TODO: pmap these
-        # motion_field_strength_x: float = 12,
-        # motion_field_strength_y: float = 12,
-        # t0: int = 44,
-        # t1: int = 47,
+        xT = None,
+        motion_field_strength_x: float = 12,
+        motion_field_strength_y: float = 12,
+        t0: int = 44,
+        t1: int = 47,
     ):
         height, width = image.shape[-2:]
         video_length = image.shape[0]
@@ -427,9 +427,9 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
         latents = self.text_to_video_zero(params, seed_t2vz, text_embeddings=context, video_length=video_length,
                                           height=height, width = width, num_inference_steps=num_inference_steps,
                                           guidance_scale=guidance_scale, controlnet_image=image,
-                                        #   xT=xT, t0=t0, t1=t1,
-                                        #   motion_field_strength_x=motion_field_strength_x,
-                                        #   motion_field_strength_y=motion_field_strength_y,
+                                          xT=xT, t0=t0, t1=t1,
+                                          motion_field_strength_x=motion_field_strength_x,
+                                          motion_field_strength_y=motion_field_strength_y,
                                           controlnet_conditioning_scale=controlnet_conditioning_scale
                                           )
         # scale and decode the image latents with vae
@@ -453,6 +453,11 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
         controlnet_conditioning_scale: Union[float, jnp.array] = 1.0,
         return_dict: bool = True,
         jit: bool = False,
+        xT = None,
+        motion_field_strength_x: float = 3,
+        motion_field_strength_y: float = 4,
+        t0: int = 44,
+        t1: int = 47,
     ):
         r"""
         Function invoked when calling the pipeline for generation.
@@ -521,6 +526,11 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
                 latents,
                 neg_prompt_ids,
                 controlnet_conditioning_scale,
+                xT = xT,
+                motion_field_strength_x=motion_field_strength_x,
+                motion_field_strength_y=motion_field_strength_y,
+                t0=t0,
+                t1=t1,
             )
         else:
             images = self._generate(
@@ -533,6 +543,11 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
                 latents,
                 neg_prompt_ids,
                 controlnet_conditioning_scale,
+                xT = xT,
+                motion_field_strength_x=motion_field_strength_x,
+                motion_field_strength_y=motion_field_strength_y,
+                t0=t0,
+                t1=t1,
             )
         if self.safety_checker is not None:
             safety_params = params["safety_checker"]
@@ -557,8 +572,8 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
 # Non-static args are (sharded) input tensors mapped over their first dimension (hence, `0`).
 @partial(
     jax.pmap,
-    in_axes=(None, 0, 0, 0, 0, None, 0, 0, 0, 0),
-    static_broadcasted_argnums=(0, 5),
+    in_axes=(None, 0, 0, 0, 0, None, 0, 0, 0, 0, 0, None, None, None, None),
+    static_broadcasted_argnums=(0, 5, 11, 12, 13, 14),
 )
 def _p_generate(
     pipe,
@@ -571,6 +586,11 @@ def _p_generate(
     latents,
     neg_prompt_ids,
     controlnet_conditioning_scale,
+    xT,
+    motion_field_strength_x,
+    motion_field_strength_y,
+    t0,
+    t1,
 ):
     return pipe._generate(
         prompt_ids,
@@ -582,6 +602,11 @@ def _p_generate(
         latents,
         neg_prompt_ids,
         controlnet_conditioning_scale,
+        xT,
+        motion_field_strength_x,
+        motion_field_strength_y,
+        t0,
+        t1,
     )
 @partial(jax.pmap, static_broadcasted_argnums=(0,))
 def _p_get_has_nsfw_concepts(pipe, features, params):
