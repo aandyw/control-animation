@@ -526,11 +526,11 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
                 latents,
                 neg_prompt_ids,
                 controlnet_conditioning_scale,
-                xT = xT,
-                motion_field_strength_x=motion_field_strength_x,
-                motion_field_strength_y=motion_field_strength_y,
-                t0=t0,
-                t1=t1,
+                xT,
+                motion_field_strength_x,
+                motion_field_strength_y,
+                t0,
+                t1,
             )
         else:
             images = self._generate(
@@ -543,11 +543,11 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
                 latents,
                 neg_prompt_ids,
                 controlnet_conditioning_scale,
-                xT = xT,
-                motion_field_strength_x=motion_field_strength_x,
-                motion_field_strength_y=motion_field_strength_y,
-                t0=t0,
-                t1=t1,
+                xT,
+                motion_field_strength_x,
+                motion_field_strength_y,
+                t0,
+                t1,
             )
         if self.safety_checker is not None:
             safety_params = params["safety_checker"]
