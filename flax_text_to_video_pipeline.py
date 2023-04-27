@@ -315,9 +315,9 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
         # backward stepts by stable diffusion
 
         #TODO: if a controlnet video is provided, it might need to be warped wrt refence_flow as well
-        for idx, c_img in enumerate(controlnet_image):
-            controlnet_image = controlnet_image.at[idx].set(self.warp_latents_independently(
-                c_img[None], reference_flow)[0])
+        # for idx, c_img in enumerate(controlnet_image):
+        #     controlnet_image = controlnet_image.at[idx].set(self.warp_latents_independently(
+        #         c_img[None], reference_flow)[0])
 
 
         ddim_res = self.DDIM_backward(params, num_inference_steps=num_inference_steps, timesteps=timesteps, skip_t=t1, t0=-1, t1=-1, do_classifier_free_guidance=do_classifier_free_guidance,
