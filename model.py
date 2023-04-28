@@ -189,14 +189,15 @@ class Model:
                                 controlnet_conditioning_scale=1.0,
                                 guidance_scale=9.0,
                                 # eta=0.0, #this doesn't exist in the flax pipeline, relates to DDIM scheduler eta
-                                resolution=512,
+                                resolution=768,
                                 save_path=None):
         print("Module Pose")
         video_path = gradio_utils.motion_to_video_path(video_path)
         if self.model_type != ModelType.ControlNetPose:
             #model_id = "tuwonga/zukki_style"
-            model_id="runwayml/stable-diffusion-v1-5"
-            controlnet_id = "fusing/stable-diffusion-v1-5-controlnet-openpose"
+            model_id="stabilityai/stable-diffusion-2-1"
+            ti_id=""
+            controlnet_id = "thibaud/controlnet-sd21-openposev2-diffusers" #"fusing/stable-diffusion-v1-5-controlnet-openpose"
             controlnet, controlnet_params = FlaxControlNetModel.from_pretrained(
                 controlnet_id,
                 # revision=args.controlnet_revision,
@@ -207,7 +208,7 @@ class Model:
             model_id, subfolder="tokenizer"
             )
             scheduler, scheduler_state = FlaxDDIMScheduler.from_pretrained(
-            "runwayml/stable-diffusion-v1-5", subfolder ="scheduler"
+            "stabilityai/stable-diffusion-2-1", subfolder ="scheduler"
             )
             self.set_model(ModelType.ControlNetPose,
                             model_id=model_id,
