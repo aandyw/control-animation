@@ -136,7 +136,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
                         guidance_scale, controlnet_image=None, controlnet_conditioning_scale=None):
         scheduler_state = self.scheduler.set_timesteps(params["scheduler"], num_inference_steps)
         f = latents_local.shape[2]
-        latents_local = rearrange(latents_local, "b c f w h -> (b f) c w h")
+        latents_local = rearrange(latents_local, "b c f h w -> (b f) c h w")
         latents = latents_local.copy()
         x_t0_1 = None
         x_t1_1 = None
@@ -203,13 +203,13 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
                 step = step + 1
         else:
             _, latents, x_t0_1, x_t1_1, scheduler_state = jax.lax.while_loop(cond_fun, while_body, (0, latents, x_t0_1, x_t1_1, scheduler_state))
-        latents = rearrange(latents, "(b f) c w h -> b c f  w h", f=f)
+        latents = rearrange(latents, "(b f) c h w -> b c f  h w", f=f)
         res = {"x0": latents.copy()}
         if x_t0_1 is not None:
-            x_t0_1 = rearrange(x_t0_1, "(b f) c w h -> b c f  w h", f=f)
+            x_t0_1 = rearrange(x_t0_1, "(b f) c h w -> b c f  h w", f=f)
             res["x_t0_1"] = x_t0_1.copy()
         if x_t1_1 is not None:
-            x_t1_1 = rearrange(x_t1_1, "(b f) c w h -> b c f  w h", f=f)
+            x_t1_1 = rearrange(x_t1_1, "(b f) c h w -> b c f  h w", f=f)
             res["x_t1_1"] = x_t1_1.copy()
         return res
     
@@ -335,21 +335,24 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
         controlnet_video = controlnet_video.at[1:].set(self.warp_vid_independently(controlnet_video[1:], reference_flow))
         controlnet_image = jnp.concatenate([controlnet_video]*2)
 
-
+        smooth_bg = True
+        if smooth_bg:
+            #latent shape: "b c f h w"
+            M_FG = repeat(get_mask_pose(controlnet_image), "f h w -> b c f h w", c=x_t1.shape[1], b=batch_size)
+            initial_bg = repeat(x_t1[:,:,0] * (1 - M_FG[:,:,0]), "b c h w -> b c f h w", f=video_length-1)
+            #warp the controlnet image following the same flow defined for latent #f c h w
+            initial_bg_warped = self.warp_latents_independently(initial_bg, reference_flow)
+            bgs = x_t1[:,:,1:] * (1 - M_FG[:,:,1:]) #initial background 
+            initial_mask_warped = 1 - self.warp_latents_independently(repeat(M_FG[:,:,0], "b c h w -> b c f h w", f = video_length-1), reference_flow)
+            # initial_mask_warped = 1 - warp_vid_independently(repeat(M_FG[:,:,0], "b c h w -> (b f) c h w", f = video_length-1), reference_flow)
+            # initial_mask_warped = rearrange(initial_mask_warped, "(b f) c h w -> b c f h w", b=batch_size)
+            mask = (1 - M_FG[:,:,1:]) * initial_mask_warped
+            x_t1 = x_t1.at[:,:,1:].set( (1 - mask) * x_t1[:,:,1:] + mask * (initial_bg_warped * smooth_bg_strength + (1 - smooth_bg_strength) * bgs))
+            
         ddim_res = self.DDIM_backward(params, num_inference_steps=num_inference_steps, timesteps=timesteps, skip_t=t1, t0=-1, t1=-1, do_classifier_free_guidance=do_classifier_free_guidance,
                                             text_embeddings=text_embeddings, latents_local=x_t1, guidance_scale=guidance_scale,
                                             controlnet_image=controlnet_image, controlnet_conditioning_scale=controlnet_conditioning_scale)
         x0 = ddim_res["x0"]
-
-        smooth_bg = True
-        if smooth_bg:
-            #x0 shape: "b c f h w"
-            M_FG = repeat(get_mask_pose(controlnet_video), "f w h -> b c f w h", c=x0.shape[1], b=batch_size)
-            initial_bg = repeat(x0[:,:,0] * M_FG[:,:,0], "b c w h -> b c f w h", f=video_length-1)
-            #warp the controlnet image following the same flow defined for latent #f c h w
-            initial_bg_warped = self.warp_latents_independently(initial_bg, reference_flow)
-            bgs = x0[:,:,1:] * ( 1 - M_FG[:,:,1:])
-            x0 = x0.at[:,:,1:].set( M_FG[:,:,1:] * x0[:,:,1:] + (1 - M_FG[:,:,1:])*(initial_bg_warped * smooth_bg_strength + (1 - smooth_bg_strength) * bgs))
 
         return x0
 
@@ -695,19 +698,10 @@ def mean_blur(vid, k):
   smooth_vid = convolve(vid, window)
   return smooth_vid
 
-def gauss_blur(vid, k=7):
-  # Smooth the noisy image with a 2D Gaussian smoothing kernel.
-  x = jnp.linspace(-3, 3, k)
-  convolve=jax.vmap(lambda img, kernel:jax.scipy.signal.convolve(img, kernel, mode='same'))
-  window_gauss = jax.scipy.stats.norm.pdf(x) * jax.scipy.stats.norm.pdf(x[:, None])
-  window_gauss = jnp.stack([window_gauss] * vid.shape[0])
-  smooth_vid = convolve(vid, window_gauss)
-  return smooth_vid
-
 def get_mask_pose(vid):
   vid = bandw_vid(vid, 0.4)
   l, h, w = vid.shape
   vid = jax.image.resize(vid, (l, h//8, w//8), "nearest")
-  vid=gauss_blur(bandw_vid(mean_blur(vid, 7)[:,None], threshold=0.01))
+  vid=bandw_vid(mean_blur(vid, 7)[:,None], threshold=0.01)
   return vid/(jnp.max(vid) + 1e-4)
   #return jax.image.resize(vid/(jnp.max(vid) + 1e-4), (l, h, w), "nearest")
