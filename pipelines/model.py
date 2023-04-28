@@ -12,12 +12,13 @@ import einops
 
 from transformers import CLIPTokenizer, CLIPFeatureExtractor, FlaxCLIPTextModel
 from diffusers import (
-    FlaxDDIMScheduler,
-    FlaxControlNetModel,
-    FlaxUNet2DConditionModel,
+    FlaxDDIMScheduler,,
     FlaxAutoencoderKL,
     FlaxStableDiffusionControlNetPipeline,
 )
+from custom_models.unet_2d_condition_flax import FlaxUNet2DConditionModel
+from custom_models.controlnet_flax import FlaxControlNetModel
+    
 from pipelines.text_to_video_pipeline import TextToVideoPipeline
 
 import utils.utils as utils
@@ -209,7 +210,7 @@ class ControlAnimationModel:
                     latents=latents,
                     prompt_ids=prompt_ids,
                     neg_prompt_ids=n_prompt_ids,
-                    params=self.p_params,
+                    params=self.params,
                     prng_seed=prng_seed,
                     jit=False,
                 ).images
