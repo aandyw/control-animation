@@ -347,7 +347,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
             initial_bg = repeat(x0[:,:,0] * M_FG[:,:,0], "b c w h -> b c f w h", f=video_length-1)
             bgs = x0[:,:,1:] * ( 1 - M_FG[:,:,1:])
             smooth_bg_strength = 0.4
-            x0 = x0.at[:,:,1:].set( M_FG * x0[:,:,1:] (1 - M_FG)(initial_bg * smooth_bg_strength + (1 - smooth_bg_strength) * bgs))
+            x0 = x0.at[:,:,1:].set( M_FG * x0[:,:,1:] + (1 - M_FG)*(initial_bg * smooth_bg_strength + (1 - smooth_bg_strength) * bgs))
 
         return x0
 
