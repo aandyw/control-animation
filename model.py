@@ -143,12 +143,16 @@ class Model:
                 # latents = replicate_devices(latents)
                 prompt_ids = replicate_devices(prompt_ids)
                 n_prompt_ids = replicate_devices(n_prompt_ids)
+                motion_field_strength_x = replicate_devices(kwargs.pop("motion_field_strength_x"))
+                motion_field_strength_y = replicate_devices(kwargs.pop("motion_field_strength_y"))
                 return (self.pipe(image=image,
                                 # latents=latents,
                                 prompt_ids=prompt_ids,
                                 neg_prompt_ids=n_prompt_ids, 
                                 params=self.p_params,
                                 prng_seed=prng_seed, jit = True,
+                                motion_field_strength_x=motion_field_strength_x,
+                                motion_field_strength_y=motion_field_strength_y,
                                 **kwargs
                                 ).images)[0]
             else:
@@ -239,8 +243,8 @@ class Model:
                                 # output_type='numpy',
                                 split_to_chunks=False,
                                 chunk_size=chunk_size,
-                                motion_field_strength_x=motion_field_strength_x,
-                                motion_field_strength_y=motion_field_strength_y,
+                                motion_field_strength_x=jnp.array(motion_field_strength_x),
+                                motion_field_strength_y=jnp.array(motion_field_strength_y),
                                 t0=t0,
                                 t1=t1,
                                 # merging_ratio=merging_ratio,
