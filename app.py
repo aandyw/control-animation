@@ -21,13 +21,36 @@ parser.add_argument('--public_access',
 args = parser.parse_args()
 
 
+title = """
+<div style="text-align: center; max-width: 1200px; margin: 20px auto;">
+<h1 style="font-weight: 900; font-size: 3rem; margin: 0rem">Control Animation</h1>
+"""
+
+description = """
+<div style="text-align: center; max-width: 1200px; margin: 20px auto;">
+<h2 style="font-weight: 450; font-size: 1rem; margin-top: 0.5rem; margin-bottom: 0.5rem">
+Our code uses <a href="https://www.humphreyshi.com/home">Text2Video-Zero</a> and the <a href="https://github.com/huggingface/diffusers">Diffusers</a> library as inspiration.
+</h2>
+</div>
+"""
+
+notice = """
+<p>For faster inference without waiting in queue, you may duplicate the space and upgrade to GPU in settings.
+<br/>
+<a href="https://github.com/Pie31415/control-animation">
+<img style="margin-top: 0em; margin-bottom: 0em" src="https://bit.ly/3gLdBN6" alt="Duplicate Space"></a>
+</p>
+"""
+
 with gr.Blocks(css='style.css') as demo:
+    gr.Markdown(title)
+    gr.Markdown(description)
 
     # gr.HTML(
     #     """
     #     <div style="text-align: center; max-width: 1200px; margin: 20px auto;">
     #     <h1 style="font-weight: 900; font-size: 3rem; margin: 0rem">
-    #         <a href="https://github.com/Picsart-AI-Research/Text2Video-Zero" style="color:blue;">Text2Video-Zero</a> 
+    #         <a href="https://github.com/Pie31415/control-animation" style="color:blue;">Control Animation</a> 
     #     </h1>
     #     <h2 style="font-weight: 450; font-size: 1rem; margin: 0rem">
     #     Levon Khachatryan<sup>1*</sup>, Andranik Movsisyan<sup>1*</sup>, Vahram Tadevosyan<sup>1*</sup>, Roberto Henschel<sup>1*</sup>, Zhangyang Wang<sup>1,2</sup>, Shant Navasardyan<sup>1</sup>
@@ -49,12 +72,7 @@ with gr.Blocks(css='style.css') as demo:
     #     """)
 
     if on_huggingspace:
-        gr.HTML("""
-        <p>For faster inference without waiting in queue, you may duplicate the space and upgrade to GPU in settings.
-        <br/>
-        <a href="https://huggingface.co/spaces/PAIR/Text2Video-Zero?duplicate=true">
-        <img style="margin-top: 0em; margin-bottom: 0em" src="https://bit.ly/3gLdBN6" alt="Duplicate Space"></a>
-        </p>""")
+        gr.HTML(notice)
 
     # NOTE: In our final demo we should consider removing zero-shot t2v and pose conditional
     with gr.Tab('Control Animation'):
