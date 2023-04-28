@@ -26,13 +26,14 @@ from diffusers.configuration_utils import ConfigMixin, flax_register_to_config
 from diffusers.utils import BaseOutput
 from diffusers.models.embeddings_flax import FlaxTimestepEmbedding, FlaxTimesteps
 from diffusers.models.modeling_flax_utils import FlaxModelMixin
-from .models.unet_2d_blocks_flax import (
+from models.flax_unet_2d_condition import (
     FlaxCrossAttnDownBlock2D,
     FlaxCrossAttnUpBlock2D,
     FlaxDownBlock2D,
     FlaxUNetMidBlock2DCrossAttn,
     FlaxUpBlock2D,
 )
+
 
 @flax.struct.dataclass
 class FlaxUNet2DConditionOutput(BaseOutput):
@@ -104,7 +105,12 @@ class FlaxUNet2DConditionModel(nn.Module, FlaxModelMixin, ConfigMixin):
         "CrossAttnDownBlock2D",
         "DownBlock2D",
     )
-    up_block_types: Tuple[str] = ("UpBlock2D", "CrossAttnUpBlock2D", "CrossAttnUpBlock2D", "CrossAttnUpBlock2D")
+    up_block_types: Tuple[str] = (
+        "UpBlock2D",
+        "CrossAttnUpBlock2D",
+        "CrossAttnUpBlock2D",
+        "CrossAttnUpBlock2D",
+    )
     only_cross_attention: Union[bool, Tuple[bool]] = False
     block_out_channels: Tuple[int] = (320, 640, 1280, 1280)
     layers_per_block: int = 2
@@ -122,7 +128,9 @@ class FlaxUNet2DConditionModel(nn.Module, FlaxModelMixin, ConfigMixin):
         sample_shape = (1, self.in_channels, self.sample_size, self.sample_size)
         sample = jnp.zeros(sample_shape, dtype=jnp.float32)
         timesteps = jnp.ones((1,), dtype=jnp.int32)
-        encoder_hidden_states = jnp.zeros((1, 1, self.cross_attention_dim), dtype=jnp.float32)
+        encoder_hidden_states = jnp.zeros(
+            (1, 1, self.cross_attention_dim), dtype=jnp.float32
+        )
 
         params_rng, dropout_rng = jax.random.split(rng)
         rngs = {"params": params_rng, "dropout": dropout_rng}
@@ -144,7 +152,9 @@ class FlaxUNet2DConditionModel(nn.Module, FlaxModelMixin, ConfigMixin):
 
         # time
         self.time_proj = FlaxTimesteps(
-            block_out_channels[0], flip_sin_to_cos=self.flip_sin_to_cos, freq_shift=self.config.freq_shift
+            block_out_channels[0],
+            flip_sin_to_cos=self.flip_sin_to_cos,
+            freq_shift=self.config.freq_shift,
         )
         self.time_embedding = FlaxTimestepEmbedding(time_embed_dim, dtype=self.dtype)
 
@@ -209,7 +219,9 @@ class FlaxUNet2DConditionModel(nn.Module, FlaxModelMixin, ConfigMixin):
         for i, up_block_type in enumerate(self.up_block_types):
             prev_output_channel = output_channel
             output_channel = reversed_block_out_channels[i]
-            input_channel = reversed_block_out_channels[min(i + 1, len(block_out_channels) - 1)]
+            input_channel = reversed_block_out_channels[
+                min(i + 1, len(block_out_channels) - 1)
+            ]
 
             is_final_block = i == len(block_out_channels) - 1
 
@@ -296,7 +308,9 @@ class FlaxUNet2DConditionModel(nn.Module, FlaxModelMixin, ConfigMixin):
         down_block_res_samples = (sample,)
         for down_block in self.down_blocks:
             if isinstance(down_block, FlaxCrossAttnDownBlock2D):
-                sample, res_samples = down_block(sample, t_emb, encoder_hidden_states, deterministic=not train)
+                sample, res_samples = down_block(
+                    sample, t_emb, encoder_hidden_states, deterministic=not train
+                )
             else:
                 sample, res_samples = down_block(sample, t_emb, deterministic=not train)
             down_block_res_samples += res_samples
@@ -313,7 +327,9 @@ class FlaxUNet2DConditionModel(nn.Module, FlaxModelMixin, ConfigMixin):
             down_block_res_samples = new_down_block_res_samples
 
         # 4. mid
-        sample = self.mid_block(sample, t_emb, encoder_hidden_states, deterministic=not train)
+        sample = self.mid_block(
+            sample, t_emb, encoder_hidden_states, deterministic=not train
+        )
 
         if mid_block_additional_residual is not None:
             sample += mid_block_additional_residual
@@ -321,7 +337,9 @@ class FlaxUNet2DConditionModel(nn.Module, FlaxModelMixin, ConfigMixin):
         # 5. up
         for up_block in self.up_blocks:
             res_samples = down_block_res_samples[-(self.layers_per_block + 1) :]
-            down_block_res_samples = down_block_res_samples[: -(self.layers_per_block + 1)]
+            down_block_res_samples = down_block_res_samples[
+                : -(self.layers_per_block + 1)
+            ]
             if isinstance(up_block, FlaxCrossAttnUpBlock2D):
                 sample = up_block(
                     sample,
@@ -331,7 +349,12 @@ class FlaxUNet2DConditionModel(nn.Module, FlaxModelMixin, ConfigMixin):
                     deterministic=not train,
                 )
             else:
-                sample = up_block(sample, temb=t_emb, res_hidden_states_tuple=res_samples, deterministic=not train)
+                sample = up_block(
+                    sample,
+                    temb=t_emb,
+                    res_hidden_states_tuple=res_samples,
+                    deterministic=not train,
+                )
 
         # 6. post-process
         sample = self.conv_norm_out(sample)
