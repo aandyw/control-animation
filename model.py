@@ -216,7 +216,8 @@ class Model:
         video_path = gradio_utils.motion_to_video_path(
             video_path) if 'Motion' in video_path else video_path
 
-        added_prompt = 'best quality, HD, clay stop-motion, claymation, HQ, masterpiece, art, smooth'
+        #added_prompt = 'best quality, HD, clay stop-motion, claymation, HQ, masterpiece, art, smooth'
+        added_prompt = 'high quality, anatomically correct, clay stop-motion, aardman, claymation, smooth'
         negative_prompts = 'longbody, lowres, bad anatomy, bad hands, missing fingers, extra digit, fewer difits, cropped, worst quality, low quality, deformed body, bloated, ugly'
         # negative_prompts=neg_prompt
         video, fps = utils.prepare_video(

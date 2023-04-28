@@ -339,6 +339,16 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
                                             text_embeddings=text_embeddings, latents_local=x_t1, guidance_scale=guidance_scale,
                                             controlnet_image=controlnet_image, controlnet_conditioning_scale=controlnet_conditioning_scale)
         x0 = ddim_res["x0"]
+
+        smooth_bg = True
+        if smooth_bg:
+            #x0 shape: "b c f h w"
+            M_FG = repeat(get_mask_pose(controlnet_video), "f w h -> b c f w h", c=x0.shape[1], b=batch_size)
+            initial_bg = repeat(x0[:,:,0] * M_FG[:,:,0], "b c w h -> b c f w h", f=video_length-1)
+            bgs = x0[:,:,1:] * ( 1 - M_FG[:,:,1:])
+            smooth_bg_strength = 0.4
+            x0 = x0.at[:,:,1:].set( M_FG * x0[:,:,1:] (1 - M_FG)(initial_bg * smooth_bg_strength + (1 - smooth_bg_strength) * bgs))
+
         return x0
 
     def prepare_text_inputs(self, prompt: Union[str, List[str]]):
@@ -665,3 +675,28 @@ def grid_sample(latents, grid, method):
       return safe_get_mirror(latents, jnp.array(grid[0], dtype=jnp.int16), jnp.array(grid[1], dtype=jnp.int16), latents.shape[0], latents.shape[1])
     else: #default is zero padding
       return safe_get_zeropad(latents, jnp.array(grid[0], dtype=jnp.int16), jnp.array(grid[1], dtype=jnp.int16), latents.shape[0], latents.shape[1])
+
+def bandw_vid(vid, threshold):
+  vid = jnp.max(vid, axis=1)
+  return jnp.where(vid > threshold, 1, 0)
+
+def mean_blur(vid, k):
+  window = jnp.ones((vid.shape[0], k, k))/ (k*k)
+  convolve=jax.vmap(lambda img, kernel:jsp.signal.convolve(img, kernel, mode='same'))
+  smooth_vid = convolve(vid, window)
+  return smooth_vid
+
+def gauss_blur(vid, k=7):
+  # Smooth the noisy image with a 2D Gaussian smoothing kernel.
+  x = jnp.linspace(-3, 3, k)
+  convolve=jax.vmap(lambda img, kernel:jax.scipy.signal.convolve(img, kernel, mode='same'))
+  window_gauss = jax.scipy.stats.norm.pdf(x) * jax.scipy.stats.norm.pdf(x[:, None])
+  window_gauss = jnp.stack([window_gauss] * vid.shape[0])
+  smooth_vid = convolve(vid, window_gauss)
+  return smooth_vid
+
+def get_mask_pose(vid):
+  l, h, w = vid.shape
+  vid = jax.image.resize(vid, (l, h//8, w//8), "nearest")
+  vid=gauss_blur(bandw_vid(mean_blur(vid, 7)[:,None], threshold=0.01))
+  return jax.image.resize(vid/(jnp.max(vid) + 1e-4), (l, h, w), "nearest")
