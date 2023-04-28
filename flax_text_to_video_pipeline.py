@@ -696,6 +696,7 @@ def gauss_blur(vid, k=7):
   return smooth_vid
 
 def get_mask_pose(vid):
+  vid = bandw_vid(vid, 0.4)
   l, h, w = vid.shape
   vid = jax.image.resize(vid, (l, h//8, w//8), "nearest")
   vid=gauss_blur(bandw_vid(mean_blur(vid, 7)[:,None], threshold=0.01))
