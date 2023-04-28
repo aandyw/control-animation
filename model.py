@@ -149,6 +149,7 @@ class Model:
                                 neg_prompt_ids=n_prompt_ids, 
                                 params=self.p_params,
                                 prng_seed=prng_seed, jit = True,
+                                **kwargs
                                 ).images)[0]
             else:
                 print("no jit")
@@ -162,12 +163,19 @@ class Model:
                                 neg_prompt_ids=n_prompt_ids, 
                                 params=self.params,
                                 prng_seed=prng_seed, jit = False,
+                                **kwargs
                                 ).images
 
     def process_controlnet_pose(self,
                                 video_path,
                                 prompt,
+                                # neg_prompt,
+                                # xT = None,
                                 chunk_size=8,
+                                motion_field_strength_x: float = 12,
+                                motion_field_strength_y: float = 12,
+                                t0: int = 44,
+                                t1: int = 47,
                                 #merging_ratio=0.0,
                                 num_inference_steps=50,
                                 controlnet_conditioning_scale=1.0,
@@ -204,9 +212,9 @@ class Model:
         video_path = gradio_utils.motion_to_video_path(
             video_path) if 'Motion' in video_path else video_path
 
-        added_prompt = 'best quality, extremely detailed, HD, ultra-realistic, 8K, HQ, masterpiece, trending on artstation, art, smooth'
-        negative_prompts = 'longbody, lowres, bad anatomy, bad hands, missing fingers, extra digit, fewer difits, cropped, worst quality, low quality, deformed body, bloated, ugly, unrealistic'
-
+        added_prompt = 'best quality, HD, clay stop-motion, claymation, HQ, masterpiece, art, smooth'
+        negative_prompts = 'longbody, lowres, bad anatomy, bad hands, missing fingers, extra digit, fewer difits, cropped, worst quality, low quality, deformed body, bloated, ugly'
+        # negative_prompts=neg_prompt
         video, fps = utils.prepare_video(
             video_path, resolution, self.device, self.dtype, False, output_fps=4)
         control = utils.pre_process_pose(
@@ -231,6 +239,10 @@ class Model:
                                 # output_type='numpy',
                                 split_to_chunks=False,
                                 chunk_size=chunk_size,
+                                motion_field_strength_x=motion_field_strength_x,
+                                motion_field_strength_y=motion_field_strength_y,
+                                t0=t0,
+                                t1=t1,
                                 # merging_ratio=merging_ratio,
                                 )
         return utils.create_gif(result, fps, path=save_path, watermark=None)
