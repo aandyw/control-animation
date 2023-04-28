@@ -145,12 +145,14 @@ class Model:
                 n_prompt_ids = replicate_devices(n_prompt_ids)
                 motion_field_strength_x = replicate_devices(kwargs.pop("motion_field_strength_x"))
                 motion_field_strength_y = replicate_devices(kwargs.pop("motion_field_strength_y"))
+                smooth_bg_strength = replicate_devices(kwargs.pop("smooth_bg_strength"))
                 return (self.pipe(image=image,
                                 # latents=latents,
                                 prompt_ids=prompt_ids,
                                 neg_prompt_ids=n_prompt_ids, 
                                 params=self.p_params,
                                 prng_seed=prng_seed, jit = True,
+                                smooth_bg_strength=smooth_bg_strength,
                                 motion_field_strength_x=motion_field_strength_x,
                                 motion_field_strength_y=motion_field_strength_y,
                                 **kwargs
@@ -173,9 +175,11 @@ class Model:
     def process_controlnet_pose(self,
                                 video_path,
                                 prompt,
+                                added_prompt,
                                 # neg_prompt,
                                 # xT = None,
                                 chunk_size=8,
+                                smooth_bg_strength: float=0.4,
                                 motion_field_strength_x: float = 12,
                                 motion_field_strength_y: float = 12,
                                 t0: int = 44,
@@ -217,7 +221,7 @@ class Model:
             video_path) if 'Motion' in video_path else video_path
 
         #added_prompt = 'best quality, HD, clay stop-motion, claymation, HQ, masterpiece, art, smooth'
-        added_prompt = 'high quality, anatomically correct, clay stop-motion, aardman, claymation, smooth'
+        #added_prompt = 'high quality, anatomically correct, clay stop-motion, aardman, claymation, smooth'
         negative_prompts = 'longbody, lowres, bad anatomy, bad hands, missing fingers, extra digit, fewer difits, cropped, worst quality, low quality, deformed body, bloated, ugly'
         # negative_prompts=neg_prompt
         video, fps = utils.prepare_video(
@@ -244,6 +248,7 @@ class Model:
                                 # output_type='numpy',
                                 split_to_chunks=False,
                                 chunk_size=chunk_size,
+                                smooth_bg_strength=jnp.array(smooth_bg_strength),
                                 motion_field_strength_x=jnp.array(motion_field_strength_x),
                                 motion_field_strength_y=jnp.array(motion_field_strength_y),
                                 t0=t0,

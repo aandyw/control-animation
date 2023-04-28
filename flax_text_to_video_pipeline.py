@@ -273,6 +273,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
                            guidance_scale: float = 7.5,
                            num_videos_per_prompt: Optional[int] = 1,
                            xT = None,
+                           smooth_bg_strength: float=0.4,
                            motion_field_strength_x: float = 12,
                            motion_field_strength_y: float = 12,
                            t0: int = 44,
@@ -348,7 +349,6 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
             #warp the controlnet image following the same flow defined for latent #f c h w
             initial_bg_warped = self.warp_latents_independently(initial_bg, reference_flow)
             bgs = x0[:,:,1:] * ( 1 - M_FG[:,:,1:])
-            smooth_bg_strength = 0.4
             x0 = x0.at[:,:,1:].set( M_FG[:,:,1:] * x0[:,:,1:] + (1 - M_FG[:,:,1:])*(initial_bg_warped * smooth_bg_strength + (1 - smooth_bg_strength) * bgs))
 
         return x0
@@ -410,6 +410,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
         neg_prompt_ids: Optional[jnp.array] = None,
         controlnet_conditioning_scale: float = 1.0,
         xT = None,
+        smooth_bg_strength: float = 0.4,
         motion_field_strength_x: float = 12,
         motion_field_strength_y: float = 12,
         t0: int = 44,
@@ -442,7 +443,8 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
                                           xT=xT, t0=t0, t1=t1,
                                           motion_field_strength_x=motion_field_strength_x,
                                           motion_field_strength_y=motion_field_strength_y,
-                                          controlnet_conditioning_scale=controlnet_conditioning_scale
+                                          controlnet_conditioning_scale=controlnet_conditioning_scale,
+                                          smooth_bg_strength=smooth_bg_strength,
                                           )
         # scale and decode the image latents with vae
         latents = 1 / self.vae.config.scaling_factor * latents
@@ -466,6 +468,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
         return_dict: bool = True,
         jit: bool = False,
         xT = None,
+        smooth_bg_strength: float = 0.4,
         motion_field_strength_x: float = 3,
         motion_field_strength_y: float = 4,
         t0: int = 44,
@@ -539,6 +542,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
                 neg_prompt_ids,
                 controlnet_conditioning_scale,
                 xT,
+                smooth_bg_strength,
                 motion_field_strength_x,
                 motion_field_strength_y,
                 t0,
@@ -556,6 +560,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
                 neg_prompt_ids,
                 controlnet_conditioning_scale,
                 xT,
+                smooth_bg_strength,
                 motion_field_strength_x,
                 motion_field_strength_y,
                 t0,
@@ -584,8 +589,8 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
 # Non-static args are (sharded) input tensors mapped over their first dimension (hence, `0`).
 @partial(
     jax.pmap,
-    in_axes=(None, 0, 0, 0, 0, None, 0, 0, 0, 0, 0, 0, 0, None, None),
-    static_broadcasted_argnums=(0, 5, 13, 14),
+    in_axes=(None, 0, 0, 0, 0, None, 0, 0, 0, 0, 0, 0, 0, 0, None, None),
+    static_broadcasted_argnums=(0, 5, 14, 15),
 )
 def _p_generate(
     pipe,
@@ -599,6 +604,7 @@ def _p_generate(
     neg_prompt_ids,
     controlnet_conditioning_scale,
     xT,
+    smooth_bg_strength,
     motion_field_strength_x,
     motion_field_strength_y,
     t0,
@@ -615,6 +621,7 @@ def _p_generate(
         neg_prompt_ids,
         controlnet_conditioning_scale,
         xT,
+        smooth_bg_strength,
         motion_field_strength_x,
         motion_field_strength_y,
         t0,
