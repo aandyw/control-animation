@@ -700,4 +700,5 @@ def get_mask_pose(vid):
   l, h, w = vid.shape
   vid = jax.image.resize(vid, (l, h//8, w//8), "nearest")
   vid=gauss_blur(bandw_vid(mean_blur(vid, 7)[:,None], threshold=0.01))
-  return jax.image.resize(vid/(jnp.max(vid) + 1e-4), (l, h, w), "nearest")
+  return vid/(jnp.max(vid) + 1e-4)
+  #return jax.image.resize(vid/(jnp.max(vid) + 1e-4), (l, h, w), "nearest")
