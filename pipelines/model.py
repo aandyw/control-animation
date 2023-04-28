@@ -20,7 +20,7 @@ from diffusers import (
 )
 from pipelines.text_to_video_pipeline import TextToVideoPipeline
 
-import utils.utils
+import utils.utils as utils
 import utils.gradio_utils as gradio_utils
 import os
 
@@ -374,3 +374,30 @@ class ControlAnimationModel:
         return utils.create_video(
             result, fps, path=path, watermark=gradio_utils.logo_name_to_path(watermark)
         )
+
+    def generate_animation(
+        self,
+        prompt: str,
+        model_link: str = "dreamlike-art/dreamlike-photoreal-2.0",
+        is_safetensor: bool = False,
+        motion_field_strength_x: int = 12,
+        motion_field_strength_y: int = 12,
+        t0: int = 44,
+        t1: int = 47,
+        n_prompt: str = "",
+        chunk_size: int = 8,
+        video_length: int = 8,
+        merging_ratio: float = 0.0,
+        seed: int = 0,
+        resolution: int = 512,
+        fps: int = 2,
+        use_cf_attn: bool = True,
+        use_motion_field: bool = True,
+        smooth_bg: bool = False,
+        smooth_bg_strength: float = 0.4,
+        path: str = None,
+    ):
+        
+        if is_safetensor:
+            pipe = utils.load_safetensors_model(model_link)
+        return
