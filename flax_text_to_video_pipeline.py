@@ -682,7 +682,7 @@ def bandw_vid(vid, threshold):
 
 def mean_blur(vid, k):
   window = jnp.ones((vid.shape[0], k, k))/ (k*k)
-  convolve=jax.vmap(lambda img, kernel:jsp.signal.convolve(img, kernel, mode='same'))
+  convolve=jax.vmap(lambda img, kernel:jax.scipy.signal.convolve(img, kernel, mode='same'))
   smooth_vid = convolve(vid, window)
   return smooth_vid
 
