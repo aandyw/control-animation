@@ -221,8 +221,8 @@ class Model:
             video, apply_pose_detect=False)
         f, _, h, w = video.shape
 
-        self.rng, latents_rng = jax.random.split(self.rng)
-        latents = jax.random.normal(latents_rng, (1, 4, h//8, w//8))
+        # self.rng, latents_rng = jax.random.split(self.rng)
+        # latents = jax.random.normal(latents_rng, (1, 4, h//8, w//8))
         # latents = latents.repeat(f, 0) #latents.repeat(f, 1, 1, 1)
 
         result = self.inference(image=control,
@@ -235,7 +235,7 @@ class Model:
                                 guidance_scale=guidance_scale,
                                 controlnet_conditioning_scale=controlnet_conditioning_scale,
                                 # eta=eta,
-                                latents=latents,
+                                # latents=latents,
                                 # output_type='numpy',
                                 split_to_chunks=False,
                                 chunk_size=chunk_size,
