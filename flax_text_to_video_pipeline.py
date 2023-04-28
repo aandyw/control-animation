@@ -326,7 +326,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
                               ddpm_fwd,
                               lambda:x_t0_k
         )
-        x_t1 = jnp.concatenate([x_t1_1, x_t1_k], axis=2).copy()
+        x_t1 = jnp.concatenate([x_t1_1, x_t1_k], axis=2)
 
         # backward stepts by stable diffusion
 
@@ -338,7 +338,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
         smooth_bg = True
         if smooth_bg:
             #latent shape: "b c f h w"
-            M_FG = repeat(get_mask_pose(controlnet_image), "f h w -> b c f h w", c=x_t1.shape[1], b=batch_size)
+            M_FG = repeat(get_mask_pose(controlnet_video), "f h w -> b c f h w", c=x_t1.shape[1], b=batch_size)
             initial_bg = repeat(x_t1[:,:,0] * (1 - M_FG[:,:,0]), "b c h w -> b c f h w", f=video_length-1)
             #warp the controlnet image following the same flow defined for latent #f c h w
             initial_bg_warped = self.warp_latents_independently(initial_bg, reference_flow)
