@@ -25,6 +25,7 @@ from tqdm.auto import tqdm
 from transformers import CLIPImageProcessor, CLIPTokenizer, FlaxCLIPTextModel, set_seed
 
 
+import flax
 from flax.core import frozen_dict
 from flax.core.frozen_dict import FrozenDict
 
@@ -41,39 +42,6 @@ from diffusers.pipelines.stable_diffusion import FlaxStableDiffusionSafetyChecke
 from diffusers.utils import check_min_version
 
 from custom_flaxunet2D.unet_2d_condition_flax import FlaxUNet2DConditionModel
-
-import pdb
-from linear_with_lora_flax import FlaxLinearWithLora, FlaxLora
-from flax.training import train_state
-from jax.config import config
-from jax.experimental.compilation_cache import compilation_cache as cc
-
-
-config.update("jax_traceback_filtering", "off")
-config.update("jax_experimental_subjaxpr_lowering_cache", True)
-cc.initialize_cache(os.path.expanduser("~/.cache/jax/compilation_cache"))
-
-if __name__ == "__main__":
-    unet, unet_params = FlaxLora(FlaxUNet2DConditionModel).from_pretrained(
-        "runwayml/stable-diffusion-v1-5",
-        subfolder="unet",
-        revision="fp16",
-        from_pt=True,
-    )
-    get_mask = unet.get_mask
-
-    assert "lora_up" in unet_params["up_blocks_1"]["attentions_1"]["transformer_blocks_0"]["attn1"]["to_q"].keys()
-
-    optimizer = optax.masked(optax.adamw(1e-6), mask=get_mask)
-    unet_state = train_state.TrainState.create(apply_fn=unet.__call__, params=unet_params, tx=optimizer)
-
-    bound = unet.bind({"params": unet_params})
-    bound.init_weights(jax.random.PRNGKey(0))
-
-    assert isinstance(bound.up_blocks[1].attentions[1].transformer_blocks[0].attn1.query, FlaxLinearWithLora)
-    pdb.set_trace()
-
-
 
 # Will error if the minimal version of diffusers is not installed. Remove at your own risks.
 check_min_version("0.17.0.dev0")
@@ -197,7 +165,7 @@ def parse_args():
     parser.add_argument(
         "--learning_rate",
         type=float,
-        default=5e-6,
+        default=5e-4,
         help="Initial learning rate (after the potential warmup period) to use.",
     )
     parser.add_argument(
@@ -559,9 +527,42 @@ def main():
         dtype=weight_dtype,
         **vae_kwargs,
     )
-    unet, unet_params = FlaxUNet2DConditionModel.from_pretrained(
+    unet, unet_params = FlaxLoRAUNet2DConditionModel.from_pretrained(
         args.pretrained_model_name_or_path, subfolder="unet", dtype=weight_dtype, revision=args.revision
     )
+    # unet, params = FlaxLoRAUNet2DConditionModel.from_pretrained("runwayml/stable-diffusion-v1-5", revision="fp16", subfolder="unet", from_pt=True)
+
+    latent_model_input = jnp.zeros((1, 4, 64, 64))
+    timestep = jnp.broadcast_to(0, latent_model_input.shape[0])
+    encoder_hidden_states= jnp.zeros((1, 77, 768))
+    rng = jax.random.PRNGKey(0)
+    random_params = unet.init(rng, latent_model_input, timestep, encoder_hidden_states) # Initialization call
+
+    def tree_copy(tree1, tree2):
+        #copies from tree2 to tree1
+        # print(tree1)
+        for k in tree1.keys():
+            if k in ["bias", "kernel", "scale"]:
+                tree2[k] = tree1[k]
+            else:
+                tree_copy(tree1[k], tree2[k])
+        return tree2
+
+    def freeze_non_lora(nested_dict):
+        """recursively check if '_lora' is in the name'"""
+        r = {}
+        for k,v in nested_dict.items():
+            if '_lora' in k:
+                r[k] = "lora"
+            else:
+                if isinstance(v, dict):
+                    r[k] = freeze_non_lora(v)
+                else:
+                    r[k] = "freeze"
+        return r
+
+    unet_params = tree_copy(unet_params, flax.core.frozen_dict.unfreeze(random_params["params"]))
+    mask = freeze_non_lora(lora_unet_params)
 
     # Optimization
     if args.scale_lr:
@@ -582,23 +583,9 @@ def main():
         adamw,
     )
 
-    # def create_mask(params, label_fn):
-    #     def _map(params, mask, label_fn):
-    #         for k in params:
-    #             if label_fn(k):
-    #                 mask[k] = 'freeze'
-    #             else:
-    #                 if isinstance(params[k], FrozenDict):
-    #                     mask[k] = {}
-    #                     _map(params[k], mask[k], label_fn)
-    #                 else:
-    #                     mask[k] = 'train'
-    #     mask = {}
-    #     _map(params, mask, label_fn)
-    #     return frozen_dict.freeze(mask)
 
-    tx = optax.multi_transform({'train': optimizer, 'freeze': optax.set_to_zero()},
-                            create_mask(unet_params, lambda s: not s.endswith('_lora')))
+    tx = optax.multi_transform({'lora': optimizer, 'freeze': optax.set_to_zero()},
+                            mask)
 
     unet_state = train_state.TrainState.create(apply_fn=unet.__call__, params=unet_params, tx=tx)
     text_encoder_state = train_state.TrainState.create(
