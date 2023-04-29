@@ -183,7 +183,7 @@ class FlaxUNet2DConditionModel(nn.Module, FlaxModelMixin, ConfigMixin):
                     dtype=self.dtype,
                 )
             else:
-                down_block = FlaxDownBlock2D(
+                down_block = FlaxCrossAttnDownBlock2D(
                     in_channels=input_channel,
                     out_channels=output_channel,
                     dropout=self.dropout,
@@ -233,7 +233,7 @@ class FlaxUNet2DConditionModel(nn.Module, FlaxModelMixin, ConfigMixin):
                     dtype=self.dtype,
                 )
             else:
-                up_block = FlaxUpBlock2D(
+                up_block = FlaxCrossAttnUpBlock2D(
                     in_channels=input_channel,
                     out_channels=output_channel,
                     prev_output_channel=prev_output_channel,
@@ -436,7 +436,7 @@ class FlaxLoRAUNet2DConditionModel(nn.Module, FlaxModelMixin, ConfigMixin):
     def setup(self):
         block_out_channels = self.block_out_channels
         time_embed_dim = block_out_channels[0] * 4
-        
+
         # input
         self.conv_in = nn.Conv(
             block_out_channels[0],

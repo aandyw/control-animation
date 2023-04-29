@@ -190,7 +190,7 @@ class Model:
                                 controlnet_conditioning_scale=1.0,
                                 guidance_scale=9.0,
                                 # eta=0.0, #this doesn't exist in the flax pipeline, relates to DDIM scheduler eta
-                                resolution=768,
+                                resolution=512, #768 for sd2.1
                                 save_path=None):
         print("Module Pose")
         video_path = gradio_utils.motion_to_video_path(video_path)
