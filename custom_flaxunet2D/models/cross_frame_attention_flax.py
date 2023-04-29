@@ -237,8 +237,8 @@ class FlaxLoRACrossFrameAttention(nn.Module):
         is_cross_attention = context is not None
         context = hidden_states if context is None else context
         query_proj = self.query(hidden_states) + scale * self.to_q_lora(hidden_states)
-        key_proj = self.key(context) + scale * self.to_k_lora(hidden_states)
-        value_proj = self.value(context) + scale * self.to_v_lora(hidden_states)
+        key_proj = self.key(context) + scale * self.to_k_lora(context)
+        value_proj = self.value(context) + scale * self.to_v_lora(context)
 
         # Sparse Attention
         if not is_cross_attention:
