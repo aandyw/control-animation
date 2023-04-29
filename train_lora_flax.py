@@ -402,7 +402,7 @@ def main():
                 transforms.Normalize([0.5], [0.5]),
             ])(example) for example in list_frames] for list_frames in topil]
 
-        pixel_values = torch.stack(pixel_values)
+        pixel_values = torch.tensor(pixel_values)
         pixel_values = pixel_values.to(memory_format=torch.contiguous_format).float()
 
         input_ids = [[tokenizer.pad(
@@ -410,7 +410,7 @@ def main():
         ).input_ids for prompt_id_ in list_ids] for list_ids in input_ids]
 
         batch = {
-            "input_ids": torch.stack(input_ids),
+            "input_ids": torch.tensor(input_ids),
             "pixel_values": pixel_values,
         }
         batch = {k: v.numpy() for k, v in batch.items()}
