@@ -154,13 +154,15 @@ class FlaxCrossFrameAttention(nn.Module):
         return hidden_states
 
 class FlaxLoRALinearLayer(nn.Module):
-    def __init__(self, out_features, dtype: jnp.dtype = jnp.float32, rank=4):
-        super().__init__()
+    out_features: int
+    dtype: jnp.dtype = jnp.float32
+    rank: int=4
 
-        self.down = nn.Dense(rank, use_bias=False, kernel_init=nn.initializers.normal(stddev=1 / rank), dtype=dtype)
-        self.up = nn.Dense(out_features, use_bias=False, kernel_init=nn.initializers.zeros, dtype=dtype)
+    def setup(self):
+        self.down = nn.Dense(self.rank, use_bias=False, kernel_init=nn.initializers.normal(stddev=1 / self.rank), dtype=self.dtype)
+        self.up = nn.Dense(self.out_features, use_bias=False, kernel_init=nn.initializers.zeros, dtype=self.dtype)
 
-    def forward(self, hidden_states):
+    def __call__(self, hidden_states):
         down_hidden_states = self.down(hidden_states)
         up_hidden_states = self.up(down_hidden_states)
         return up_hidden_states
