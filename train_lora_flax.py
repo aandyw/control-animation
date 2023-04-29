@@ -394,23 +394,24 @@ def main():
                 for frame in list_frames['frames']
                 ] for list_frames in examples]
 
-        pixel_values = [[transforms.Compose(
+        pixel_values = [torch.stack([transforms.Compose(
             [
                 transforms.Resize(size, interpolation=transforms.InterpolationMode.BILINEAR),
                 transforms.RandomCrop(size),
                 transforms.ToTensor(),
                 transforms.Normalize([0.5], [0.5]),
-            ])(example) for example in list_frames] for list_frames in topil]
+            ])(example) for example in list_frames]) for list_frames in topil]
 
-        pixel_values = torch.tensor(pixel_values)
+        pixel_values = torch.stack(pixel_values)
         pixel_values = pixel_values.to(memory_format=torch.contiguous_format).float()
 
-        input_ids = [[tokenizer.pad(
+        input_ids = [torch.stack([tokenizer.pad(
             {"input_ids": prompt_id_}, padding="max_length", max_length=tokenizer.model_max_length, return_tensors="pt"
-        ).input_ids for prompt_id_ in list_ids] for list_ids in input_ids]
+        ).input_ids for prompt_id_ in list_ids]) for list_ids in input_ids]
 
+        input_ids = torch.stack(input_ids)
         batch = {
-            "input_ids": torch.tensor(input_ids),
+            "input_ids": input_ids,
             "pixel_values": pixel_values,
         }
         batch = {k: v.numpy() for k, v in batch.items()}
