@@ -408,7 +408,7 @@ def main():
         ).input_ids for prompt_id_ in input_ids]
 
         batch = {
-            "input_ids": input_ids,
+            "input_ids": torch.stack(input_ids),
             "pixel_values": pixel_values,
         }
         batch = {k: v.numpy() for k, v in batch.items()}
