@@ -389,7 +389,7 @@ def main():
                 transforms.ToTensor(),
                 transforms.Normalize([0.5], [0.5]),
             ])
-            (example["instance_prompt_ids"]) for example in examples[i]["prompts"]]
+            (example["instance_prompt_ids"]) for example in examples[i]["caption"]]
             for i in range(len(examples))] 
         
         pixel_values = [[example["instance_images"] for example in examples[i]["frames"]]
