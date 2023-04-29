@@ -81,48 +81,6 @@ def parse_args():
         help="Pretrained tokenizer name or path if not the same as model_name",
     )
     parser.add_argument(
-        "--instance_data_dir",
-        type=str,
-        default=None,
-        required=True,
-        help="A folder containing the training data of instance images.",
-    )
-    parser.add_argument(
-        "--class_data_dir",
-        type=str,
-        default=None,
-        required=False,
-        help="A folder containing the training data of class images.",
-    )
-    parser.add_argument(
-        "--instance_prompt",
-        type=str,
-        default=None,
-        help="The prompt with identifier specifying the instance",
-    )
-    parser.add_argument(
-        "--class_prompt",
-        type=str,
-        default=None,
-        help="The prompt to specify images in the same class as provided instance images.",
-    )
-    parser.add_argument(
-        "--with_prior_preservation",
-        default=False,
-        action="store_true",
-        help="Flag to add prior preservation loss.",
-    )
-    parser.add_argument("--prior_loss_weight", type=float, default=1.0, help="The weight of prior preservation loss.")
-    parser.add_argument(
-        "--num_class_images",
-        type=int,
-        default=100,
-        help=(
-            "Minimal class images for prior preservation loss. If there are not enough images already present in"
-            " class_data_dir, additional images will be sampled with class_prompt."
-        ),
-    )
-    parser.add_argument(
         "--output_dir",
         type=str,
         default="lora-model",
@@ -137,15 +95,6 @@ def parse_args():
         help=(
             "The resolution for input images, all the images in the train/validation dataset will be resized to this"
             " resolution"
-        ),
-    )
-    parser.add_argument(
-        "--center_crop",
-        default=False,
-        action="store_true",
-        help=(
-            "Whether to center crop the input images to the resolution. If not set, the images will be randomly"
-            " cropped. The images will be resized to the resolution first before cropping."
         ),
     )
     parser.add_argument("--train_text_encoder", action="store_true", help="Whether to train the text encoder")
@@ -213,15 +162,6 @@ def parse_args():
     env_local_rank = int(os.environ.get("LOCAL_RANK", -1))
     if env_local_rank != -1 and env_local_rank != args.local_rank:
         args.local_rank = env_local_rank
-
-    if args.instance_data_dir is None:
-        raise ValueError("You must specify a train data directory.")
-
-    if args.with_prior_preservation:
-        if args.class_data_dir is None:
-            raise ValueError("You must specify a data directory for class images.")
-        if args.class_prompt is None:
-            raise ValueError("You must specify prompt for class images.")
 
     return args
 
@@ -360,43 +300,43 @@ def main():
 
     rng = jax.random.PRNGKey(args.seed)
 
-    if args.with_prior_preservation:
-        class_images_dir = Path(args.class_data_dir)
-        if not class_images_dir.exists():
-            class_images_dir.mkdir(parents=True)
-        cur_class_images = len(list(class_images_dir.iterdir()))
+    # if args.with_prior_preservation:
+    #     class_images_dir = Path(args.class_data_dir)
+    #     if not class_images_dir.exists():
+    #         class_images_dir.mkdir(parents=True)
+    #     cur_class_images = len(list(class_images_dir.iterdir()))
 
-        if cur_class_images < args.num_class_images:
-            pipeline, params = FlaxStableDiffusionPipeline.from_pretrained(
-                args.pretrained_model_name_or_path, safety_checker=None, revision=args.revision
-            )
-            pipeline.set_progress_bar_config(disable=True)
+    #     if cur_class_images < args.num_class_images:
+    #         pipeline, params = FlaxStableDiffusionPipeline.from_pretrained(
+    #             args.pretrained_model_name_or_path, safety_checker=None, revision=args.revision
+    #         )
+    #         pipeline.set_progress_bar_config(disable=True)
 
-            num_new_images = args.num_class_images - cur_class_images
-            logger.info(f"Number of class images to sample: {num_new_images}.")
+    #         num_new_images = args.num_class_images - cur_class_images
+    #         logger.info(f"Number of class images to sample: {num_new_images}.")
 
-            sample_dataset = PromptDataset(args.class_prompt, num_new_images)
-            total_sample_batch_size = args.sample_batch_size * jax.local_device_count()
-            sample_dataloader = torch.utils.data.DataLoader(sample_dataset, batch_size=total_sample_batch_size)
+    #         sample_dataset = PromptDataset(args.class_prompt, num_new_images)
+    #         total_sample_batch_size = args.sample_batch_size * jax.local_device_count()
+    #         sample_dataloader = torch.utils.data.DataLoader(sample_dataset, batch_size=total_sample_batch_size)
 
-            for example in tqdm(
-                sample_dataloader, desc="Generating class images", disable=not jax.process_index() == 0
-            ):
-                prompt_ids = pipeline.prepare_inputs(example["prompt"])
-                prompt_ids = shard(prompt_ids)
-                p_params = jax_utils.replicate(params)
-                rng = jax.random.split(rng)[0]
-                sample_rng = jax.random.split(rng, jax.device_count())
-                images = pipeline(prompt_ids, p_params, sample_rng, jit=True).images
-                images = images.reshape((images.shape[0] * images.shape[1],) + images.shape[-3:])
-                images = pipeline.numpy_to_pil(np.array(images))
+    #         for example in tqdm(
+    #             sample_dataloader, desc="Generating class images", disable=not jax.process_index() == 0
+    #         ):
+    #             prompt_ids = pipeline.prepare_inputs(example["prompt"])
+    #             prompt_ids = shard(prompt_ids)
+    #             p_params = jax_utils.replicate(params)
+    #             rng = jax.random.split(rng)[0]
+    #             sample_rng = jax.random.split(rng, jax.device_count())
+    #             images = pipeline(prompt_ids, p_params, sample_rng, jit=True).images
+    #             images = images.reshape((images.shape[0] * images.shape[1],) + images.shape[-3:])
+    #             images = pipeline.numpy_to_pil(np.array(images))
 
-                for i, image in enumerate(images):
-                    hash_image = hashlib.sha1(image.tobytes()).hexdigest()
-                    image_filename = class_images_dir / f"{example['index'][i] + cur_class_images}-{hash_image}.jpg"
-                    image.save(image_filename)
+    #             for i, image in enumerate(images):
+    #                 hash_image = hashlib.sha1(image.tobytes()).hexdigest()
+    #                 image_filename = class_images_dir / f"{example['index'][i] + cur_class_images}-{hash_image}.jpg"
+    #                 image.save(image_filename)
 
-            del pipeline
+    #         del pipeline
 
     # Handle the repository creation
     if jax.process_index() == 0:
