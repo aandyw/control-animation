@@ -26,7 +26,7 @@ from diffusers.models.modeling_flax_utils import FlaxModelMixin
 from .models.unet_2d_blocks_flax import (
     FlaxCrossAttnDownBlock2D,
     FlaxDownBlock2D,
-    FlaxUNetMidBlock2DCrossAttn,
+    FlaxUNetCrossAttnMidBlock2D,
 )
 
 
@@ -282,7 +282,7 @@ class FlaxControlNetModel(nn.Module, FlaxModelMixin, ConfigMixin):
 
         # mid
         mid_block_channel = block_out_channels[-1]
-        self.mid_block = FlaxUNetMidBlock2DCrossAttn(
+        self.mid_block = FlaxUNetCrossAttnMidBlock2D(
             in_channels=mid_block_channel,
             dropout=self.dropout,
             attn_num_head_channels=attention_head_dim[-1],
