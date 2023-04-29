@@ -154,11 +154,11 @@ class FlaxCrossFrameAttention(nn.Module):
         return hidden_states
 
 class FlaxLoRALinearLayer(nn.Module):
-    def __init__(self, out_features, rank=4):
+    def __init__(self, out_features, dtype: jnp.dtype = jnp.float32, rank=4):
         super().__init__()
 
-        self.down = nn.Dense(rank, bias=False, kernel_init=nn.initializers.normal(stddev=1 / rank))
-        self.up = nn.Dense(out_features, bias=False, kernel_init=nn.initializers.zeros)
+        self.down = nn.Dense(rank, use_bias=False, kernel_init=nn.initializers.normal(stddev=1 / rank), dtype=dtype)
+        self.up = nn.Dense(out_features, use_bias=False, kernel_init=nn.initializers.zeros, dtype=dtype)
 
     def forward(self, hidden_states):
         down_hidden_states = self.down(hidden_states)
@@ -210,10 +210,10 @@ class FlaxLoRACrossFrameAttention(nn.Module):
 
         self.proj_attn = nn.Dense(self.query_dim, dtype=self.dtype, name="to_out_0")
 
-        self.to_q_lora = FlaxLoRALinearLayer(inner_dim, self.rank)
-        self.to_k_lora = FlaxLoRALinearLayer(inner_dim, self.rank)
-        self.to_v_lora = FlaxLoRALinearLayer(inner_dim, self.rank)
-        self.to_out_lora = FlaxLoRALinearLayer(inner_dim, self.rank)
+        self.to_q_lora = FlaxLoRALinearLayer(inner_dim, self.rank, dtype=self.dtype)
+        self.to_k_lora = FlaxLoRALinearLayer(inner_dim, self.rank, dtype=self.dtype)
+        self.to_v_lora = FlaxLoRALinearLayer(inner_dim, self.rank, dtype=self.dtype)
+        self.to_out_lora = FlaxLoRALinearLayer(inner_dim, self.rank, dtype=self.dtype)
 
     def reshape_heads_to_batch_dim(self, tensor):
         batch_size, seq_len, dim = tensor.shape
