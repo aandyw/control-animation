@@ -392,14 +392,13 @@ def main():
         
         topil = [Image.fromarray(np.array(frame, dtype="uint8")) for i in range(len(examples)) for frame in examples[i]['frames']]
 
-        pixel_values = [[transforms.Compose(
+        pixel_values = [transforms.Compose(
             [
                 transforms.Resize(size, interpolation=transforms.InterpolationMode.BILINEAR),
                 transforms.RandomCrop(size),
                 transforms.ToTensor(),
                 transforms.Normalize([0.5], [0.5]),
-            ])(example) for example in topil[i]]
-            for i in range(len(topil))] 
+            ])(example) for example in topil]
 
         pixel_values = torch.stack(pixel_values)
         pixel_values = pixel_values.to(memory_format=torch.contiguous_format).float()
