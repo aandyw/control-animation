@@ -51,35 +51,6 @@ class FlaxLoraUtils(nn.Module):
     def _get_children(model: nn.Module) -> Dict[str, nn.Module]:
         model._try_setup(shallow=True)
         return {k: v for k, v in model._state.children.items() if isinstance(v, nn.Module)}
-
-    @staticmethod
-    def _wrap_dense(params: dict, parent: nn.Module, model: Union[nn.Dense, nn.Module], name: str):
-        if not isinstance(model, nn.Dense):
-            return params, {}
-
-        lora = FlaxLinearWithLora(
-            in_features=jnp.shape(params["kernel"])[0],
-            features=model.features,
-            use_bias=model.use_bias,
-            name=name,
-            parent=None,
-        )
-
-        lora_params = {
-            "linear": params,
-            "lora_down": {
-                "kernel": jax.random.normal(jax.random.PRNGKey(0), (lora.in_features, lora.rank)) * 1.0 / lora.rank
-            },
-            "lora_up": {"kernel": jnp.zeros((lora.rank, lora.features))},
-        }
-
-        params_to_optimize = defaultdict(dict)
-        for n in ["lora_up", "lora_down"]:
-            params_to_optimize[n] = {k: True for k in lora_params[n].keys()}
-        params_to_optimize["linear"] = {k: False for k in lora_params["linear"].keys()}
-
-        return lora_params, dict(params_to_optimize)
-
     @staticmethod
     def wrap(
         params: Union[dict, FrozenDict],
@@ -87,24 +58,20 @@ class FlaxLoraUtils(nn.Module):
         targets: List[str],
         is_target: bool = False,
     ):
-
         model = model.bind({"params": params})
         if hasattr(model, "init_weights"):
             model.init_weights(jax.random.PRNGKey(0))
-
         params = params.unfreeze() if isinstance(params, FrozenDict) else copy.copy(params)
         params_to_optimize = {}
-
         for name, child in FlaxLoraUtils._get_children(model).items():
+            print(name)
             if is_target:
                 results = FlaxLoraUtils._wrap_dense(params.get(name, {}), model, child, name)
             elif child.__class__.__name__ in targets:
                 results = FlaxLoraUtils.wrap(params.get(name, {}), child, targets=targets, is_target=True)
             else:
                 results = FlaxLoraUtils.wrap(params.get(name, {}), child, targets=targets)
-
             params[name], params_to_optimize[name] = results
-
         return params, params_to_optimize
 
 
@@ -144,6 +111,10 @@ def wrap_in_lora(model: Type[nn.Module], targets: List[str]):
     return _FlaxLora
 
 
+key1, key2 = random.split(random.PRNGKey(0))
+x = random.normal(key1, (1,4,512,512)) # Dummy input data
+params = unet.init(key2, x) # Initialization call
+
 def FlaxLora(model: Type[nn.Module], targets=["FlaxAttentionBlock", "FlaxCrossFrameAttention", "FlaxGEGLU"]):
     targets = targets + [f"{t}Lora" for t in targets]
 
@@ -154,6 +125,7 @@ def FlaxLora(model: Type[nn.Module], targets=["FlaxAttentionBlock", "FlaxCrossFr
         @classmethod
         def from_pretrained(cls, *args, **kwargs):
             instance, params = cast(Type[FlaxModelMixin], model).from_pretrained(*args, **kwargs)
+            init_params = unet.
             params, mask = FlaxLoraUtils.wrap(params, instance, targets=targets)
             subattrs = {f.name: getattr(instance, f.name) for f in dataclasses.fields(instance) if f.init}
             instance = cls(**subattrs)
