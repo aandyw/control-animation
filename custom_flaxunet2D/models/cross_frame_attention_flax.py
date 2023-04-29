@@ -210,10 +210,10 @@ class FlaxLoRACrossFrameAttention(nn.Module):
 
         self.proj_attn = nn.Dense(self.query_dim, dtype=self.dtype, name="to_out_0")
 
-        self.to_q_lora = FlaxLoRALinearLayer(inner_dim, self.rank, dtype=self.dtype)
-        self.to_k_lora = FlaxLoRALinearLayer(inner_dim, self.rank, dtype=self.dtype)
-        self.to_v_lora = FlaxLoRALinearLayer(inner_dim, self.rank, dtype=self.dtype)
-        self.to_out_lora = FlaxLoRALinearLayer(inner_dim, self.rank, dtype=self.dtype)
+        self.to_q_lora = FlaxLoRALinearLayer(inner_dim, rank=self.rank, dtype=self.dtype)
+        self.to_k_lora = FlaxLoRALinearLayer(inner_dim, rank=self.rank, dtype=self.dtype)
+        self.to_v_lora = FlaxLoRALinearLayer(inner_dim, rank=self.rank, dtype=self.dtype)
+        self.to_out_lora = FlaxLoRALinearLayer(inner_dim, rank=self.rank, dtype=self.dtype)
 
     def reshape_heads_to_batch_dim(self, tensor):
         batch_size, seq_len, dim = tensor.shape
