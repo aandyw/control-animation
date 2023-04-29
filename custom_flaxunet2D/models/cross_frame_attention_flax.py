@@ -159,8 +159,8 @@ class FlaxLoRALinearLayer(nn.Module):
     rank: int=4
 
     def setup(self):
-        self.down = nn.Dense(self.rank, use_bias=False, kernel_init=nn.initializers.normal(stddev=1 / self.rank), dtype=self.dtype)
-        self.up = nn.Dense(self.out_features, use_bias=False, kernel_init=nn.initializers.zeros, dtype=self.dtype)
+        self.down = nn.Dense(self.rank, use_bias=False, kernel_init=nn.initializers.normal(stddev=1 / self.rank), dtype=self.dtype, name="down_lora")
+        self.up = nn.Dense(self.out_features, use_bias=False, kernel_init=nn.initializers.zeros, dtype=self.dtype, name="up_lora")
 
     def __call__(self, hidden_states):
         down_hidden_states = self.down(hidden_states)

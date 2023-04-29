@@ -567,7 +567,7 @@ def main():
         return frozen_dict.freeze(mask)
 
     tx = optax.multi_transform({'train': optimizer, 'freeze': optax.set_to_zero()},
-                            create_mask(unet_params, lambda s: not s.startswith('LoRA_')))
+                            create_mask(unet_params, lambda s: not s.endswith('_lora')))
 
     unet_state = train_state.TrainState.create(apply_fn=unet.__call__, params=unet_params, tx=tx)
     text_encoder_state = train_state.TrainState.create(
