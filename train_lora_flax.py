@@ -41,7 +41,7 @@ from diffusers import (
 from diffusers.pipelines.stable_diffusion import FlaxStableDiffusionSafetyChecker
 from diffusers.utils import check_min_version
 
-from custom_flaxunet2D.unet_2d_condition_flax import FlaxUNet2DConditionModel
+from custom_flaxunet2D.unet_2d_condition_flax import FlaxLoRAUNet2DConditionModel
 
 # Will error if the minimal version of diffusers is not installed. Remove at your own risks.
 # check_min_version("0.17.0.dev0")
