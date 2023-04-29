@@ -390,6 +390,8 @@ def main():
                         max_length=tokenizer.model_max_length,
                     ).input_ids for example in list_prompts["caption"]] for list_prompts in examples]
         
+        # input_ids = examples["prompt_ids"]
+
         topil = [[Image.fromarray(np.array(frame, dtype="uint8"))
                 for frame in list_frames['frames']
                 ] for list_frames in examples]
@@ -402,8 +404,16 @@ def main():
                 transforms.Normalize([0.5], [0.5]),
             ])(example) for example in list_frames]) for list_frames in topil]
 
+        # pixel_values = [torch.stack([transforms.Compose(
+        #     [
+        #         transforms.Resize(size, interpolation=transforms.InterpolationMode.BILINEAR),
+        #         transforms.RandomCrop(size),
+        #         transforms.ToTensor(),
+        #         transforms.Normalize([0.5], [0.5]),
+        #     ])(example) for example in list_frames]) for list_frames in examples["frames"]]
+
         pixel_values = torch.stack(pixel_values)
-        pixel_values = pixel_values.to(memory_format=torch.contiguous_format).float()
+        pixel_values = pixel_values.to(memory_format=torch.contiguous_format)
 
         input_ids = [torch.stack([tokenizer.pad(
             {"input_ids": prompt_id_}, padding="max_length", max_length=tokenizer.model_max_length, return_tensors="pt"
@@ -411,8 +421,8 @@ def main():
 
         input_ids = torch.stack(input_ids)
         batch = {
-            "input_ids": input_ids,
-            "pixel_values": pixel_values,
+            "input_ids": input_ids.half(),
+            "pixel_values": pixel_values.half(),
         }
         batch = {k: v.numpy() for k, v in batch.items()}
         return batch
@@ -509,6 +519,7 @@ def main():
         return r
 
     unet_params = tree_copy(unet_params, flax.core.frozen_dict.unfreeze(random_params["params"]))
+    del random_params
     mask = freeze_non_lora(unet_params)
 
     # Optimization
@@ -529,7 +540,6 @@ def main():
         optax.clip_by_global_norm(args.max_grad_norm),
         adamw,
     )
-
 
     tx = optax.multi_transform({'lora': optimizer, 'freeze': optax.set_to_zero()},
                             mask)
