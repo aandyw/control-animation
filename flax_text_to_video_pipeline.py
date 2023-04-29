@@ -352,8 +352,12 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
         ddim_res = self.DDIM_backward(params, num_inference_steps=num_inference_steps, timesteps=timesteps, skip_t=t1, t0=-1, t1=-1, do_classifier_free_guidance=do_classifier_free_guidance,
                                             text_embeddings=text_embeddings, latents_local=x_t1, guidance_scale=guidance_scale,
                                             controlnet_image=controlnet_image, controlnet_conditioning_scale=controlnet_conditioning_scale)
+        
         x0 = ddim_res["x0"]
-
+        del ddim_res
+        del x_t1
+        del x_t1_1
+        del x_t1_k
         return x0
 
     def prepare_text_inputs(self, prompt: Union[str, List[str]]):
