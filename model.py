@@ -196,8 +196,9 @@ class Model:
         video_path = gradio_utils.motion_to_video_path(video_path)
         if self.model_type != ModelType.ControlNetPose:
             # model_id="stabilityai/stable-diffusion-2-1"
-            model_id="stabilityai/stable-diffusion-2-1"
-            controlnet_id = "thibaud/controlnet-sd21-openpose-diffusers" #"fusing/stable-diffusion-v1-5-controlnet-openpose"
+            model_id="runwayml/stable-diffusion-v1-5"
+            controlnet_id = "fusing/stable-diffusion-v1-5-controlnet-openpose"
+            # controlnet_id = "thibaud/controlnet-sd21-openpose-diffusers"
             controlnet, controlnet_params = FlaxControlNetModel.from_pretrained(
                 controlnet_id,
                 # revision=args.controlnet_revision,

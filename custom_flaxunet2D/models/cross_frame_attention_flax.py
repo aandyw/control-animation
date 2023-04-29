@@ -242,14 +242,16 @@ class FlaxLoRACrossFrameAttention(nn.Module):
         # Sparse Attention
         if not is_cross_attention:
             video_length = 1 if key_proj.shape[0] < self.batch_size else key_proj.shape[0] // self.batch_size
-            first_frame_index = [0] * video_length
+            #first_frame_index = [0] * video_length
+            #first frame ==> previous frame
+            previous_frame_index = jnp.array([0] + list(range(video_length - 1)))
 
             # rearrange keys to have batch and frames in the 1st and 2nd dims respectively
             key_proj = rearrange_3(key_proj, video_length)
-            key_proj = key_proj[:, first_frame_index]
+            key_proj = key_proj[:, previous_frame_index]
             # rearrange values to have batch and frames in the 1st and 2nd dims respectively
             value_proj = rearrange_3(value_proj, video_length)
-            value_proj = value_proj[:, first_frame_index]
+            value_proj = value_proj[:, previous_frame_index]
 
             # rearrange back to original shape
             key_proj = rearrange_4(key_proj)

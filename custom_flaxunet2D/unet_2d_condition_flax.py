@@ -22,8 +22,6 @@ import jax
 import jax.numpy as jnp
 from flax.core.frozen_dict import FrozenDict
 
-from einops import rearrange
-
 from diffusers.configuration_utils import ConfigMixin, flax_register_to_config
 from diffusers.utils import BaseOutput
 from diffusers.models.embeddings_flax import FlaxTimestepEmbedding, FlaxTimesteps
@@ -38,6 +36,8 @@ from .models.unet_2d_blocks_flax import (
     FlaxDownBlock2D,
     FlaxUpBlock2D,
 )
+
+from .models.cross_frame_attention_flax import FlaxLoRALinearLayer
 
 @flax.struct.dataclass
 class FlaxUNet2DConditionOutput(BaseOutput):
@@ -348,25 +348,6 @@ class FlaxUNet2DConditionModel(nn.Module, FlaxModelMixin, ConfigMixin):
             return (sample,)
 
         return FlaxUNet2DConditionOutput(sample=sample)
-    
-
-class PositionalEncoding2D(nn.Module):
-    d_model : int         # Hidden dimensionality of the input.
-    max_len : int = 5000  # Maximum length of a sequence to expect.
-
-    def setup(self):
-        # Create matrix of [SeqLen, HiddenDim] representing the positional encoding for max_len inputs
-        pe = jnp.zeros((self.max_len, self.d_model))
-        position = jnp.arange(0, self.max_len, dtype=jnp.float32)[:,None]
-        div_term = jnp.exp(jnp.arange(0, self.d_model, 2) * (-jax.math.log(10000.0) / self.d_model))
-        pe[:, 0::2] = jnp.sin(position * div_term)
-        pe[:, 1::2] = jnp.cos(position * div_term)
-        pe = rearrange(pe, '')
-        self.pe = jax.device_put(pe)
-
-    def __call__(self, x):
-        x = x + self.pe[:, :x.shape[1]]
-        return x
 
 @flax_register_to_config
 class FlaxLoRAUNet2DConditionModel(nn.Module, FlaxModelMixin, ConfigMixin):
@@ -455,7 +436,7 @@ class FlaxLoRAUNet2DConditionModel(nn.Module, FlaxModelMixin, ConfigMixin):
     def setup(self):
         block_out_channels = self.block_out_channels
         time_embed_dim = block_out_channels[0] * 4
-
+        
         # input
         self.conv_in = nn.Conv(
             block_out_channels[0],
@@ -615,18 +596,6 @@ class FlaxLoRAUNet2DConditionModel(nn.Module, FlaxModelMixin, ConfigMixin):
         # 2. pre-process
         sample = jnp.transpose(sample, (0, 2, 3, 1))
         sample = self.conv_in(sample)
-
-        # 2.1 add temporal encoding
-
-        def rearrange_3(array, f): 
-            F, D, C = array.shape
-            return jnp.reshape(array, (F // f, f, D, C))
-        def rearrange_4(array):
-            B, F, D, C = array.shape
-            return jnp.reshape(array, (B * F, D, C))
-
-        sample_ = rearrange_3(sample, sample.shape[0] // 2) #only works with effective batch_size = 2
-        sample_ = sample_ + pos_enc(sample_.shape[1])
 
         # 3. down
         down_block_res_samples = (sample,)
