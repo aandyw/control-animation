@@ -383,29 +383,31 @@ def main():
         #result is already sharded
         size = 512
         
-        input_ids = [tokenizer(
+        input_ids = [[tokenizer(
                         example,
                         padding="do_not_pad",
                         truncation=True,
                         max_length=tokenizer.model_max_length,
-                    ).input_ids for list_prompts in examples for example in list_prompts["caption"]]
+                    ).input_ids for example in list_prompts["caption"]] for list_prompts in examples]
         
-        topil = [Image.fromarray(np.array(frame, dtype="uint8")) for i in range(len(examples)) for frame in examples[i]['frames']]
+        topil = [[Image.fromarray(np.array(frame, dtype="uint8"))
+                for frame in list_frames['frames']
+                ] for list_frames in examples]
 
-        pixel_values = [transforms.Compose(
+        pixel_values = [[transforms.Compose(
             [
                 transforms.Resize(size, interpolation=transforms.InterpolationMode.BILINEAR),
                 transforms.RandomCrop(size),
                 transforms.ToTensor(),
                 transforms.Normalize([0.5], [0.5]),
-            ])(example) for example in topil]
+            ])(example) for example in list_frames] for list_frames in topil]
 
         pixel_values = torch.stack(pixel_values)
         pixel_values = pixel_values.to(memory_format=torch.contiguous_format).float()
 
-        input_ids = [tokenizer.pad(
+        input_ids = [[tokenizer.pad(
             {"input_ids": prompt_id_}, padding="max_length", max_length=tokenizer.model_max_length, return_tensors="pt"
-        ).input_ids for prompt_id_ in input_ids]
+        ).input_ids for prompt_id_ in list_ids] for list_ids in input_ids]
 
         batch = {
             "input_ids": torch.stack(input_ids),
