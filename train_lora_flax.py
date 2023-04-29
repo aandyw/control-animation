@@ -24,7 +24,6 @@ from torchvision import transforms
 from tqdm.auto import tqdm
 from transformers import CLIPImageProcessor, CLIPTokenizer, FlaxCLIPTextModel, set_seed
 
-
 import flax
 from flax.core import frozen_dict
 from flax.core.frozen_dict import FrozenDict
@@ -502,7 +501,7 @@ def main():
         return r
 
     unet_params = tree_copy(unet_params, flax.core.frozen_dict.unfreeze(random_params["params"]))
-    mask = freeze_non_lora(lora_unet_params)
+    mask = freeze_non_lora(unet_params)
 
     # Optimization
     if args.scale_lr:
