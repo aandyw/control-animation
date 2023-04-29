@@ -53,11 +53,12 @@ class Model:
         gc.collect()
         scheduler, scheduler_state = FlaxDDIMScheduler.from_pretrained(
             model_id,
+            revision="fp16",
             subfolder="scheduler",
             from_pt =True
         )
         tokenizer = CLIPTokenizer.from_pretrained(model_id, revision="fp16", subfolder="tokenizer")
-        feature_extractor = CLIPFeatureExtractor.from_pretrained(model_id, revision="fp16", subfolder="feature_extractor")
+        feature_extractor = CLIPFeatureExtractor.from_pretrained(model_id, subfolder="feature_extractor")
         unet, unet_params = FlaxUNet2DConditionModel.from_pretrained(model_id, subfolder="unet", from_pt=True, revision="fp16", dtype=self.dtype)
         vae, vae_params = FlaxAutoencoderKL.from_pretrained(model_id, revision="fp16", subfolder="vae", from_pt=True, dtype=self.dtype)
         text_encoder = FlaxCLIPTextModel.from_pretrained(model_id, revision="fp16", subfolder="text_encoder", from_pt=True, dtype=self.dtype)
