@@ -119,7 +119,7 @@ def wrap_in_lora(model: Type[nn.Module], targets: List[str]):
                     continue
                 if isinstance(attr, LoRA):
                     continue
-
+                print(self.__class__.__name__)
                 if self.__class__.__name__ in targets and isinstance(attr, nn.Dense):
                     instance = FlaxLinearWithLora(
                         features=attr.features,
@@ -144,7 +144,7 @@ def wrap_in_lora(model: Type[nn.Module], targets: List[str]):
     return _FlaxLora
 
 
-def FlaxLora(model: Type[nn.Module], targets=["FlaxAttentionBlock", "FlaxGEGLU"]):
+def FlaxLora(model: Type[nn.Module], targets=["FlaxAttentionBlock", "FlaxCrossFrameAttention", "FlaxGEGLU"]):
     targets = targets + [f"{t}Lora" for t in targets]
 
     class _LoraFlax(wrap_in_lora(model, targets=targets)):

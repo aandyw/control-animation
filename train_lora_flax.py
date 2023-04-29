@@ -40,7 +40,38 @@ from diffusers import (
 from diffusers.pipelines.stable_diffusion import FlaxStableDiffusionSafetyChecker
 from diffusers.utils import check_min_version
 
-from custom_flaxunet2D.unet_2d_condition_flax import FlaxLoRAUNet2DConditionModel as FlaxUNet2DConditionModel
+from custom_flaxunet2D.unet_2d_condition_flax import FlaxUNet2DConditionModel
+
+import pdb
+from linear_with_lora_flax import FlaxLinearWithLora, FlaxLora
+from flax.training import train_state
+from jax.config import config
+from jax.experimental.compilation_cache import compilation_cache as cc
+
+
+config.update("jax_traceback_filtering", "off")
+config.update("jax_experimental_subjaxpr_lowering_cache", True)
+cc.initialize_cache(os.path.expanduser("~/.cache/jax/compilation_cache"))
+
+if __name__ == "__main__":
+    unet, unet_params = FlaxLora(FlaxUNet2DConditionModel).from_pretrained(
+        "runwayml/stable-diffusion-v1-5",
+        subfolder="unet",
+        revision="fp16",
+        from_pt=True,
+    )
+    get_mask = unet.get_mask
+
+    assert "lora_up" in unet_params["up_blocks_1"]["attentions_1"]["transformer_blocks_0"]["attn1"]["to_q"].keys()
+
+    optimizer = optax.masked(optax.adamw(1e-6), mask=get_mask)
+    unet_state = train_state.TrainState.create(apply_fn=unet.__call__, params=unet_params, tx=optimizer)
+
+    bound = unet.bind({"params": unet_params})
+    bound.init_weights(jax.random.PRNGKey(0))
+
+    assert isinstance(bound.up_blocks[1].attentions[1].transformer_blocks[0].attn1.query, FlaxLinearWithLora)
+    pdb.set_trace()
 
 
 
@@ -551,20 +582,20 @@ def main():
         adamw,
     )
 
-    def create_mask(params, label_fn):
-        def _map(params, mask, label_fn):
-            for k in params:
-                if label_fn(k):
-                    mask[k] = 'freeze'
-                else:
-                    if isinstance(params[k], FrozenDict):
-                        mask[k] = {}
-                        _map(params[k], mask[k], label_fn)
-                    else:
-                        mask[k] = 'train'
-        mask = {}
-        _map(params, mask, label_fn)
-        return frozen_dict.freeze(mask)
+    # def create_mask(params, label_fn):
+    #     def _map(params, mask, label_fn):
+    #         for k in params:
+    #             if label_fn(k):
+    #                 mask[k] = 'freeze'
+    #             else:
+    #                 if isinstance(params[k], FrozenDict):
+    #                     mask[k] = {}
+    #                     _map(params[k], mask[k], label_fn)
+    #                 else:
+    #                     mask[k] = 'train'
+    #     mask = {}
+    #     _map(params, mask, label_fn)
+    #     return frozen_dict.freeze(mask)
 
     tx = optax.multi_transform({'train': optimizer, 'freeze': optax.set_to_zero()},
                             create_mask(unet_params, lambda s: not s.endswith('_lora')))
