@@ -166,7 +166,6 @@ class FlaxLoRALinearLayer(nn.Module):
         up_hidden_states = self.up(down_hidden_states)
         return up_hidden_states
 
-
 class FlaxLoRACrossFrameAttention(nn.Module):
     r"""
     A Flax multi-head attention module as described in: https://arxiv.org/abs/1706.03762

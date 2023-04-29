@@ -405,7 +405,6 @@ class FlaxLoRACrossAttnUpBlock2D(nn.Module):
         return hidden_states
 
 
-
 class FlaxUpBlock2D(nn.Module):
     r"""
     Flax 2D upsampling block

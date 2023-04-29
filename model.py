@@ -195,7 +195,7 @@ class Model:
         print("Module Pose")
         video_path = gradio_utils.motion_to_video_path(video_path)
         if self.model_type != ModelType.ControlNetPose:
-            #model_id = "tuwonga/zukki_style"
+            # model_id="stabilityai/stable-diffusion-2-1"
             model_id="stabilityai/stable-diffusion-2-1"
             controlnet_id = "thibaud/controlnet-sd21-openpose-diffusers" #"fusing/stable-diffusion-v1-5-controlnet-openpose"
             controlnet, controlnet_params = FlaxControlNetModel.from_pretrained(
@@ -205,10 +205,10 @@ class Model:
                 dtype=self.dtype,
             )
             tokenizer = CLIPTokenizer.from_pretrained(
-            model_id, subfolder="tokenizer"
+            model_id, subfolder="tokenizer", revision="fp16"
             )
             scheduler, scheduler_state = FlaxDDIMScheduler.from_pretrained(
-            "stabilityai/stable-diffusion-2-1", subfolder ="scheduler"
+            model_id, subfolder ="scheduler", revision="fp16"
             )
             self.set_model(ModelType.ControlNetPose,
                             model_id=model_id,
