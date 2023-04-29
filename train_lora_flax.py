@@ -503,7 +503,7 @@ def main():
         )
 
     train_dataloader = torch.utils.data.DataLoader(
-        train_dataset, batch_size=jax.device_count() shuffle=True, collate_fn=collate_fn, drop_last=True
+        train_dataset, batch_size=jax.device_count(), shuffle=True, collate_fn=collate_fn, drop_last=True
     )
 
     weight_dtype = jnp.float32
