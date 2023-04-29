@@ -388,9 +388,9 @@ def main():
                         padding="do_not_pad",
                         truncation=True,
                         max_length=tokenizer.model_max_length,
-                    ).input_ids for list_prompts in examples["caption"] for example in list_prompts]
+                    ).input_ids for list_prompts in examples for example in list_prompts["caption"]]
         
-        topil = [Image.fromarray(np.array(frame, dtype="uint8")) for i in range(len(examples)) for frame in d[i]['frames']]
+        topil = [Image.fromarray(np.array(frame, dtype="uint8")) for i in range(len(examples)) for frame in examples[i]['frames']]
 
         pixel_values = [[transforms.Compose(
             [
