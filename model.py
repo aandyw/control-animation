@@ -56,11 +56,11 @@ class Model:
             subfolder="scheduler",
             from_pt =True
         )
-        tokenizer = CLIPTokenizer.from_pretrained(model_id, subfolder="tokenizer")
-        feature_extractor = CLIPFeatureExtractor.from_pretrained(model_id, subfolder="feature_extractor")
-        unet, unet_params = FlaxUNet2DConditionModel.from_pretrained(model_id, subfolder="unet", from_pt=True, dtype=self.dtype)
-        vae, vae_params = FlaxAutoencoderKL.from_pretrained(model_id, subfolder="vae", from_pt=True, dtype=self.dtype)
-        text_encoder = FlaxCLIPTextModel.from_pretrained(model_id, subfolder="text_encoder", from_pt=True, dtype=self.dtype)
+        tokenizer = CLIPTokenizer.from_pretrained(model_id, revision="fp16", subfolder="tokenizer")
+        feature_extractor = CLIPFeatureExtractor.from_pretrained(model_id, revision="fp16", subfolder="feature_extractor")
+        unet, unet_params = FlaxUNet2DConditionModel.from_pretrained(model_id, subfolder="unet", from_pt=True, revision="fp16", dtype=self.dtype)
+        vae, vae_params = FlaxAutoencoderKL.from_pretrained(model_id, revision="fp16", subfolder="vae", from_pt=True, dtype=self.dtype)
+        text_encoder = FlaxCLIPTextModel.from_pretrained(model_id, revision="fp16", subfolder="text_encoder", from_pt=True, dtype=self.dtype)
         self.pipe = FlaxTextToVideoPipeline(vae=vae,
                                                         text_encoder=text_encoder,
                                                         tokenizer=tokenizer,
@@ -196,8 +196,7 @@ class Model:
         if self.model_type != ModelType.ControlNetPose:
             #model_id = "tuwonga/zukki_style"
             model_id="stabilityai/stable-diffusion-2-1"
-            ti_id=""
-            controlnet_id = "thibaud/controlnet-sd21-openposev2-diffusers" #"fusing/stable-diffusion-v1-5-controlnet-openpose"
+            controlnet_id = "thibaud/controlnet-sd21-openpose-diffusers" #"fusing/stable-diffusion-v1-5-controlnet-openpose"
             controlnet, controlnet_params = FlaxControlNetModel.from_pretrained(
                 controlnet_id,
                 # revision=args.controlnet_revision,
