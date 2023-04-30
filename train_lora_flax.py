@@ -618,7 +618,7 @@ def main():
             else:
                 raise ValueError(f"Unknown prediction type {noise_scheduler.config.prediction_type}")
 
-            if True:
+            if False:
                 # Chunk the noise and noise_pred into two parts and compute the loss on each part separately.
                 model_pred, model_pred_prior = jnp.split(model_pred, 2, axis=0)
                 target, target_prior = jnp.split(target, 2, axis=0)
@@ -648,7 +648,7 @@ def main():
             new_text_encoder_state = text_encoder_state.apply_gradients(grads=grad["text_encoder"])
         else:
             new_text_encoder_state = text_encoder_state
-
+        print(loss)
         metrics = {"loss": loss}
         metrics = jax.lax.pmean(metrics, axis_name="batch")
 
