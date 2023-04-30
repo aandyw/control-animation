@@ -157,10 +157,10 @@ class Model:
                 motion_field_strength_x = replicate_devices(kwargs.pop("motion_field_strength_x"))
                 motion_field_strength_y = replicate_devices(kwargs.pop("motion_field_strength_y"))
                 smooth_bg_strength = replicate_devices(kwargs.pop("smooth_bg_strength"))
-                for item in [prompt_ids, n_prompt_ids, prng_seed]:
-                    print("========")
-                    print(item.shape)
-                print(prompt_ids.shape)
+                lora_scale = replicate_devices(lora_scale)
+                # for item in [prompt_ids, n_prompt_ids, prng_seed]:
+                #     print("========")
+                #     print(item.shape)
                 return (self.pipe(image=image,
                                 # latents=latents,
                                 prompt_ids=prompt_ids,
