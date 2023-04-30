@@ -377,21 +377,20 @@ def main():
     #     center_crop=args.center_crop,
     # )
 
-    train_dataset = datasets.load_dataset("gigant/webvid-mini", split="train")
+    train_dataset = datasets.load_dataset("gigant/webvid-mini-frames", split="train")
 
     def collate_fn(examples):
-        #examples should have batch_size of jax.device_count()
         #result is already sharded
         size = 512
         
-        # input_ids = [[tokenizer(
-        #                 example,
-        #                 padding="do_not_pad",
-        #                 truncation=True,
-        #                 max_length=tokenizer.model_max_length,
-        #             ).input_ids for example in list_prompts["caption"]] for list_prompts in examples]
+        input_ids = [tokenizer(
+                        example["prompt"],
+                        padding="do_not_pad",
+                        truncation=True,
+                        max_length=tokenizer.model_max_length,
+                    ).input_ids for example in examples]
         
-        input_ids = [example["prompt_ids"] for example in examples]
+        # input_ids = [example["prompt_ids"] for example in examples]
 
         # topil = [[Image.fromarray(np.array(frame, dtype="uint8"))
         #         for frame in list_frames['frames']
@@ -405,25 +404,33 @@ def main():
         #         transforms.Normalize([0.5], [0.5]),
         #     ])(example) for example in list_frames]) for list_frames in topil]
 
-        pixel_values = [torch.stack([transforms.Compose(
+        # pixel_values = [torch.stack([transforms.Compose(
+        #     [
+        #         transforms.Resize(size, interpolation=transforms.InterpolationMode.BILINEAR),
+        #         transforms.RandomCrop(size),
+        #         transforms.ToTensor(),
+        #         transforms.Normalize([0.5], [0.5]),
+        #     ])(Image.open(io.BytesIO(example["bytes"]))) for example in list_frames["frames"]]) for list_frames in examples]
+
+        pixel_values = [transforms.Compose(
             [
                 transforms.Resize(size, interpolation=transforms.InterpolationMode.BILINEAR),
                 transforms.RandomCrop(size),
                 transforms.ToTensor(),
                 transforms.Normalize([0.5], [0.5]),
-            ])(Image.open(io.BytesIO(example["bytes"]))) for example in list_frames["frames"]]) for list_frames in examples]
+            ])(example["image"]) for example in examples]
 
         pixel_values = torch.stack(pixel_values)
-        pixel_values = pixel_values.to(memory_format=torch.contiguous_format)
+        pixel_values = pixel_values.to(memory_format=torch.contiguous_format).float()
 
-        input_ids = [torch.stack([tokenizer.pad(
-            {"input_ids": prompt_id_}, padding="max_length", max_length=tokenizer.model_max_length, return_tensors="pt"
-        ).input_ids for prompt_id_ in list_ids]) for list_ids in input_ids]
+        input_ids = [tokenizer.pad(
+            {"input_ids": input_id}, padding="max_length", max_length=tokenizer.model_max_length, return_tensors="pt"
+        ).input_ids for input_id in input_ids]
 
         input_ids = torch.stack(input_ids)
         batch = {
-            "input_ids": input_ids.half(),
-            "pixel_values": pixel_values.half(),
+            "input_ids": input_ids,
+            "pixel_values": pixel_values,
         }
         batch = {k: v.numpy() for k, v in batch.items()}
         return batch
@@ -461,7 +468,7 @@ def main():
         )
 
     train_dataloader = torch.utils.data.DataLoader(
-        train_dataset, batch_size=jax.device_count(), shuffle=True, collate_fn=collate_fn, drop_last=True
+        train_dataset, batch_size=total_train_batch_size, shuffle=False, collate_fn=collate_fn, drop_last=True
     )
 
     weight_dtype = jnp.float32
@@ -642,7 +649,7 @@ def main():
         grad_fn = jax.value_and_grad(compute_loss)
         loss, grad = grad_fn(params)
         # grad = jax.lax.mean(grad, "batch")
-        # grad = jax.lax.pmean(grad, "batch")
+        grad = jax.lax.pmean(grad, "batch")
 
         new_unet_state = unet_state.apply_gradients(grads=grad["unet"])
         if False:#args.train_text_encoder:
@@ -659,9 +666,9 @@ def main():
     p_train_step = jax.pmap(train_step, "batch", donate_argnums=(0, 1))
 
     # Replicate the train state on each device
-    # unet_state = jax_utils.replicate(unet_state)
-    # text_encoder_state = jax_utils.replicate(text_encoder_state)
-    # vae_params = jax_utils.replicate(vae_params)
+    unet_state = jax_utils.replicate(unet_state)
+    text_encoder_state = jax_utils.replicate(text_encoder_state)
+    vae_params = jax_utils.replicate(vae_params)
 
     # Train!
     num_update_steps_per_epoch = math.ceil(len(train_dataloader))
@@ -721,15 +728,15 @@ def main():
         train_step_progress_bar = tqdm(total=steps_per_epoch, desc="Training...", position=1, leave=False)
         # train
         for batch in train_dataloader:
-            # batch = shard(batch) #already sharded
+            batch = shard(batch) #already sharded
             print("batch_pixel_values shape", batch["pixel_values"].shape)
             print("batch_input_ids shape", batch["input_ids"].shape)
-            # unet_state, text_encoder_state, train_metric, train_rngs = p_train_step(
-            #     unet_state, text_encoder_state, vae_params, batch, train_rngs
-            # )
-            unet_state, text_encoder_state, train_metric, train_rngs = train_step(
-                unet_state, text_encoder_state, vae_params, {k: v[0] for k,v in batch.items()}, train_rngs[0]
+            unet_state, text_encoder_state, train_metric, train_rngs = p_train_step(
+                unet_state, text_encoder_state, vae_params, batch, train_rngs
             )
+            # unet_state, text_encoder_state, train_metric, train_rngs = train_step(
+            #     unet_state, text_encoder_state, vae_params, {k: v[0] for k,v in batch.items()}, train_rngs[0]
+            # )
             train_metrics.append(train_metric)
             print(train_metric)
 
