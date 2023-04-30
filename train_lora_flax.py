@@ -36,7 +36,7 @@ from diffusers import (
     FlaxDDPMScheduler,
     FlaxPNDMScheduler,
     FlaxStableDiffusionPipeline,
-    
+    FlaxUNet2DConditionModel
 )
 from diffusers.pipelines.stable_diffusion import FlaxStableDiffusionSafetyChecker
 from diffusers.utils import check_min_version
@@ -485,10 +485,10 @@ def main():
         dtype=weight_dtype,
         **vae_kwargs,
     )
-    unet, unet_params = FlaxLoRAUNet2DConditionModel.from_pretrained(
-        args.pretrained_model_name_or_path, subfolder="unet", dtype=weight_dtype, revision=args.revision
-    )
-    # unet, params = FlaxLoRAUNet2DConditionModel.from_pretrained("runwayml/stable-diffusion-v1-5", revision="fp16", subfolder="unet", from_pt=True)
+    # unet, unet_params = FlaxLoRAUNet2DConditionModel.from_pretrained(
+    #     args.pretrained_model_name_or_path, subfolder="unet", dtype=weight_dtype, revision=args.revision
+    # )
+    unet, unet_params = FlaxUNet2DConditionModel.from_pretrained("runwayml/stable-diffusion-v1-5", revision="fp16", subfolder="unet", from_pt=True)
 
     latent_model_input = jnp.zeros((1, 4, 64, 64))
     timestep = jnp.broadcast_to(0, latent_model_input.shape[0])
@@ -519,9 +519,9 @@ def main():
                     r[k] = "freeze"
         return r
 
-    unet_params = tree_copy(unet_params, flax.core.frozen_dict.unfreeze(random_params["params"]))
-    del random_params
-    mask = freeze_non_lora(unet_params)
+    # unet_params = tree_copy(unet_params, flax.core.frozen_dict.unfreeze(random_params["params"]))
+    # del random_params
+    # mask = freeze_non_lora(unet_params)
 
     # Optimization
     if args.scale_lr:
