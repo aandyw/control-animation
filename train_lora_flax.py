@@ -410,7 +410,7 @@ def main():
                 transforms.RandomCrop(size),
                 transforms.ToTensor(),
                 transforms.Normalize([0.5], [0.5]),
-            ])(example) for example in list_frames["frames"]]) for list_frames in examples]
+            ])(example["bytes"]) for example in list_frames["frames"]]) for list_frames in examples]
 
         pixel_values = torch.stack(pixel_values)
         pixel_values = pixel_values.to(memory_format=torch.contiguous_format)
