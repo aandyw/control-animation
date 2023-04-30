@@ -368,7 +368,7 @@ class LoRAPositionalEncoding(nn.Module):
 
     def __call__(self, x, scale):
         #x is [(2f) 77 768]
-        video_length = x.shape[0] // self.batch_size
+        video_length = 1 if x.shape[0] < self.batch_size else x.shape[0] // self.batch_size
         x = x + scale * repeat(self.lora_pe(self.pe[:video_length]), 'f d -> (b f) l d ', b=self.batch_size, l=x.shape[1])
         return x
 
