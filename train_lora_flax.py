@@ -658,7 +658,6 @@ def main():
             new_text_encoder_state = text_encoder_state.apply_gradients(grads=grad["text_encoder"])
         else:
             new_text_encoder_state = text_encoder_state
-        print(loss)
         metrics = {"loss": loss}
         metrics = jax.lax.pmean(metrics, axis_name="batch")
 
@@ -740,7 +739,7 @@ def main():
             #     unet_state, text_encoder_state, vae_params, {k: v[0] for k,v in batch.items()}, train_rngs[0]
             # )
             train_metrics.append(train_metric)
-            print(train_metric)
+            # print(train_metric)
 
             train_step_progress_bar.update(jax.local_device_count())
 
