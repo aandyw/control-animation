@@ -564,7 +564,7 @@ def main():
     def train_step(unet_state, text_encoder_state, vae_params, batch, train_rng):
         dropout_rng, sample_rng, new_train_rng = jax.random.split(train_rng, 3)
 
-        if args.train_text_encoder:
+        if False:#args.train_text_encoder:
             params = {"text_encoder": text_encoder_state.params, "unet": unet_state.params}
         else:
             params = {"unet": unet_state.params}
@@ -596,7 +596,7 @@ def main():
             noisy_latents = noise_scheduler.add_noise(noise_scheduler_state, latents, noise, timesteps)
 
             # Get the text embedding for conditioning
-            if args.train_text_encoder:
+            if False:#args.train_text_encoder:
                 encoder_hidden_states = text_encoder_state.apply_fn(
                     batch["input_ids"], params=params["text_encoder"], dropout_rng=dropout_rng, train=True
                 )[0]
@@ -644,7 +644,7 @@ def main():
         grad = jax.lax.pmean(grad, "batch")
 
         new_unet_state = unet_state.apply_gradients(grads=grad["unet"])
-        if args.train_text_encoder:
+        if False:#args.train_text_encoder:
             new_text_encoder_state = text_encoder_state.apply_gradients(grads=grad["text_encoder"])
         else:
             new_text_encoder_state = text_encoder_state
@@ -722,6 +722,7 @@ def main():
         for batch in train_dataloader:
             # batch = shard(batch) #already sharded
             print("batch_pixel_values shape", batch["pixel_values"].shape)
+            print("batch_input_ids shape", batch["input_ids"].shape)
             unet_state, text_encoder_state, train_metric, train_rngs = p_train_step(
                 unet_state, text_encoder_state, vae_params, batch, train_rngs
             )
