@@ -187,7 +187,7 @@ class LoRAPositionalEncoding(nn.Module):
 
     def __call__(self, x, scale):
         #x is (F // f, f, D, C)
-        video_length = 1 if x.shape[0] < self.batch_size else x.shape[0] // self.batch_size
+        video_length = x.shape[1]
         pe = jax.numpy.broadcast_to(self.lora_pe[:video_length], x.shape)
         x = x + scale * pe
         return x
