@@ -112,9 +112,9 @@ class Model:
             return
 
         assert 'prompt' in kwargs
-        prompt = [kwargs.pop('prompt')]
+        prompt = [kwargs.pop('prompt')]*16
         # prompt = [ prompt + ', frame{i+1}/16' for i in range(16)] 
-        negative_prompt = [kwargs.pop('negative_prompt', '')]
+        negative_prompt = [kwargs.pop('negative_prompt', '')]*16
         # negative_prompt = [negative_prompt]*16
         lora_scale = kwargs.pop('lora_scale')
 
