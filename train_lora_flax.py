@@ -634,7 +634,7 @@ def main():
                 # Add the prior loss to the instance loss.
                 loss = loss + prior_loss
             else:
-                loss = (target - model_pred) ** 2 + 1e-5
+                loss = (target - model_pred) ** 2
                 loss = loss.mean()
 
             return loss
@@ -658,9 +658,9 @@ def main():
     p_train_step = jax.pmap(train_step, "batch", donate_argnums=(0, 1))
 
     # Replicate the train state on each device
-    unet_state = jax_utils.replicate(unet_state)
-    text_encoder_state = jax_utils.replicate(text_encoder_state)
-    vae_params = jax_utils.replicate(vae_params)
+    # unet_state = jax_utils.replicate(unet_state)
+    # text_encoder_state = jax_utils.replicate(text_encoder_state)
+    # vae_params = jax_utils.replicate(vae_params)
 
     # Train!
     num_update_steps_per_epoch = math.ceil(len(train_dataloader))
@@ -723,8 +723,11 @@ def main():
             # batch = shard(batch) #already sharded
             print("batch_pixel_values shape", batch["pixel_values"].shape)
             print("batch_input_ids shape", batch["input_ids"].shape)
-            unet_state, text_encoder_state, train_metric, train_rngs = p_train_step(
-                unet_state, text_encoder_state, vae_params, batch, train_rngs
+            # unet_state, text_encoder_state, train_metric, train_rngs = p_train_step(
+            #     unet_state, text_encoder_state, vae_params, batch, train_rngs
+            # )
+            unet_state, text_encoder_state, train_metric, train_rngs = train_step(
+                unet_state, text_encoder_state, vae_params, {k: v[0] for k,v in batch.items}, train_rngs[0]
             )
             train_metrics.append(train_metric)
             print(train_metric)
