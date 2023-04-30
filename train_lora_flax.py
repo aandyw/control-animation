@@ -383,12 +383,14 @@ def main():
         #result is already sharded
         size = 512
         
-        input_ids = [tokenizer(
-                        example["prompt"],
-                        padding="do_not_pad",
-                        truncation=True,
-                        max_length=tokenizer.model_max_length,
-                    ).input_ids for example in examples]
+        # input_ids = [tokenizer(
+        #                 example["prompt"],
+        #                 padding="do_not_pad",
+        #                 truncation=True,
+        #                 max_length=tokenizer.model_max_length,
+        #             ).input_ids for example in examples]
+
+        inputs_ids = [example["prompt"] for example in examples]
         
         # input_ids = [example["prompt_ids"] for example in examples]
 
