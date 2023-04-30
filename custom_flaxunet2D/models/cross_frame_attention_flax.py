@@ -19,6 +19,8 @@ import flax.linen as nn
 import jax
 import jax.numpy as jnp
 
+from einops import repeat
+
 # from diffusers.models.attention_flax import FlaxBasicTransformerBlock
 from diffusers.models.attention_flax import FlaxFeedForward, jax_memory_efficient_attention
 
@@ -167,6 +169,29 @@ class FlaxLoRALinearLayer(nn.Module):
         up_hidden_states = self.up(down_hidden_states)
         return up_hidden_states
 
+class LoRAPositionalEncoding(nn.Module):
+    d_model : int         # Hidden dimensionality of the input.
+    rank: int=4
+    dtype: jnp.dtype = jnp.float32
+    batch_size : int = 2  #video length should be hidden_states // 2
+    max_len : int = 200  # Maximum length of a sequence to expect.
+
+    def setup(self):
+        # Create matrix of [SeqLen, HiddenDim] representing the positional encoding for max_len inputs
+        pe = jnp.zeros((self.max_len, self.d_model), dtype=self.dtype)
+        position = jnp.arange(0, self.max_len, dtype=self.dtype)[:,None]
+        div_term = jnp.exp(jnp.arange(0, self.d_model, 2) * (-jnp.log(10000.0) / self.d_model))
+        pe = pe.at[:, 0::2].set(jnp.sin(position * div_term))
+        pe = pe.at[:, 1::2].set(jnp.cos(position * div_term))
+        self.pe = pe
+        self.lora_pe = FlaxLoRALinearLayer(self.d_model, rank=self.rank, dtype=self.dtype)
+
+    def __call__(self, x, scale):
+        #x is (F // f, f, D, C)
+        video_length = 1 if x.shape[0] < self.batch_size else x.shape[0] // self.batch_size
+        x = x + scale * repeat(self.lora_pe(self.pe[:video_length]), 'f d -> b f d c', b=self.batch_size, c=x.shape[-1])
+        return x
+
 class FlaxLoRACrossFrameAttention(nn.Module):
     r"""
     A Flax multi-head attention module as described in: https://arxiv.org/abs/1706.03762
@@ -217,6 +242,8 @@ class FlaxLoRACrossFrameAttention(nn.Module):
         self.to_v_lora = FlaxLoRALinearLayer(inner_dim, rank=self.rank, dtype=self.dtype)
         self.to_out_lora = FlaxLoRALinearLayer(inner_dim, rank=self.rank, dtype=self.dtype)
 
+        self.frame_pe_lora = LoRAPositionalEncoding(inner_dim, rank=self.rank, dtype=self.dtype)
+
     def reshape_heads_to_batch_dim(self, tensor):
         batch_size, seq_len, dim = tensor.shape
         head_size = self.heads
@@ -249,6 +276,7 @@ class FlaxLoRACrossFrameAttention(nn.Module):
 
             # rearrange keys to have batch and frames in the 1st and 2nd dims respectively
             key_proj = rearrange_3(key_proj, video_length)
+            key_proj = self.frame_pe_lora(key_proj)
             key_proj = key_proj[:, previous_frame_index]
             # rearrange values to have batch and frames in the 1st and 2nd dims respectively
             value_proj = rearrange_3(value_proj, video_length)

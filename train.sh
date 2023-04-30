@@ -5,4 +5,4 @@ python train_lora_flax.py \
 --mixed_precision fp16 \
 --train_batch_size 1 \
 --revision flax \
---num_train_epochs 1
+--num_train_epochs 10
