@@ -19,6 +19,7 @@ from flax.training.common_utils import shard
 from huggingface_hub import HfFolder, Repository, create_repo, whoami
 from jax.experimental.compilation_cache import compilation_cache as cc
 from PIL import Image
+import io
 from torch.utils.data import Dataset
 from torchvision import transforms
 from tqdm.auto import tqdm
@@ -410,7 +411,7 @@ def main():
                 transforms.RandomCrop(size),
                 transforms.ToTensor(),
                 transforms.Normalize([0.5], [0.5]),
-            ])(example["bytes"]) for example in list_frames["frames"]]) for list_frames in examples]
+            ])(Image.open(io.BytesIO(example["bytes"]))) for example in list_frames["frames"]]) for list_frames in examples]
 
         pixel_values = torch.stack(pixel_values)
         pixel_values = pixel_values.to(memory_format=torch.contiguous_format)
