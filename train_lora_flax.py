@@ -17,7 +17,7 @@ from flax import jax_utils
 from flax.training import train_state
 from flax.training.common_utils import shard
 from huggingface_hub import HfFolder, Repository, create_repo, whoami
-from jax.experimental.compilation_cache import compilation_cache as cc
+# from jax.experimental.compilation_cache import compilation_cache as cc
 from PIL import Image
 import io
 from torch.utils.data import Dataset
@@ -47,7 +47,7 @@ from custom_flaxunet2D.unet_2d_condition_flax import FlaxLoRAUNet2DConditionMode
 # check_min_version("0.17.0.dev0")
 
 # Cache compiled models across invocations of this script.
-cc.initialize_cache(os.path.expanduser("~/.cache/jax/compilation_cache"))
+# cc.initialize_cache(os.path.expanduser("~/.cache/jax/compilation_cache"))
 
 logger = logging.getLogger(__name__)
 
@@ -490,11 +490,11 @@ def main():
     # )
     unet, unet_params = FlaxUNet2DConditionModel.from_pretrained("runwayml/stable-diffusion-v1-5", revision="flax", subfolder="unet")
 
-    latent_model_input = jnp.zeros((1, 4, 64, 64))
-    timestep = jnp.broadcast_to(0, latent_model_input.shape[0])
-    encoder_hidden_states= jnp.zeros((1, 77, 768))
+    # latent_model_input = jnp.zeros((1, 4, 64, 64))
+    # timestep = jnp.broadcast_to(0, latent_model_input.shape[0])
+    # encoder_hidden_states= jnp.zeros((1, 77, 768))
     rng = jax.random.PRNGKey(0)
-    random_params = unet.init(rng, latent_model_input, timestep, encoder_hidden_states) # Initialization call
+    # random_params = unet.init(rng, latent_model_input, timestep, encoder_hidden_states) # Initialization call
 
     def tree_copy(tree1, tree2):
         #copies from tree2 to tree1
@@ -690,7 +690,7 @@ def main():
             unet=unet,
             tokenizer=tokenizer,
             scheduler=scheduler,
-            safety_checker=safety_checker,
+            safety_checker=None,
             feature_extractor=CLIPImageProcessor.from_pretrained("openai/clip-vit-base-patch32"),
         )
 
@@ -701,7 +701,6 @@ def main():
                 "text_encoder": get_params_to_save(text_encoder_state.params),
                 "vae": get_params_to_save(vae_params),
                 "unet": get_params_to_save(unet_state.params),
-                "safety_checker": safety_checker.params,
             },
         )
 
@@ -722,10 +721,12 @@ def main():
         # train
         for batch in train_dataloader:
             # batch = shard(batch) #already sharded
+            print("batch_pixel_values shape", batch["pixel_values"].shape)
             unet_state, text_encoder_state, train_metric, train_rngs = p_train_step(
                 unet_state, text_encoder_state, vae_params, batch, train_rngs
             )
             train_metrics.append(train_metric)
+            print(train_metric)
 
             train_step_progress_bar.update(jax.local_device_count())
 
