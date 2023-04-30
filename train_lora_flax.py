@@ -545,6 +545,8 @@ def main():
     tx = optax.multi_transform({'lora': optimizer, 'freeze': optax.set_to_zero()},
                             mask)
 
+    print(tx)
+
     unet_state = train_state.TrainState.create(apply_fn=unet.__call__, params=unet_params, tx=tx)
     text_encoder_state = train_state.TrainState.create(
         apply_fn=text_encoder.__call__, params=text_encoder.params, tx=optimizer
