@@ -6,19 +6,21 @@ import jax.numpy as jnp
 import tomesd
 import jax
 
-# from flax.training.common_utils import shard
+from flax.training.common_utils import shard
+from flax.jax_utils import replicate
 from flax import jax_utils
 import einops
 
 from transformers import CLIPTokenizer, CLIPFeatureExtractor, FlaxCLIPTextModel
 from diffusers import (
-    FlaxDDIMScheduler,,
+    FlaxDDIMScheduler,
     FlaxAutoencoderKL,
     FlaxStableDiffusionControlNetPipeline,
+    FlaxStableDiffusionPipeline,
 )
-from custom_models.unet_2d_condition_flax import FlaxUNet2DConditionModel
-from custom_models.controlnet_flax import FlaxControlNetModel
-    
+from models.unet_2d_condition_flax import FlaxUNet2DConditionModel
+from models.controlnet_flax import FlaxControlNetModel
+
 from pipelines.text_to_video_pipeline import TextToVideoPipeline
 
 import utils.utils as utils
@@ -31,8 +33,9 @@ unshard = lambda x: einops.rearrange(x, "d b ... -> (d b) ...")
 
 
 class ModelType(Enum):
-    Text2Video = (1,)
-    ControlNetPose = (2,)
+    Text2Video = 1
+    ControlNetPose = 2
+    StableDiffusion = 3
 
 
 def replicate_devices(array):
@@ -398,7 +401,54 @@ class ControlAnimationModel:
         smooth_bg_strength: float = 0.4,
         path: str = None,
     ):
-        
-        if is_safetensor:
+        if is_safetensor and model_link[-len(".safetensors") :] == ".safetensors":
             pipe = utils.load_safetensors_model(model_link)
         return
+
+    def generate_initial_frames(
+        self,
+        prompt: str,
+        model_link: str = "dreamlike-art/dreamlike-photoreal-2.0",
+        is_safetensor: bool = False,
+        n_prompt: str = "",
+        width: int = 512,
+        height: int = 512,
+        # batch_count: int = 4,
+        # batch_size: int = 1,
+        cfg_scale: float = 7.0,
+        seed: int = 0,
+    ):
+        print(
+            prompt,
+            model_link,
+            is_safetensor,
+            n_prompt,
+            width,
+            height,
+            cfg_scale,
+            seed,
+        )
+
+        pipe, params = FlaxStableDiffusionPipeline.from_pretrained(model_link)
+        prompt = [prompt] * jax.device_count()
+        prompt_ids = pipe.prepare_inputs(prompt)
+
+        p_params = replicate(params)
+        prompt_ids = shard(prompt_ids)
+        neg_prompt_ids = shard(n_prompt)
+
+        rng = jax.random.PRNGKey(seed)
+        rng = jax.random.split(rng, jax.device_count())
+
+        images = pipe(
+            prompt_ids,
+            p_params,
+            rng,
+            jit=True,
+            neg_prompt_ids=neg_prompt_ids,
+            width=width,
+            height=height,
+            guidance_scale=cfg_scale,
+        )[0]
+
+        return images

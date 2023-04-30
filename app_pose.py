@@ -1,4 +1,4 @@
-from pipelines.model import ControlAnimationModel
+from models.model import ControlAnimationModel
 import gradio as gr
 import os
 
