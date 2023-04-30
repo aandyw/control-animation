@@ -624,8 +624,10 @@ class FlaxLoRAUNet2DConditionModel(nn.Module, FlaxModelMixin, ConfigMixin):
 
         t_emb = self.time_proj(timesteps)
         t_emb = self.time_embedding(t_emb)
-
-        encoder_hidden_states = self.frame_pe(encoder_hidden_states, scale=scale) #adding frame positional encoding
+        if encoder_hidden_states is not None:
+            print(f"before fpe: ", encoder_hidden_states.shape)
+            encoder_hidden_states = self.frame_pe(encoder_hidden_states, scale=scale) #adding frame positional encoding
+            print(f"after fpe: ", encoder_hidden_states.shape)
 
         # 2. pre-process
         sample = jnp.transpose(sample, (0, 2, 3, 1))
