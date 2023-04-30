@@ -453,7 +453,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
         latents = self.text_to_video_zero(params, seed_t2vz, text_embeddings=context, video_length=video_length,
                                           height=height, width = width, num_inference_steps=num_inference_steps,
                                           guidance_scale=guidance_scale, controlnet_image=image,
-                                          xT=xT, t0=t0, t1=t1, lora_scale=lora_scale
+                                          xT=xT, t0=t0, t1=t1, lora_scale=lora_scale,
                                           motion_field_strength_x=motion_field_strength_x,
                                           motion_field_strength_y=motion_field_strength_y,
                                           controlnet_conditioning_scale=controlnet_conditioning_scale,
