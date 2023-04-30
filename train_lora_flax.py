@@ -727,7 +727,7 @@ def main():
             #     unet_state, text_encoder_state, vae_params, batch, train_rngs
             # )
             unet_state, text_encoder_state, train_metric, train_rngs = train_step(
-                unet_state, text_encoder_state, vae_params, {k: v[0] for k,v in batch.items}, train_rngs[0]
+                unet_state, text_encoder_state, vae_params, {k: v[0] for k,v in batch.items()}, train_rngs[0]
             )
             train_metrics.append(train_metric)
             print(train_metric)
