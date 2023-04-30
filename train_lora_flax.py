@@ -542,10 +542,11 @@ def main():
         adamw,
     )
 
-    tx = optax.multi_transform({'lora': optimizer, 'freeze': optax.set_to_zero()},
-                            mask)
+    # tx = optax.multi_transform({'lora': optimizer, 'freeze': optax.set_to_zero()},
+    #                         mask)
 
-    print(tx)
+    # print(tx)
+    tx = optimizer
 
     unet_state = train_state.TrainState.create(apply_fn=unet.__call__, params=unet_params, tx=tx)
     text_encoder_state = train_state.TrainState.create(
