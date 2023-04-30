@@ -11,7 +11,8 @@ import einops
 from transformers import CLIPTokenizer, CLIPFeatureExtractor, FlaxCLIPTextModel
 from diffusers import FlaxDDIMScheduler, FlaxAutoencoderKL #FlaxUNet2DConditionModel, FlaxStableDiffusionControlNetPipeline
 
-from custom_flaxunet2D.unet_2d_condition_flax import FlaxUNet2DConditionModel
+# from custom_flaxunet2D.unet_2d_condition_flax import FlaxUNet2DConditionModel
+from custom_flaxunet2D.unet_2d_condition_flax import FlaxLoRAUNet2DConditionModel
 from custom_flaxunet2D.controlnet_flax import FlaxControlNetModel
 from flax_text_to_video_pipeline import FlaxTextToVideoPipeline
 
@@ -59,8 +60,13 @@ class Model:
         )
         tokenizer = CLIPTokenizer.from_pretrained(model_id, revision="fp16", subfolder="tokenizer")
         feature_extractor = CLIPFeatureExtractor.from_pretrained(model_id, subfolder="feature_extractor")
-        unet, unet_params = FlaxUNet2DConditionModel.from_pretrained(model_id, subfolder="unet", from_pt=True, revision="fp16", dtype=self.dtype)
-        vae, vae_params = FlaxAutoencoderKL.from_pretrained(model_id, revision="fp16", subfolder="vae", from_pt=True, dtype=self.dtype)
+        # unet, unet_params = FlaxUNet2DConditionModel.from_pretrained(model_id, subfolder="unet", from_pt=True, revision="fp16", dtype=self.dtype)
+        # lora model:
+        lora_model_id="gigant/lora-t2vz-sd15"
+        unet, unet_params = FlaxLoRAUNet2DConditionModel.from_pretrained(lora_model_id, subfolder="unet", dtype=self.dtype)
+        vae, vae_params = FlaxAutoencoderKL.from_pretrained(lora_model_id, subfolder="vae", dtype=self.dtype)
+        # unet, unet_params = FlaxLoRAUNet2DConditionModel.from_pretrained(model_id, revision="fp16", subfolder="unet", from_pt=True, dtype=self.dtype)
+        # vae, vae_params = FlaxAutoencoderKL.from_pretrained(model_id, revision="fp16", subfolder="vae", from_pt=True, dtype=self.dtype)
         text_encoder = FlaxCLIPTextModel.from_pretrained(model_id, revision="fp16", subfolder="text_encoder", from_pt=True, dtype=self.dtype)
         self.pipe = FlaxTextToVideoPipeline(vae=vae,
                                                         text_encoder=text_encoder,
@@ -106,8 +112,8 @@ class Model:
             return
 
         assert 'prompt' in kwargs
-        prompt = [kwargs.pop('prompt')] 
-        negative_prompt = [kwargs.pop('negative_prompt', '')]
+        prompt = [kwargs.pop('prompt') + ', frame{i+1}/16' for i in range(16)] 
+        negative_prompt = [kwargs.pop('negative_prompt', '')]*16
 
         frames_counter = 0
 

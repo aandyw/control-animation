@@ -650,10 +650,8 @@ class FlaxLoRAUNet2DConditionModel(nn.Module, FlaxModelMixin, ConfigMixin):
             down_block_res_samples = new_down_block_res_samples
 
         if encoder_hidden_states is not None:
-            print(f"before fpe: ", encoder_hidden_states.shape)
             #adding frame positional encoding
             encoder_hidden_states = self.frame_pe(encoder_hidden_states, scale=scale)
-            print(f"after fpe: ", encoder_hidden_states.shape)
 
         # 4. mid
         sample = self.mid_block(sample, t_emb, encoder_hidden_states, deterministic=not train, scale=scale)
