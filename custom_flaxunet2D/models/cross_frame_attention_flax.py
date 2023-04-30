@@ -276,7 +276,7 @@ class FlaxLoRACrossFrameAttention(nn.Module):
 
             # rearrange keys to have batch and frames in the 1st and 2nd dims respectively
             key_proj = rearrange_3(key_proj, video_length)
-            key_proj = self.frame_pe_lora(key_proj)
+            key_proj = self.frame_pe_lora(key_proj, scale=scale)
             key_proj = key_proj[:, previous_frame_index]
             # rearrange values to have batch and frames in the 1st and 2nd dims respectively
             value_proj = rearrange_3(value_proj, video_length)
