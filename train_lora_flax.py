@@ -488,7 +488,7 @@ def main():
     # unet, unet_params = FlaxLoRAUNet2DConditionModel.from_pretrained(
     #     args.pretrained_model_name_or_path, subfolder="unet", dtype=weight_dtype, revision=args.revision
     # )
-    unet, unet_params = FlaxUNet2DConditionModel.from_pretrained("runwayml/stable-diffusion-v1-5", revision="fp16", subfolder="unet", from_pt=True)
+    unet, unet_params = FlaxUNet2DConditionModel.from_pretrained("runwayml/stable-diffusion-v1-5", revision="flax", subfolder="unet")
 
     latent_model_input = jnp.zeros((1, 4, 64, 64))
     timestep = jnp.broadcast_to(0, latent_model_input.shape[0])
@@ -546,7 +546,7 @@ def main():
     #                         mask)
 
     # print(tx)
-    tx = optimizer
+    tx = optax.set_to_zero()
 
     unet_state = train_state.TrainState.create(apply_fn=unet.__call__, params=unet_params, tx=tx)
     text_encoder_state = train_state.TrainState.create(
