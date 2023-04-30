@@ -617,7 +617,7 @@ def main():
             else:
                 raise ValueError(f"Unknown prediction type {noise_scheduler.config.prediction_type}")
 
-            if False:
+            if True:
                 # Chunk the noise and noise_pred into two parts and compute the loss on each part separately.
                 model_pred, model_pred_prior = jnp.split(model_pred, 2, axis=0)
                 target, target_prior = jnp.split(target, 2, axis=0)
@@ -631,7 +631,7 @@ def main():
                 prior_loss = prior_loss.mean()
 
                 # Add the prior loss to the instance loss.
-                loss = loss + args.prior_loss_weight * prior_loss
+                loss = loss + prior_loss
             else:
                 loss = (target - model_pred) ** 2
                 loss = loss.mean()
