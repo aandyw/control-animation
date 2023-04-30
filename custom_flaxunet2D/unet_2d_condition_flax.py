@@ -39,6 +39,8 @@ from .models.unet_2d_blocks_flax import (
 
 from .models.cross_frame_attention_flax import FlaxLoRALinearLayer
 
+from einops import repeat
+
 @flax.struct.dataclass
 class FlaxUNet2DConditionOutput(BaseOutput):
     """
@@ -349,9 +351,36 @@ class FlaxUNet2DConditionModel(nn.Module, FlaxModelMixin, ConfigMixin):
 
         return FlaxUNet2DConditionOutput(sample=sample)
 
+class LoRAPositionalEncoding(nn.Module):
+    d_model : int         # Hidden dimensionality of the input.
+    batch_size : int = 2  #video length should be hidden_states // 2
+    max_len : int = 200  # Maximum length of a sequence to expect.
+
+    def setup(self):
+        # Create matrix of [SeqLen, HiddenDim] representing the positional encoding for max_len inputs
+        pe = jnp.zeros((self.max_len, self.d_model))
+        position = jnp.arange(0, self.max_len, dtype=jnp.float16)[:,None]
+        div_term = jnp.exp(jnp.arange(0, self.d_model, 2) * (-jnp.math.log(10000.0) / self.d_model))
+        pe = pe.at[:, 0::2].set(jnp.sin(position * div_term))
+        pe = pe.at[:, 1::2].set(jnp.cos(position * div_term))
+        self.pe = pe
+        self.lora_pe = FlaxLoRALinearLayer(self.d_model, rank=1)
+
+    def __call__(self, x, scale):
+        #x is [(2f) 77 768]
+        video_length = x.shape[0] // self.batch_size
+        x = x + scale * repeat(self.lora_pe(self.pe[:video_length]), 'f d -> (b f) l d ', b=self.batch_size, l=x.shape[1])
+        return x
+
 @flax_register_to_config
 class FlaxLoRAUNet2DConditionModel(nn.Module, FlaxModelMixin, ConfigMixin):
     r"""
+
+    FlaxLoRAUNet2DConditionModel is a custom FlaxUNet2DConditionModel with a few tweaks:
+    - Cross Attention is replaced by Cross-Frame Attention
+    - Low Rank Adaptation (LoRA) layers are added to the Cross-Frame Attention
+    - An frame positional encoding is added to the encoder_hidden_states via a LoRA linear layer
+
     FlaxUNet2DConditionModel is a conditional 2D UNet model that takes in a noisy sample, conditional state, and a
     timestep and returns sample shaped output.
 
@@ -459,6 +488,9 @@ class FlaxLoRAUNet2DConditionModel(nn.Module, FlaxModelMixin, ConfigMixin):
         attention_head_dim = self.attention_head_dim
         if isinstance(attention_head_dim, int):
             attention_head_dim = (attention_head_dim,) * len(self.down_block_types)
+
+        #frame positional embedding
+        self.frame_pe = LoRAPositionalEncoding(self.cross_attention_dim)
 
         # down
         down_blocks = []
@@ -592,6 +624,8 @@ class FlaxLoRAUNet2DConditionModel(nn.Module, FlaxModelMixin, ConfigMixin):
 
         t_emb = self.time_proj(timesteps)
         t_emb = self.time_embedding(t_emb)
+
+        encoder_hidden_states = self.frame_pe(encoder_hidden_states, scale=scale) #adding frame positional encoding
 
         # 2. pre-process
         sample = jnp.transpose(sample, (0, 2, 3, 1))

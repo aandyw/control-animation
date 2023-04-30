@@ -4,4 +4,5 @@ python train_lora_flax.py \
 --hub_model_id gigant/lora-t2vz-sd15 \
 --mixed_precision fp16 \
 --train_batch_size 1 \
---revision flax
+--revision flax \
+--num_train_epochs 1
