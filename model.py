@@ -112,10 +112,11 @@ class Model:
             return
 
         assert 'prompt' in kwargs
-        prompt = kwargs.pop('prompt')
-        prompt = [ prompt + ', frame{i+1}/16' for i in range(16)] 
-        negative_prompt = kwargs.pop('negative_prompt', '')
-        negative_prompt = [negative_prompt]*16
+        prompt = [kwargs.pop('prompt')]
+        # prompt = [ prompt + ', frame{i+1}/16' for i in range(16)] 
+        negative_prompt = [kwargs.pop('negative_prompt', '')]
+        # negative_prompt = [negative_prompt]*16
+        lora_scale = kwargs.pop('lora_scale')
 
         frames_counter = 0
 
@@ -146,8 +147,8 @@ class Model:
                 prompt_ids = self.pipe.prepare_text_inputs(prompt)
                 n_prompt_ids = self.pipe.prepare_text_inputs(negative_prompt)
                 # latents = kwargs.pop('latents')
-                prng, self.rng = jax.random.split(self.rng)
-                prng_seed = jax.random.split(prng, jax.device_count())
+                prng, self.rng = jax.random.split(prng)
+                prng_seed = replicate_devices(prng) #jax.random.split(prng, jax.device_count())
                 image = replicate_devices(image)
                 # latents = replicate_devices(latents)
                 prompt_ids = replicate_devices(prompt_ids)
@@ -164,6 +165,7 @@ class Model:
                                 smooth_bg_strength=smooth_bg_strength,
                                 motion_field_strength_x=motion_field_strength_x,
                                 motion_field_strength_y=motion_field_strength_y,
+                                lora_scale=lora_scale,
                                 **kwargs
                                 ).images)[0]
             else:
@@ -188,6 +190,8 @@ class Model:
                                 # neg_prompt,
                                 # xT = None,
                                 chunk_size=8,
+                                lora_scale: float = 0.8,
+                                prng: int = 0,
                                 smooth_bg_strength: float=0.4,
                                 motion_field_strength_x: float = 12,
                                 motion_field_strength_y: float = 12,
@@ -263,6 +267,8 @@ class Model:
                                 motion_field_strength_y=jnp.array(motion_field_strength_y),
                                 t0=t0,
                                 t1=t1,
+                                prng=prng,
+                                lora_scale=lora_scale,
                                 # merging_ratio=merging_ratio,
                                 )
         return utils.create_gif(result, fps, path=save_path, watermark=None)

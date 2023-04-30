@@ -133,7 +133,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
             return xt
         
     def DDIM_backward(self, params, num_inference_steps, timesteps, skip_t, t0, t1, do_classifier_free_guidance, text_embeddings, latents_local,
-                        guidance_scale, controlnet_image=None, controlnet_conditioning_scale=None):
+                        guidance_scale, controlnet_image=None, controlnet_conditioning_scale=None, lora_scale=0.):
         scheduler_state = self.scheduler.set_timesteps(params["scheduler"], num_inference_steps)
         f = latents_local.shape[2]
         latents_local = rearrange(latents_local, "b c f h w -> (b f) c h w")
@@ -171,6 +171,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
                     encoder_hidden_states=te,
                     down_block_additional_residuals=down_block_res_samples,
                     mid_block_additional_residual=mid_block_res_sample,
+                    scale=lora_scale,
                 ).sample
             else:
                 noise_pred = self.unet.apply(
@@ -178,6 +179,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
                     jnp.array(latent_model_input),
                     jnp.array(timestep, dtype=jnp.int32),
                     encoder_hidden_states=te,
+                    scale=lora_scale,
                     ).sample
             # perform guidance
             if do_classifier_free_guidance:
@@ -273,6 +275,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
                            guidance_scale: float = 7.5,
                            num_videos_per_prompt: Optional[int] = 1,
                            xT = None,
+                           lora_scale: float=0.,
                            smooth_bg_strength: float=0.4,
                            motion_field_strength_x: float = 12,
                            motion_field_strength_y: float = 12,
@@ -306,7 +309,8 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
         #  perform ∆t backward steps by stable diffusion
         ddim_res = self.DDIM_backward(params, num_inference_steps=num_inference_steps, timesteps=timesteps, skip_t=1000, t0=t0, t1=t1, do_classifier_free_guidance=do_classifier_free_guidance,
                                 text_embeddings=text_embeddings, latents_local=xT, guidance_scale=guidance_scale,
-                                controlnet_image=jnp.stack([controlnet_image[0]] * 2), controlnet_conditioning_scale=controlnet_conditioning_scale)
+                                controlnet_image=jnp.stack([controlnet_image[0]] * 2), controlnet_conditioning_scale=controlnet_conditioning_scale,
+                                lora_scale=lora_scale)
         x0 = ddim_res["x0"]
 
         # apply warping functions
@@ -351,7 +355,8 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
             
         ddim_res = self.DDIM_backward(params, num_inference_steps=num_inference_steps, timesteps=timesteps, skip_t=t1, t0=-1, t1=-1, do_classifier_free_guidance=do_classifier_free_guidance,
                                             text_embeddings=text_embeddings, latents_local=x_t1, guidance_scale=guidance_scale,
-                                            controlnet_image=controlnet_image, controlnet_conditioning_scale=controlnet_conditioning_scale)
+                                            controlnet_image=controlnet_image, controlnet_conditioning_scale=controlnet_conditioning_scale,
+                                            lora_scale=lora_scale)
         
         x0 = ddim_res["x0"]
         del ddim_res
@@ -475,6 +480,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
         return_dict: bool = True,
         jit: bool = False,
         xT = None,
+        lora_scale: float = 0.,
         smooth_bg_strength: float = 0.4,
         motion_field_strength_x: float = 3,
         motion_field_strength_y: float = 4,
@@ -549,6 +555,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
                 neg_prompt_ids,
                 controlnet_conditioning_scale,
                 xT,
+                lora_scale,
                 smooth_bg_strength,
                 motion_field_strength_x,
                 motion_field_strength_y,
@@ -567,6 +574,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
                 neg_prompt_ids,
                 controlnet_conditioning_scale,
                 xT,
+                lora_scale,
                 smooth_bg_strength,
                 motion_field_strength_x,
                 motion_field_strength_y,
@@ -611,6 +619,7 @@ def _p_generate(
     neg_prompt_ids,
     controlnet_conditioning_scale,
     xT,
+    lora_scale,
     smooth_bg_strength,
     motion_field_strength_x,
     motion_field_strength_y,
@@ -628,6 +637,7 @@ def _p_generate(
         neg_prompt_ids,
         controlnet_conditioning_scale,
         xT,
+        lora_scale,
         smooth_bg_strength,
         motion_field_strength_x,
         motion_field_strength_y,

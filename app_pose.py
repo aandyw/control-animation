@@ -33,6 +33,8 @@ def create_demo(model: Model):
                 motion_field_strength_x = gr.Slider(label="Motion field strength horizontal", minimum = -10, maximum = 10, value = 0, step=1)
                 motion_field_strength_y = gr.Slider(label="Motion field strength vertical", minimum = -10, maximum = 10, value = 0, step=1)
                 smooth_bg_strength = gr.Slider(label="Strength of background smoothing", minimum = 0, maximum = 1, value=0.8, step=0.01)
+                lora_scale = gr.Slider(label="Scale of lora model", minimum = 0, maximum = 1, value=0.8, step=0.01)
+
                 added_prompt = gr.Textbox(label='Added prompt modifer', value='high quality, anatomically correct, clay stop-motion, aardman, claymation, smooth')
                 run_button = gr.Button(label='Run')
                 with gr.Accordion('Advanced options', open=False):
@@ -56,6 +58,7 @@ def create_demo(model: Model):
             prompt,
             added_prompt,
             chunk_size,
+            lora_scale,
             smooth_bg_strength,
             motion_field_strength_x,
             motion_field_strength_y,
