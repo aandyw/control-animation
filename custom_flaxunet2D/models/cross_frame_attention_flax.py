@@ -173,7 +173,6 @@ class LoRAPositionalEncoding(nn.Module):
     d_model : int         # Hidden dimensionality of the input.
     rank: int=4
     dtype: jnp.dtype = jnp.float32
-    batch_size : int = 2  #video length should be hidden_states // 2
     max_len : int = 200  # Maximum length of a sequence to expect.
 
     def setup(self):
@@ -189,7 +188,8 @@ class LoRAPositionalEncoding(nn.Module):
     def __call__(self, x, scale):
         #x is (F // f, f, D, C)
         video_length = 1 if x.shape[0] < self.batch_size else x.shape[0] // self.batch_size
-        x = x + scale * repeat(self.lora_pe(self.pe[:video_length]), 'f d -> b f d c', b=self.batch_size, c=x.shape[-1])
+        pe = jax.numpy.broadcast_to(self.lora_pe[:video_length], x.shape)
+        x = x + scale * pe
         return x
 
 class FlaxLoRACrossFrameAttention(nn.Module):
