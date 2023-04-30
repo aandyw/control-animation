@@ -112,8 +112,10 @@ class Model:
             return
 
         assert 'prompt' in kwargs
-        prompt = [kwargs.pop('prompt') + ', frame{i+1}/16' for i in range(16)] 
-        negative_prompt = [kwargs.pop('negative_prompt', '')]*16
+        prompt = kwargs.pop('prompt')
+        prompt = [ prompt + ', frame{i+1}/16' for i in range(16)] 
+        negative_prompt = kwargs.pop('negative_prompt', '')
+        negative_prompt = [negative_prompt]*16
 
         frames_counter = 0
 
