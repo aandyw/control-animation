@@ -641,7 +641,8 @@ def main():
 
         grad_fn = jax.value_and_grad(compute_loss)
         loss, grad = grad_fn(params)
-        grad = jax.lax.pmean(grad, "batch")
+        # grad = jax.lax.mean(grad, "batch")
+        # grad = jax.lax.pmean(grad, "batch")
 
         new_unet_state = unet_state.apply_gradients(grads=grad["unet"])
         if False:#args.train_text_encoder:
