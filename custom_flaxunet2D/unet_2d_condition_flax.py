@@ -353,7 +353,7 @@ class FlaxUNet2DConditionModel(nn.Module, FlaxModelMixin, ConfigMixin):
 
 class LoRAPositionalEncoding(nn.Module):
     d_model : int         # Hidden dimensionality of the input.
-    batch_size : int = 2  #video length should be hidden_states // 2
+    batch_size : int = 1  #video length should be hidden_states // 2
     max_len : int = 200  # Maximum length of a sequence to expect.
 
     def setup(self):
@@ -624,10 +624,6 @@ class FlaxLoRAUNet2DConditionModel(nn.Module, FlaxModelMixin, ConfigMixin):
 
         t_emb = self.time_proj(timesteps)
         t_emb = self.time_embedding(t_emb)
-        if encoder_hidden_states is not None:
-            print(f"before fpe: ", encoder_hidden_states.shape)
-            encoder_hidden_states = self.frame_pe(encoder_hidden_states, scale=scale) #adding frame positional encoding
-            print(f"after fpe: ", encoder_hidden_states.shape)
 
         # 2. pre-process
         sample = jnp.transpose(sample, (0, 2, 3, 1))
@@ -652,6 +648,12 @@ class FlaxLoRAUNet2DConditionModel(nn.Module, FlaxModelMixin, ConfigMixin):
                 new_down_block_res_samples += (down_block_res_sample,)
 
             down_block_res_samples = new_down_block_res_samples
+
+        if encoder_hidden_states is not None:
+            print(f"before fpe: ", encoder_hidden_states.shape)
+            #adding frame positional encoding
+            encoder_hidden_states = self.frame_pe(encoder_hidden_states, scale=scale)
+            print(f"after fpe: ", encoder_hidden_states.shape)
 
         # 4. mid
         sample = self.mid_block(sample, t_emb, encoder_hidden_states, deterministic=not train, scale=scale)
