@@ -634,7 +634,7 @@ def main():
                 # Add the prior loss to the instance loss.
                 loss = loss + prior_loss
             else:
-                loss = (target - model_pred) ** 2
+                loss = (target - model_pred) ** 2 + 1e-5
                 loss = loss.mean()
 
             return loss
