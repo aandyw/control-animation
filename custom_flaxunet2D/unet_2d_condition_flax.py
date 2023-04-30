@@ -360,7 +360,7 @@ class LoRAPositionalEncoding(nn.Module):
         # Create matrix of [SeqLen, HiddenDim] representing the positional encoding for max_len inputs
         pe = jnp.zeros((self.max_len, self.d_model))
         position = jnp.arange(0, self.max_len, dtype=jnp.float16)[:,None]
-        div_term = jnp.exp(jnp.arange(0, self.d_model, 2) * (-jnp.math.log(10000.0) / self.d_model))
+        div_term = jnp.exp(jnp.arange(0, self.d_model, 2) * (-jnp.log(10000.0) / self.d_model))
         pe = pe.at[:, 0::2].set(jnp.sin(position * div_term))
         pe = pe.at[:, 1::2].set(jnp.cos(position * div_term))
         self.pe = pe
