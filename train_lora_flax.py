@@ -494,16 +494,16 @@ def main():
         dtype=weight_dtype,
         **vae_kwargs,
     )
-    # unet, unet_params = FlaxLoRAUNet2DConditionModel.from_pretrained(
-    #     args.pretrained_model_name_or_path, subfolder="unet", dtype=weight_dtype, revision=args.revision
-    # )
-    unet, unet_params = FlaxUNet2DConditionModel.from_pretrained("runwayml/stable-diffusion-v1-5", revision="flax", subfolder="unet")
+    unet, unet_params = FlaxLoRAUNet2DConditionModel.from_pretrained(
+        args.pretrained_model_name_or_path, subfolder="unet", dtype=weight_dtype, revision=args.revision
+    )
+    # unet, unet_params = FlaxUNet2DConditionModel.from_pretrained("runwayml/stable-diffusion-v1-5", revision="flax", subfolder="unet")
 
-    # latent_model_input = jnp.zeros((1, 4, 64, 64))
-    # timestep = jnp.broadcast_to(0, latent_model_input.shape[0])
-    # encoder_hidden_states= jnp.zeros((1, 77, 768))
+    latent_model_input = jnp.zeros((1, 4, 64, 64))
+    timestep = jnp.broadcast_to(0, latent_model_input.shape[0])
+    encoder_hidden_states= jnp.zeros((1, 77, 768))
     rng = jax.random.PRNGKey(0)
-    # random_params = unet.init(rng, latent_model_input, timestep, encoder_hidden_states) # Initialization call
+    random_params = unet.init(rng, latent_model_input, timestep, encoder_hidden_states) # Initialization call
 
     def tree_copy(tree1, tree2):
         #copies from tree2 to tree1
@@ -528,9 +528,9 @@ def main():
                     r[k] = "freeze"
         return r
 
-    # unet_params = tree_copy(unet_params, flax.core.frozen_dict.unfreeze(random_params["params"]))
-    # del random_params
-    # mask = freeze_non_lora(unet_params)
+    unet_params = tree_copy(unet_params, flax.core.frozen_dict.unfreeze(random_params["params"]))
+    del random_params
+    mask = freeze_non_lora(unet_params)
 
     # Optimization
     if args.scale_lr:
@@ -551,11 +551,11 @@ def main():
         adamw,
     )
 
-    # tx = optax.multi_transform({'lora': optimizer, 'freeze': optax.set_to_zero()},
-    #                         mask)
+    tx = optax.multi_transform({'lora': optimizer, 'freeze': optax.set_to_zero()},
+                            mask)
 
     # print(tx)
-    tx = optax.set_to_zero()
+    # tx = optax.set_to_zero()
 
     unet_state = train_state.TrainState.create(apply_fn=unet.__call__, params=unet_params, tx=tx)
     text_encoder_state = train_state.TrainState.create(
@@ -730,8 +730,8 @@ def main():
         # train
         for batch in train_dataloader:
             batch = shard(batch) #already sharded
-            print("batch_pixel_values shape", batch["pixel_values"].shape)
-            print("batch_input_ids shape", batch["input_ids"].shape)
+            # print("batch_pixel_values shape", batch["pixel_values"].shape)
+            # print("batch_input_ids shape", batch["input_ids"].shape)
             unet_state, text_encoder_state, train_metric, train_rngs = p_train_step(
                 unet_state, text_encoder_state, vae_params, batch, train_rngs
             )
