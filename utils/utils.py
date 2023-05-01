@@ -16,6 +16,7 @@ import torch
 from diffusers.pipelines.stable_diffusion.convert_from_ckpt import (
     download_from_original_stable_diffusion_ckpt,
 )
+from huggingface_hub import hf_hub_download
 
 import flax.linen as nn
 
@@ -46,10 +47,12 @@ def add_watermark(image, watermark_path, wm_rel_size=1 / 16, boundary=5):
     return image
 
 
-def load_safetensors_model(ckpt_path):
-    # ckpt_path = hf_hub_download(repo_id="breakcore2/ligne_claire_anime_diffusion", filename="ligne_claire_anime_diffusion_v1.safetensors")
+def load_safetensors_model(model_link):
+    ckpt_path = hf_hub_download(
+        repo_id=model_link, filename="ligne_claire_anime_diffusion_v1.safetensors"
+    )
 
-    # print(f"Checkpoint path: {ckpt_path}")
+    print(f"Checkpoint path: {ckpt_path}")
 
     # !wget https://raw.githubusercontent.com/CompVis/stable-diffusion/main/configs/stable-diffusion/v1-inference.yaml
     pipe = download_from_original_stable_diffusion_ckpt(
@@ -58,6 +61,8 @@ def load_safetensors_model(ckpt_path):
         from_safetensors=True,
     )
     pipe.save_pretrained("./models/ligne_claire", safe_serialization=True)
+
+    return pipe
 
 
 def pre_process_pose(input_video, apply_pose_detect: bool = True):

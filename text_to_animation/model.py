@@ -6,22 +6,26 @@ import jax.numpy as jnp
 import tomesd
 import jax
 
-# from flax.training.common_utils import shard
+from flax.training.common_utils import shard
+from flax.jax_utils import replicate
 from flax import jax_utils
 import einops
 
 from transformers import CLIPTokenizer, CLIPFeatureExtractor, FlaxCLIPTextModel
 from diffusers import (
-    FlaxDDIMScheduler,,
+    FlaxDDIMScheduler,
     FlaxAutoencoderKL,
     FlaxStableDiffusionControlNetPipeline,
+    StableDiffusionPipeline,
 )
-from custom_models.unet_2d_condition_flax import FlaxUNet2DConditionModel
-from custom_models.controlnet_flax import FlaxControlNetModel
-    
-from pipelines.text_to_video_pipeline import TextToVideoPipeline
+from text_to_animation.models.unet_2d_condition_flax import FlaxUNet2DConditionModel
+from text_to_animation.models.controlnet_flax import FlaxControlNetModel
 
-import utils.utils
+from text_to_animation.pipelines.text_to_video_pipeline_flax import (
+    FlaxTextToVideoPipeline,
+)
+
+import utils.utils as utils
 import utils.gradio_utils as gradio_utils
 import os
 
@@ -31,8 +35,9 @@ unshard = lambda x: einops.rearrange(x, "d b ... -> (d b) ...")
 
 
 class ModelType(Enum):
-    Text2Video = (1,)
-    ControlNetPose = (2,)
+    Text2Video = 1
+    ControlNetPose = 2
+    StableDiffusion = 3
 
 
 def replicate_devices(array):
@@ -45,7 +50,7 @@ class ControlAnimationModel:
         self.dtype = dtype
         self.rng = jax.random.PRNGKey(0)
         self.pipe_dict = {
-            ModelType.Text2Video: TextToVideoPipeline,  # TODO: Replace with our TextToVideo JAX Pipeline
+            ModelType.Text2Video: FlaxTextToVideoPipeline,  # TODO: Replace with our TextToVideo JAX Pipeline
             ModelType.ControlNetPose: FlaxStableDiffusionControlNetPipeline,
         }
         self.pipe = None
@@ -95,7 +100,7 @@ class ControlAnimationModel:
         text_encoder = FlaxCLIPTextModel.from_pretrained(
             model_id, subfolder="text_encoder", from_pt=True, dtype=self.dtype
         )
-        self.pipe = TextToVideoPipeline(
+        self.pipe = FlaxTextToVideoPipeline(
             vae=vae,
             text_encoder=text_encoder,
             tokenizer=tokenizer,
@@ -375,3 +380,60 @@ class ControlAnimationModel:
         return utils.create_video(
             result, fps, path=path, watermark=gradio_utils.logo_name_to_path(watermark)
         )
+
+    def generate_animation(
+        self,
+        prompt: str,
+        model_link: str = "dreamlike-art/dreamlike-photoreal-2.0",
+        is_safetensor: bool = False,
+        motion_field_strength_x: int = 12,
+        motion_field_strength_y: int = 12,
+        t0: int = 44,
+        t1: int = 47,
+        n_prompt: str = "",
+        chunk_size: int = 8,
+        video_length: int = 8,
+        merging_ratio: float = 0.0,
+        seed: int = 0,
+        resolution: int = 512,
+        fps: int = 2,
+        use_cf_attn: bool = True,
+        use_motion_field: bool = True,
+        smooth_bg: bool = False,
+        smooth_bg_strength: float = 0.4,
+        path: str = None,
+    ):
+        if is_safetensor and model_link[-len(".safetensors") :] == ".safetensors":
+            pipe = utils.load_safetensors_model(model_link)
+        return
+
+    def generate_initial_frames(
+        self,
+        prompt: str,
+        model_link: str = "dreamlike-art/dreamlike-photoreal-2.0",
+        is_safetensor: bool = False,
+        n_prompt: str = "",
+        width: int = 512,
+        height: int = 512,
+        # batch_count: int = 4,
+        # batch_size: int = 1,
+        cfg_scale: float = 7.0,
+        seed: int = 0,
+    ):
+        print(f">>> prompt: {prompt}, model_link: {model_link}")
+
+        pipe = StableDiffusionPipeline.from_pretrained(model_link)
+
+        batch_size = 4
+        prompt = [prompt] * batch_size
+        negative_prompt = [n_prompt] * batch_size
+
+        images = pipe(
+            prompt,
+            negative_prompt=negative_prompt,
+            width=width,
+            height=height,
+            guidance_scale=cfg_scale,
+        ).images
+
+        return images

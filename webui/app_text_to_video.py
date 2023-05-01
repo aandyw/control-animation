@@ -1,5 +1,5 @@
 import gradio as gr
-from pipelines.model import ControlAnimationModel
+from text_to_animation.model import ControlAnimationModel
 import os
 from utils.hf_utils import get_model_list
 
