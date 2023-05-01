@@ -62,7 +62,7 @@ class Model:
         feature_extractor = CLIPFeatureExtractor.from_pretrained(model_id, subfolder="feature_extractor")
         # unet, unet_params = FlaxUNet2DConditionModel.from_pretrained(model_id, subfolder="unet", from_pt=True, revision="fp16", dtype=self.dtype)
         # lora model:
-        lora_model_id="./lora-model"#"gigant/lora-t2vz-sd15"
+        lora_model_id="gigant/lora-t2vz-sd15"
         unet, unet_params = FlaxLoRAUNet2DConditionModel.from_pretrained(lora_model_id, subfolder="unet", dtype=self.dtype)
         vae, vae_params = FlaxAutoencoderKL.from_pretrained(lora_model_id, subfolder="vae", dtype=self.dtype)
         # unet, unet_params = FlaxLoRAUNet2DConditionModel.from_pretrained(model_id, revision="fp16", subfolder="unet", from_pt=True, dtype=self.dtype)
@@ -112,9 +112,9 @@ class Model:
             return
 
         assert 'prompt' in kwargs
-        prompt = [kwargs.pop('prompt')]*16
+        prompt = [kwargs.pop('prompt')]*8
         # prompt = [ prompt + ', frame{i+1}/16' for i in range(16)] 
-        negative_prompt = [kwargs.pop('negative_prompt', '')]*16
+        negative_prompt = [kwargs.pop('negative_prompt', '')]*8
         # negative_prompt = [negative_prompt]*16
         lora_scale = kwargs.pop('lora_scale')
 
@@ -246,7 +246,7 @@ class Model:
         video, fps = utils.prepare_video(
             video_path, resolution, self.device, self.dtype, False, output_fps=4)
         control = utils.pre_process_pose(
-            video, apply_pose_detect=False)
+            video[:8], apply_pose_detect=False)
         f, _, h, w = video.shape
 
         # self.rng, latents_rng = jax.random.split(self.rng)

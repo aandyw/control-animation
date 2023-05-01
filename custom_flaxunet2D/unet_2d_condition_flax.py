@@ -119,7 +119,7 @@ class FlaxUNet2DConditionModel(nn.Module, FlaxModelMixin, ConfigMixin):
     cross_attention_dim: int = 1280
     dropout: float = 0.0
     use_linear_projection: bool = False
-    dtype: jnp.dtype = jnp.float32
+    dtype: jnp.dtype = jnp.float16
     flip_sin_to_cos: bool = True
     freq_shift: int = 0
     use_memory_efficient_attention: bool = False
@@ -127,9 +127,9 @@ class FlaxUNet2DConditionModel(nn.Module, FlaxModelMixin, ConfigMixin):
     def init_weights(self, rng: jax.random.KeyArray) -> FrozenDict:
         # init input tensors
         sample_shape = (1, self.in_channels, self.sample_size, self.sample_size)
-        sample = jnp.zeros(sample_shape, dtype=jnp.float32)
+        sample = jnp.zeros(sample_shape, dtype=self.dtype)
         timesteps = jnp.ones((1,), dtype=jnp.int32)
-        encoder_hidden_states = jnp.zeros((1, 1, self.cross_attention_dim), dtype=jnp.float32)
+        encoder_hidden_states = jnp.zeros((1, 1, self.cross_attention_dim), dtype=self.dtype)
 
         params_rng, dropout_rng = jax.random.split(rng)
         rngs = {"params": params_rng, "dropout": dropout_rng}
@@ -424,7 +424,7 @@ class FlaxLoRAUNet2DConditionModel(nn.Module, FlaxModelMixin, ConfigMixin):
     cross_attention_dim: int = 1280
     dropout: float = 0.0
     use_linear_projection: bool = False
-    dtype: jnp.dtype = jnp.float32
+    dtype: jnp.dtype = jnp.float16
     flip_sin_to_cos: bool = True
     freq_shift: int = 0
     use_memory_efficient_attention: bool = False
@@ -432,9 +432,9 @@ class FlaxLoRAUNet2DConditionModel(nn.Module, FlaxModelMixin, ConfigMixin):
     def init_weights(self, rng: jax.random.KeyArray) -> FrozenDict:
         # init input tensors
         sample_shape = (1, self.in_channels, self.sample_size, self.sample_size)
-        sample = jnp.zeros(sample_shape, dtype=jnp.float32)
+        sample = jnp.zeros(sample_shape, dtype=self.dtype)
         timesteps = jnp.ones((1,), dtype=jnp.int32)
-        encoder_hidden_states = jnp.zeros((1, 1, self.cross_attention_dim), dtype=jnp.float32)
+        encoder_hidden_states = jnp.zeros((1, 1, self.cross_attention_dim), dtype=self.dtype)
 
         params_rng, dropout_rng = jax.random.split(rng)
         rngs = {"params": params_rng, "dropout": dropout_rng}
