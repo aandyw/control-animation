@@ -1,5 +1,5 @@
 import gradio as gr
-from models.model import ControlAnimationModel
+from text_to_animation.model import ControlAnimationModel
 import os
 from utils.hf_utils import get_model_list
 
@@ -21,13 +21,34 @@ examples = [
 
 images = []  # str path of generated images
 initial_frame = None
+animation_model = None
 
 
-def generate_initial_frames(model, **kwargs):
+def generate_initial_frames(
+    frames_prompt,
+    model_link,
+    is_safetensor,
+    frames_n_prompt,
+    width,
+    height,
+    cfg_scale,
+    seed,
+):
     global images
 
-    print(*kwargs)
-    images = model.generate_initial_frames(**kwargs)
+    if not model_link:
+        model_link = "dreamlike-art/dreamlike-photoreal-2.0"
+
+    images = animation_model.generate_initial_frames(
+        frames_prompt,
+        model_link,
+        is_safetensor,
+        frames_n_prompt,
+        width,
+        height,
+        cfg_scale,
+        seed,
+    )
 
     return images
 
@@ -41,6 +62,9 @@ def select_initial_frame(evt: gr.SelectData):
 
 
 def create_demo(model: ControlAnimationModel):
+    global animation_model
+    animation_model = model
+
     with gr.Blocks() as demo:
         with gr.Column(visible=True) as frame_selection_col:
             with gr.Row():
@@ -67,14 +91,8 @@ def create_demo(model: ControlAnimationModel):
 
             with gr.Row():
                 with gr.Column(scale=2):
-                    with gr.Row():
-                        width = gr.Slider(32, 2048, value=512, label="Width")
-                        # batch_count = gr.Slider(1, 16, value=4, label="Batch count")
-
-                    with gr.Row():
-                        height = gr.Slider(32, 2048, value=512, label="Height")
-                        # batch_size = gr.Slider(1, 64, value=1, label="Batch size")
-
+                    width = gr.Slider(32, 2048, value=512, label="Width")
+                    height = gr.Slider(32, 2048, value=512, label="Height")
                     cfg_scale = gr.Slider(1, 20, value=7.0, step=0.1, label="CFG scale")
                     seed = gr.Slider(
                         label="Seed",
@@ -99,10 +117,10 @@ def create_demo(model: ControlAnimationModel):
         with gr.Column(visible=False) as gen_animation_col:
             with gr.Row():
                 with gr.Column():
-                    model_link = gr.Textbox(label="Model Link")
-                    is_safetensor = gr.Checkbox(label="Safetensors")
                     prompt = gr.Textbox(label="Prompt")
-                    run_button = gr.Button(value="Generate Animation")
+                    gen_animation_button = gr.Button(
+                        value="Generate Animation", variant="primary"
+                    )
 
                     with gr.Accordion("Advanced options", open=False):
                         n_prompt = gr.Textbox(
@@ -206,18 +224,16 @@ def create_demo(model: ControlAnimationModel):
         #             cache_examples=on_huggingspace,
         # )
 
-        frame_inputs = {
-            "prompt": frames_prompt,
-            "model_link": model_link,
-            "is_safetensor": is_safetensor,
-            "n_prompt": frames_n_prompt,
-            "width": width,
-            "height": height,
-            # "batch_count": batch_count,
-            # "batch_size": batch_size,
-            "cfg_scale": cfg_scale,
-            "seed": seed,
-        }
+        frame_inputs = [
+            frames_prompt,
+            model_link,
+            is_safetensor,
+            frames_n_prompt,
+            width,
+            height,
+            cfg_scale,
+            seed,
+        ]
 
         def submit_select():
             show = True
@@ -234,11 +250,17 @@ def create_demo(model: ControlAnimationModel):
 
         gen_frames_button.click(
             generate_initial_frames,
-            inputs=[model, frame_inputs],
+            inputs=frame_inputs,
             outputs=initial_frames,
         )
         select_frame_button.click(
             submit_select, inputs=None, outputs=[frame_selection_col, gen_animation_col]
+        )
+
+        gen_animation_button.click(
+            fn=model.process_text2video,
+            inputs=inputs,
+            outputs=result,
         )
 
     return demo

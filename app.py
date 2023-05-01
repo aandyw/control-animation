@@ -1,9 +1,9 @@
 import gradio as gr
 
-from models.model import ControlAnimationModel, ModelType
-from app_pose import create_demo as create_demo_pose
-from app_text_to_video import create_demo as create_demo_text_to_video
-from app_control_animation import create_demo as create_demo_animation
+from text_to_animation.model import ControlAnimationModel
+from webui.app_pose import create_demo as create_demo_pose
+from webui.app_text_to_video import create_demo as create_demo_text_to_video
+from webui.app_control_animation import create_demo as create_demo_animation
 import argparse
 import os
 import jax.numpy as jnp
@@ -54,10 +54,10 @@ with gr.Blocks(css="style.css") as demo:
     # NOTE: In our final demo we should consider removing zero-shot t2v and pose conditional
     with gr.Tab("Control Animation"):
         create_demo_animation(model)
-    with gr.Tab("Zero-Shot Text2Video"):
-        create_demo_text_to_video(model)
-    with gr.Tab("Pose Conditional"):
-        create_demo_pose(model)
+    # with gr.Tab("Zero-Shot Text2Video"):
+    #     create_demo_text_to_video(model)
+    # with gr.Tab("Pose Conditional"):
+    #     create_demo_pose(model)
 
 if on_huggingspace:
     demo.queue(max_size=20)

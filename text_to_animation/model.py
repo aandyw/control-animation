@@ -16,12 +16,14 @@ from diffusers import (
     FlaxDDIMScheduler,
     FlaxAutoencoderKL,
     FlaxStableDiffusionControlNetPipeline,
-    FlaxStableDiffusionPipeline,
+    StableDiffusionPipeline,
 )
-from models.unet_2d_condition_flax import FlaxUNet2DConditionModel
-from models.controlnet_flax import FlaxControlNetModel
+from text_to_animation.models.unet_2d_condition_flax import FlaxUNet2DConditionModel
+from text_to_animation.models.controlnet_flax import FlaxControlNetModel
 
-from pipelines.text_to_video_pipeline import TextToVideoPipeline
+from text_to_animation.pipelines.text_to_video_pipeline_flax import (
+    FlaxTextToVideoPipeline,
+)
 
 import utils.utils as utils
 import utils.gradio_utils as gradio_utils
@@ -48,7 +50,7 @@ class ControlAnimationModel:
         self.dtype = dtype
         self.rng = jax.random.PRNGKey(0)
         self.pipe_dict = {
-            ModelType.Text2Video: TextToVideoPipeline,  # TODO: Replace with our TextToVideo JAX Pipeline
+            ModelType.Text2Video: FlaxTextToVideoPipeline,  # TODO: Replace with our TextToVideo JAX Pipeline
             ModelType.ControlNetPose: FlaxStableDiffusionControlNetPipeline,
         }
         self.pipe = None
@@ -98,7 +100,7 @@ class ControlAnimationModel:
         text_encoder = FlaxCLIPTextModel.from_pretrained(
             model_id, subfolder="text_encoder", from_pt=True, dtype=self.dtype
         )
-        self.pipe = TextToVideoPipeline(
+        self.pipe = FlaxTextToVideoPipeline(
             vae=vae,
             text_encoder=text_encoder,
             tokenizer=tokenizer,
@@ -418,37 +420,20 @@ class ControlAnimationModel:
         cfg_scale: float = 7.0,
         seed: int = 0,
     ):
-        print(
-            prompt,
-            model_link,
-            is_safetensor,
-            n_prompt,
-            width,
-            height,
-            cfg_scale,
-            seed,
-        )
+        print(f">>> prompt: {prompt}, model_link: {model_link}")
 
-        pipe, params = FlaxStableDiffusionPipeline.from_pretrained(model_link)
-        prompt = [prompt] * jax.device_count()
-        prompt_ids = pipe.prepare_inputs(prompt)
+        pipe = StableDiffusionPipeline.from_pretrained(model_link)
 
-        p_params = replicate(params)
-        prompt_ids = shard(prompt_ids)
-        neg_prompt_ids = shard(n_prompt)
-
-        rng = jax.random.PRNGKey(seed)
-        rng = jax.random.split(rng, jax.device_count())
+        batch_size = 4
+        prompt = [prompt] * batch_size
+        negative_prompt = [n_prompt] * batch_size
 
         images = pipe(
-            prompt_ids,
-            p_params,
-            rng,
-            jit=True,
-            neg_prompt_ids=neg_prompt_ids,
+            prompt,
+            negative_prompt=negative_prompt,
             width=width,
             height=height,
             guidance_scale=cfg_scale,
-        )[0]
+        ).images
 
         return images

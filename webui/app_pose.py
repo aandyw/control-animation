@@ -1,8 +1,8 @@
-from models.model import ControlAnimationModel
+from text_to_animation.model import ControlAnimationModel
 import gradio as gr
 import os
 
-huggingspace_name = os.environ.get("SPACE_AUTHOR_NAME") 
+huggingspace_name = os.environ.get("SPACE_AUTHOR_NAME")
 on_huggingspace = huggingspace_name if huggingspace_name is not None else False
 
 examples = [
