@@ -62,7 +62,7 @@ class Model:
         feature_extractor = CLIPFeatureExtractor.from_pretrained(model_id, subfolder="feature_extractor")
         # unet, unet_params = FlaxUNet2DConditionModel.from_pretrained(model_id, subfolder="unet", from_pt=True, revision="fp16", dtype=self.dtype)
         # lora model:
-        lora_model_id="gigant/lora-t2vz-sd15"
+        lora_model_id="./lora-model"#"gigant/lora-t2vz-sd15"
         unet, unet_params = FlaxLoRAUNet2DConditionModel.from_pretrained(lora_model_id, subfolder="unet", dtype=self.dtype)
         vae, vae_params = FlaxAutoencoderKL.from_pretrained(lora_model_id, subfolder="vae", dtype=self.dtype)
         # unet, unet_params = FlaxLoRAUNet2DConditionModel.from_pretrained(model_id, revision="fp16", subfolder="unet", from_pt=True, dtype=self.dtype)
