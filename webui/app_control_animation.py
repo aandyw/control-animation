@@ -128,8 +128,8 @@ def create_demo():
                     # width = gr.Slider(32, 2048, value=512, label="Width")
                     # height = gr.Slider(32, 2048, value=512, label="Height")
                     # cfg_scale = gr.Slider(1, 20, value=7.0, step=0.1, label="CFG scale")
-                    gallery_pose_sequence = gr.Gallery(label="Pose Sequence", value=[('__assets__/poses_skeleton_gifs/dance1.gif', "Motion 1"), ('__assets__/poses_skeleton_gifs/dance2.gif', "Motion 2"), (
-                    '__assets__/poses_skeleton_gifs/dance3.gif', "Motion 3"), ('__assets__/poses_skeleton_gifs/dance4.gif', "Motion 4"), ('__assets__/poses_skeleton_gifs/dance5.gif', "Motion 5")]).style(grid=[2], height="auto")
+                    gallery_pose_sequence = gr.Gallery(label="Pose Sequence", value=[('__assets__/dance1.gif', "Motion 1"), ('__assets__/dance2.gif', "Motion 2"), (
+                    '__assets__/dance3.gif', "Motion 3"), ('__assets__/dance4.gif', "Motion 4"), ('__assets__/dance5.gif', "Motion 5")]).style(grid=[2], height="auto")
                     input_video_path = gr.Textbox(
                         label="Pose Sequence", visible=False, value="Motion 1")
                     gr.Markdown("## Selection")
