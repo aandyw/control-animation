@@ -270,13 +270,13 @@ def create_demo():
                         )
 
                 with gr.Column():
-                    result = gr.Video(label="Generated Video")
+                    result = gr.Image(label="Generated Video")
 
         inputs = [
-            input_video_path,
             prompt,
             seed,
-            # prompt,
+            input_video_path,
+            # prompt, 
             # # model_link,
             # # is_safetensor,
             # motion_field_strength_x,
@@ -324,7 +324,7 @@ def create_demo():
         )
 
         gen_animation_button.click(
-            fn=model.generate_video_from_frame,
+            fn=generate_video_frames,
             inputs=inputs,
             outputs=result,
         )

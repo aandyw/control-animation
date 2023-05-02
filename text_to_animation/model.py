@@ -197,8 +197,8 @@ class ControlAnimationModel:
                 )
         return [np.array(imgs[i]) for i in range(imgs.shape[0])], seeds
     
-    def generate_video_from_frame(self, controlnet_video, prompt, seeds):
-        prng_seed = [jax.random.PRNGKey(seed) for seed in seeds]
+    def generate_video_from_frame(self, controlnet_video, prompt, seed):
+        prng_seed = jax.random.PRNGKey(seed)
         vid = self.pipe.generate_video(
                 prompt,
                 image=controlnet_video,
@@ -209,7 +209,7 @@ class ControlAnimationModel:
                 motion_field_strength_x = 3,
                 motion_field_strength_y = 4,
              ).image
-        return vid, seeds
+        return utils.create_gif(np.array(vid), 4, path=None, watermark=None)
 
     def process_controlnet_pose(
         self,
