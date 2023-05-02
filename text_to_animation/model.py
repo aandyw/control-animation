@@ -45,8 +45,7 @@ def replicate_devices(array):
 
 
 class ControlAnimationModel:
-    def __init__(self, device, dtype, **kwargs):
-        self.device = device
+    def __init__(self, dtype, **kwargs):
         self.dtype = dtype
         self.rng = jax.random.PRNGKey(0)
         self.pipe_dict = {
@@ -59,11 +58,9 @@ class ControlAnimationModel:
         self.states = {}
         self.model_name = ""
 
-        self.from_local = True  # if the attn model is available in local (after adaptation by adapt_attn.py)
-
     def set_model(
         self,
-        model_type: ModelType,
+        # model_type: ModelType,
         model_id: str,
         controlnet,
         controlnet_params,
@@ -83,17 +80,9 @@ class ControlAnimationModel:
         feature_extractor = CLIPFeatureExtractor.from_pretrained(
             model_id, subfolder="feature_extractor"
         )
-        if self.from_local:
-            unet, unet_params = FlaxUNet2DConditionModel.from_pretrained(
-                f'./{model_id.split("/")[-1]}',
-                subfolder="unet",
-                from_pt=True,
-                dtype=self.dtype,
-            )
-        else:
-            unet, unet_params = FlaxUNet2DConditionModel.from_pretrained(
-                model_id, subfolder="unet", from_pt=True, dtype=self.dtype
-            )
+        unet, unet_params = FlaxUNet2DConditionModel.from_pretrained(
+            model_id, subfolder="unet", from_pt=True, dtype=self.dtype
+        )
         vae, vae_params = FlaxAutoencoderKL.from_pretrained(
             model_id, subfolder="vae", from_pt=True, dtype=self.dtype
         )
@@ -119,29 +108,7 @@ class ControlAnimationModel:
         }
         self.p_params = jax_utils.replicate(self.params)
 
-        self.model_type = model_type
         self.model_name = model_id
-
-    # def inference_chunk(self, image, frame_ids, prompt, negative_prompt, **kwargs):
-
-    #     prompt_ids = self.pipe.prepare_text_inputs(prompt)
-    #     n_prompt_ids = self.pipe.prepare_text_inputs(negative_prompt)
-    #     latents = kwargs.pop('latents')
-    #     # rng = jax.random.split(self.rng, jax.device_count())
-    #     prng, self.rng = jax.random.split(self.rng)
-    #     #prng = jax.numpy.stack([prng] * jax.device_count())#same prng seed on every device
-    #     prng_seed = jax.random.split(prng, jax.device_count())
-    #     image = replicate_devices(image[frame_ids])
-    #     latents = replicate_devices(latents)
-    #     prompt_ids = replicate_devices(prompt_ids)
-    #     n_prompt_ids = replicate_devices(n_prompt_ids)
-    #     return (self.pipe(image=image,
-    #                         latents=latents,
-    #                         prompt_ids=prompt_ids,
-    #                         neg_prompt_ids=n_prompt_ids,
-    #                         params=self.p_params,
-    #                         prng_seed=prng_seed, jit = True,
-    #                         ).images)[0]
 
     def inference(self, image, split_to_chunks=False, chunk_size=8, **kwargs):
         if not hasattr(self, "pipe") or self.pipe is None:
@@ -219,6 +186,17 @@ class ControlAnimationModel:
                     prng_seed=prng_seed,
                     jit=False,
                 ).images
+
+    def generate_starting_frames(self, controlnet_image, prompt, neg_prompt="", num_imgs=8):
+        prngs = jax.random.split(self.rng, num_imgs)
+        imgs = self.pipe.generate_starting_frames(
+                params=self.params,
+                prngs=prngs,
+                controlnet_image=controlnet_image,
+                prompt=prompt,
+                neg_prompt=neg_prompt,
+                )
+        return [imgs[i] for i in range(imgs.shape[0])]
 
     def process_controlnet_pose(
         self,

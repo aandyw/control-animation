@@ -2,6 +2,21 @@ import gradio as gr
 from text_to_animation.model import ControlAnimationModel
 import os
 from utils.hf_utils import get_model_list
+from utils import gradio_utils, utils
+
+from transformers import CLIPTokenizer, CLIPFeatureExtractor, FlaxCLIPTextModel
+from diffusers import (
+    FlaxDDIMScheduler,
+    FlaxAutoencoderKL,
+    FlaxStableDiffusionControlNetPipeline,
+    StableDiffusionPipeline,
+)
+from text_to_animation.models.unet_2d_condition_flax import FlaxUNet2DConditionModel
+from text_to_animation.models.controlnet_flax import FlaxControlNetModel
+
+import jax
+import jax.numpy as jnp
+
 
 huggingspace_name = os.environ.get("SPACE_AUTHOR_NAME")
 on_huggingspace = huggingspace_name if huggingspace_name is not None else False
@@ -23,33 +38,55 @@ images = []  # str path of generated images
 initial_frame = None
 animation_model = None
 
-
-def generate_initial_frames(
-    frames_prompt,
-    model_link,
-    is_safetensor,
-    frames_n_prompt,
-    width,
-    height,
-    cfg_scale,
-    seed,
-):
-    global images
-
-    if not model_link:
-        model_link = "dreamlike-art/dreamlike-photoreal-2.0"
-
-    images = animation_model.generate_initial_frames(
-        frames_prompt,
-        model_link,
-        is_safetensor,
-        frames_n_prompt,
-        width,
-        height,
-        cfg_scale,
-        seed,
+def generate_initial_frames(model, prompt, video_path, num_imgs=4, resolution=512):
+    
+    video_path = gradio_utils.motion_to_video_path(video_path)
+    model_id="runwayml/stable-diffusion-v1-5"
+    controlnet_id = "fusing/stable-diffusion-v1-5-controlnet-openpose"
+    controlnet, controlnet_params = FlaxControlNetModel.from_pretrained(
+        controlnet_id,
+        # revision=args.controlnet_revision,
+        from_pt=True,
+        dtype=jnp.float16,
     )
+    tokenizer = CLIPTokenizer.from_pretrained(
+    model_id, subfolder="tokenizer", revision="fp16"
+    )
+    scheduler, scheduler_state = FlaxDDIMScheduler.from_pretrained(
+    model_id, subfolder ="scheduler", revision="fp16"
+    )
+    model.set_model(
+                    model_id=model_id,
+                    tokenizer=tokenizer,
+                    controlnet=controlnet,
+                    controlnet_params=controlnet_params,
+                    scheduler=scheduler,
+                    scheduler_state=scheduler_state)
 
+    video_path = gradio_utils.motion_to_video_path(
+        video_path) if 'Motion' in video_path else video_path
+
+    #added_prompt = 'best quality, HD, clay stop-motion, claymation, HQ, masterpiece, art, smooth'
+    #added_prompt = 'high quality, anatomically correct, clay stop-motion, aardman, claymation, smooth'
+    negative_prompts = 'longbody, lowres, bad anatomy, bad hands, missing fingers, extra digit, fewer difits, cropped, worst quality, low quality, deformed body, bloated, ugly'
+    video, fps = utils.prepare_video(
+        video_path, resolution, None, model.dtype, False, output_fps=4)
+    control = utils.pre_process_pose(video, apply_pose_detect=False)
+    f, _, h, w = video.shape
+
+    images = animation_model.generate_starting_frames(
+                            animation_model.params,
+                            [jax.random.PRNGKey(i) for i in range(num_imgs)], #list of prngs for each img
+                            prompt,
+                            negative_prompts,
+                            do_classifier_free_guidance = True,
+                            num_inference_steps = 50,
+                            guidance_scale = 7.5,
+                            t0 = 44,
+                            t1 = 47,
+                            controlnet_image=control,
+                            controlnet_conditioning_scale=1,
+                            )
     return images
 
 
@@ -225,15 +262,11 @@ def create_demo(model: ControlAnimationModel):
         # )
 
         frame_inputs = [
+            animation_model,
             frames_prompt,
-            model_link,
-            is_safetensor,
-            frames_n_prompt,
-            width,
-            height,
-            cfg_scale,
-            seed,
-        ]
+            "Motion 1",
+            4,
+            512]
 
         def submit_select():
             show = True
