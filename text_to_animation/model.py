@@ -194,7 +194,7 @@ class ControlAnimationModel:
                 prompt=prompt,
                 neg_prompt=neg_prompt,
                 )
-        return [imgs[i] for i in range(imgs.shape[0])]
+        return [np.array(imgs[i]) for i in range(imgs.shape[0])]
 
     def process_controlnet_pose(
         self,
