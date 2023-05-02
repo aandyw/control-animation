@@ -41,7 +41,7 @@ notice = """
 </p>
 """
 
-with gr.Blocks(css="style.css") as demo:
+with gr.Blocks() as demo: #css="style.css"
     gr.Markdown(title)
     gr.Markdown(description)
 
