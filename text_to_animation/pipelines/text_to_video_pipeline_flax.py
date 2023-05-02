@@ -433,7 +433,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
             # latents = ddpm_fwd(stacked_prngs, latents)
 
             # main backward diffusion
-            denoise_first_frame = lambda latent : self.DDIM_backward(params, num_inference_steps=num_inference_steps, timesteps=timesteps, skip_t=t1, t0=-1, t1=-1, do_classifier_free_guidance=do_classifier_free_guidance,
+            denoise_first_frame = lambda latent : self.DDIM_backward(params, num_inference_steps=num_inference_steps, timesteps=timesteps, skip_t=100000, t0=-1, t1=-1, do_classifier_free_guidance=do_classifier_free_guidance,
                                                 text_embeddings=text_embeddings, latents_local=latent, guidance_scale=guidance_scale,
                                                 controlnet_image=controlnet_image, controlnet_conditioning_scale=controlnet_conditioning_scale, use_vanilla=True)
             latents = rearrange(latents, 'i b c f h w -> (i b) c f h w')
