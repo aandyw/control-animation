@@ -362,6 +362,10 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
                                 controlnet_conditioning_scale=0,
                                 ):
 
+        height, width = controlnet_image.shape[-2:]
+        if height % 64 != 0 or width % 64 != 0:
+            raise ValueError(f"`height` and `width` have to be divisible by 64 but are {height} and {width}.")
+
         shape = (1, self.unet.in_channels, 1, height //
         self.vae_scale_factor, width // self.vae_scale_factor) #b c f h w
         # scale the initial noise by the standard deviation required by the scheduler
@@ -377,10 +381,6 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
         t0 = timesteps_ddpm[t0]
         t1 = timesteps_ddpm[t1]
 
-        height, width = controlnet_image.shape[-2:]
-
-        if height % 64 != 0 or width % 64 != 0:
-            raise ValueError(f"`height` and `width` have to be divisible by 64 but are {height} and {width}.")
         # get prompt text embeddings
         prompt_ids = self.prepare_text_inputs(prompt)
         prompt_embeds = self.text_encoder(prompt_ids, params=params["text_encoder"])[0]
