@@ -75,17 +75,10 @@ def generate_initial_frames(prompt, video_path="Motion 1", num_imgs=4, resolutio
     f, _, h, w = video.shape
 
     images = model.generate_starting_frames(
-                            model.params,
-                            [jax.random.PRNGKey(i) for i in range(num_imgs)], #list of prngs for each img
+                            control,
                             prompt,
                             negative_prompts,
-                            do_classifier_free_guidance = True,
-                            num_inference_steps = 50,
-                            guidance_scale = 7.5,
-                            t0 = 44,
-                            t1 = 47,
-                            controlnet_image=control,
-                            controlnet_conditioning_scale=1,
+                            num_imgs=4,
                             )
     return images
 
