@@ -351,7 +351,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
         x0 = ddim_res["x0"]
         return x0
 
-    def decode_latent(self, params, num_inference_steps, timesteps, do_classifier_free_guidance, text_embeddings, latents,
+    def denoise_latent(self, params, num_inference_steps, timesteps, do_classifier_free_guidance, text_embeddings, latents,
                         guidance_scale, controlnet_image=None, controlnet_conditioning_scale=None):
         
         scheduler_state = self.scheduler.set_timesteps(params["scheduler"], num_inference_steps)
@@ -504,14 +504,15 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
                                                 text_embeddings=text_embeddings, latents=latents, guidance_scale=guidance_scale,
                                                 controlnet_image=controlnet_image, controlnet_conditioning_scale=controlnet_conditioning_scale)
             # latents = rearrange(ddim_res["x0"], 'i b c f h w -> (i b) c f h w') #output is  i b c f h w
-            del latents
 
             # scale and decode the image latents with vae
             latents = 1 / self.vae.config.scaling_factor * latents
-            latents = rearrange(latents, "b c f h w -> (b f) c h w")
+            # latents = rearrange(latents, "b c h w -> (b f) c h w")
             imgs = self.vae.apply({"params": params["vae"]}, latents, method=self.vae.decode).sample
             imgs = (imgs / 2 + 0.5).clip(0, 1).transpose(0, 2, 3, 1)
+
             return imgs
+        
         return _generate_starting_frames(params, text_embeddings, latents, controlnet_image, controlnet_conditioning_scale)
 
     def generate_video(
