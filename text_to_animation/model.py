@@ -404,7 +404,7 @@ class ControlAnimationModel:
         cfg_scale: float = 7.0,
         seed: int = 0,
     ) -> List[Image.Image]:
-        generator = torch.Generator(device=self.device).manual_seed(seed)
+        generator = torch.Generator().manual_seed(seed)
         pipe = StableDiffusionPipeline.from_pretrained(model_link)
 
         batch_size = 4
