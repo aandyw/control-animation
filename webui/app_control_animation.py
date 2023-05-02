@@ -36,7 +36,8 @@ examples = [
 ]
 
 
-images = []  # str path of generated images
+gen_images = []  # str path of generated images
+gen_seeds = [] # list of seeds used to generate the images
 initial_frame = None
 
 
@@ -76,13 +77,17 @@ def generate_initial_frames(prompt, num_imgs=4, video_path="Motion 1", resolutio
     control = utils.pre_process_pose(video, apply_pose_detect=False)
     f, _, h, w = video.shape
 
-    images = model.generate_starting_frames(
+    images, seeds = model.generate_starting_frames(
                             control,
                             prompt,
                             negative_prompts,
                             num_imgs=num_imgs,
                             )
-    return images
+    global gen_images
+    global gen_seeds
+    gen_images = images
+    gen_seeds = seeds
+    return images, seeds
 
 def generate_video_frames(prompt, prng, video_path="Motion 1", resolution=512):
 
@@ -102,14 +107,14 @@ def generate_video_frames(prompt, prng, video_path="Motion 1", resolution=512):
 
 
 
-def select_initial_frame(evt: gr.SelectData, seeds):
+def select_initial_frame(evt: gr.SelectData):
     global initial_frame
 
-    if evt.index < len(images):
-        initial_frame = images[evt.index]
+    if evt.index < len(gen_images):
+        initial_frame = gen_images[evt.index]
         
         print(initial_frame)
-        return gr.update(value=seeds[evt.index])
+        return gr.update(value=gen_seeds[evt.index])
 
 def pose_gallery_callback(evt: gr.SelectData):
     return f"Motion {evt.index+1}"
@@ -157,7 +162,6 @@ def create_demo():
                     pose_sequence_selector = gr.Markdown(
                         'Pose Sequence: **Motion 1**')
                     num_imgs = gr.Slider(1, 8, value=4, step=1, label="Number of images to generate")
-                    seeds = gr.State(value=[])
                     seed = gr.Slider(
                         label="Seed",
                         info="-1 for random seed on each run. Otherwise, the seed will be fixed.",
@@ -176,7 +180,7 @@ def create_demo():
                     ).style(
                         columns=[2], rows=[2], object_fit="scale-down", height="auto"
                     )
-                    initial_frames.select(select_initial_frame, [None, seeds], [seed])
+                    initial_frames.select(select_initial_frame, None, [seed])
                     select_frame_button = gr.Button(
                         value="Select Initial Frame", variant="secondary"
                     )
