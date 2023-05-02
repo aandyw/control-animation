@@ -78,7 +78,7 @@ def generate_initial_frames(prompt, video_path="Motion 1", num_imgs=4, resolutio
                             control,
                             prompt,
                             negative_prompts,
-                            num_imgs=4,
+                            num_imgs=1,
                             )
     return images
 
