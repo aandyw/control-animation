@@ -41,7 +41,7 @@ initial_frame = None
 
 def generate_initial_frames(prompt, video_path="Motion1", num_imgs=4, resolution=512):
     
-    video_path = gradio_utils.motion_to_video_path(video_path)
+    video_path = gradio_utils.motion_to_video_path(gradio_utils.motion_to_video_path(video_path))
     model_id="runwayml/stable-diffusion-v1-5"
     controlnet_id = "fusing/stable-diffusion-v1-5-controlnet-openpose"
     controlnet, controlnet_params = FlaxControlNetModel.from_pretrained(
