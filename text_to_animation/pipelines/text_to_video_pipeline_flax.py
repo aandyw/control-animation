@@ -438,7 +438,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
         if height % 64 != 0 or width % 64 != 0:
             raise ValueError(f"`height` and `width` have to be divisible by 64 but are {height} and {width}.")
 
-        shape = (1, self.unet.in_channels, height //
+        shape = (self.unet.in_channels, height //
         self.vae_scale_factor, width // self.vae_scale_factor) #b c h w
         # scale the initial noise by the standard deviation required by the scheduler
 
