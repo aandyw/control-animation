@@ -87,7 +87,7 @@ def generate_initial_frames(prompt, num_imgs=4, video_path="Motion 1", resolutio
     global gen_seeds
     gen_images = images
     gen_seeds = seeds
-    return images, seeds
+    return images
 
 def generate_video_frames(prompt, prng, video_path="Motion 1", resolution=512):
 
@@ -317,7 +317,7 @@ def create_demo():
         gen_frames_button.click(
             generate_initial_frames,
             inputs=frame_inputs,
-            outputs=[initial_frames, seeds],
+            outputs=[initial_frames],
         )
         select_frame_button.click(
             submit_select, inputs=None, outputs=[frame_selection_col, gen_animation_col]
