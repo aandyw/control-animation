@@ -4,6 +4,10 @@ import os
 from utils.hf_utils import get_model_list
 from utils import gradio_utils, utils
 
+from text_to_animation.model import ControlAnimationModel
+
+model = ControlAnimationModel(dtype=jnp.float16)
+
 from transformers import CLIPTokenizer, CLIPFeatureExtractor, FlaxCLIPTextModel
 from diffusers import (
     FlaxDDIMScheduler,
@@ -36,9 +40,8 @@ examples = [
 
 images = []  # str path of generated images
 initial_frame = None
-animation_model = None
 
-def generate_initial_frames(model, prompt, video_path, num_imgs=4, resolution=512):
+def generate_initial_frames(prompt, video_path="Motion1", num_imgs=4, resolution=512):
     
     video_path = gradio_utils.motion_to_video_path(video_path)
     model_id="runwayml/stable-diffusion-v1-5"
@@ -263,10 +266,7 @@ def create_demo(model: ControlAnimationModel):
 
         frame_inputs = [
             animation_model,
-            frames_prompt,
-            "Motion 1",
-            4,
-            512]
+            frames_prompt]
 
         def submit_select():
             show = True

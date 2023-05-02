@@ -3,7 +3,6 @@ from enum import Enum
 import gc
 import numpy as np
 import jax.numpy as jnp
-import tomesd
 import jax
 
 from flax.training.common_utils import shard
@@ -113,12 +112,6 @@ class ControlAnimationModel:
     def inference(self, image, split_to_chunks=False, chunk_size=8, **kwargs):
         if not hasattr(self, "pipe") or self.pipe is None:
             return
-
-        if "merging_ratio" in kwargs:
-            merging_ratio = kwargs.pop("merging_ratio")
-
-            # if merging_ratio > 0:
-            tomesd.apply_patch(self.pipe, ratio=merging_ratio)
 
         # f = image.shape[0]
 

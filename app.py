@@ -1,6 +1,5 @@
 import gradio as gr
 
-from text_to_animation.model import ControlAnimationModel
 from webui.app_pose import create_demo as create_demo_pose
 from webui.app_text_to_video import create_demo as create_demo_text_to_video
 from webui.app_control_animation import create_demo as create_demo_animation
@@ -10,8 +9,6 @@ import jax.numpy as jnp
 
 huggingspace_name = os.environ.get("SPACE_AUTHOR_NAME")
 on_huggingspace = huggingspace_name if huggingspace_name is not None else False
-
-model = ControlAnimationModel(dtype=jnp.float16)
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
