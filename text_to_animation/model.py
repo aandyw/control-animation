@@ -186,7 +186,7 @@ class ControlAnimationModel:
                 ).images
 
     def generate_starting_frames(self, controlnet_image, prompt, neg_prompt="", num_imgs=8):
-        seeds = [seed for seed in jax.random.randint(self.rng, (num_imgs), 0, 65536)]
+        seeds = [seed for seed in jax.random.randint(self.rng, [num_imgs], 0, 65536)]
         prngs = [jax.random.PRNGKey(seed) for seed in seeds]
         imgs = self.pipe.generate_starting_frames(
                 params=self.params,
