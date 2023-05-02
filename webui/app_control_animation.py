@@ -4,10 +4,6 @@ import os
 from utils.hf_utils import get_model_list
 from utils import gradio_utils, utils
 
-from text_to_animation.model import ControlAnimationModel
-
-model = ControlAnimationModel(dtype=jnp.float16)
-
 from transformers import CLIPTokenizer, CLIPFeatureExtractor, FlaxCLIPTextModel
 from diffusers import (
     FlaxDDIMScheduler,
@@ -20,7 +16,9 @@ from text_to_animation.models.controlnet_flax import FlaxControlNetModel
 
 import jax
 import jax.numpy as jnp
+from text_to_animation.model import ControlAnimationModel
 
+model = ControlAnimationModel(dtype=jnp.float16)
 
 huggingspace_name = os.environ.get("SPACE_AUTHOR_NAME")
 on_huggingspace = huggingspace_name if huggingspace_name is not None else False
