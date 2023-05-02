@@ -186,7 +186,8 @@ class ControlAnimationModel:
                 ).images
 
     def generate_starting_frames(self, controlnet_image, prompt, neg_prompt="", num_imgs=8):
-        prngs = jax.random.split(self.rng, num_imgs)
+        seeds = [seed for seed in jax.random.randint(self.rng, (num_imgs), 0, 65536)]
+        prngs = [jax.random.PRNGKey(seed) for seed in seeds]
         imgs = self.pipe.generate_starting_frames(
                 params=self.params,
                 prngs=prngs,
@@ -194,9 +195,10 @@ class ControlAnimationModel:
                 prompt=prompt,
                 neg_prompt=neg_prompt,
                 )
-        return [np.array(imgs[i]) for i in range(imgs.shape[0])]
+        return [np.array(imgs[i]) for i in range(imgs.shape[0])], seeds
     
-    def generate_video_from_frame(self, controlnet_video, prompt, prng_seed):
+    def generate_video_from_frame(self, controlnet_video, prompt, seeds):
+        prng_seed = [jax.random.PRNGKey(seed) for seed in seeds]
         vid = self.pipe.generate_video(
                 prompt,
                 image=controlnet_video,
@@ -207,7 +209,7 @@ class ControlAnimationModel:
                 motion_field_strength_x = 3,
                 motion_field_strength_y = 4,
              ).image
-        return vid
+        return vid, seeds
 
     def process_controlnet_pose(
         self,

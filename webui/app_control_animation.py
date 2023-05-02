@@ -39,30 +39,32 @@ examples = [
 images = []  # str path of generated images
 initial_frame = None
 
-def generate_initial_frames(prompt, num_imgs=4, video_path="Motion 1", resolution=512):
-    video_path = gradio_utils.motion_to_video_path(video_path)
-    model_id="runwayml/stable-diffusion-v1-5"
-    controlnet_id = "fusing/stable-diffusion-v1-5-controlnet-openpose"
-    controlnet, controlnet_params = FlaxControlNetModel.from_pretrained(
-        controlnet_id,
-        # revision=args.controlnet_revision,
-        from_pt=True,
-        dtype=jnp.float16,
-    )
-    tokenizer = CLIPTokenizer.from_pretrained(
-    model_id, subfolder="tokenizer", revision="fp16"
-    )
-    scheduler, scheduler_state = FlaxDDIMScheduler.from_pretrained(
-    model_id, subfolder ="scheduler", revision="fp16"
-    )
-    model.set_model(
-                    model_id=model_id,
-                    tokenizer=tokenizer,
-                    controlnet=controlnet,
-                    controlnet_params=controlnet_params,
-                    scheduler=scheduler,
-                    scheduler_state=scheduler_state)
 
+#init model
+
+model_id="runwayml/stable-diffusion-v1-5"
+controlnet_id = "fusing/stable-diffusion-v1-5-controlnet-openpose"
+controlnet, controlnet_params = FlaxControlNetModel.from_pretrained(
+    controlnet_id,
+    # revision=args.controlnet_revision,
+    from_pt=True,
+    dtype=jnp.float16,
+)
+tokenizer = CLIPTokenizer.from_pretrained(
+model_id, subfolder="tokenizer", revision="fp16"
+)
+scheduler, scheduler_state = FlaxDDIMScheduler.from_pretrained(
+model_id, subfolder ="scheduler", revision="fp16"
+)
+model.set_model(
+                model_id=model_id,
+                tokenizer=tokenizer,
+                controlnet=controlnet,
+                controlnet_params=controlnet_params,
+                scheduler=scheduler,
+                scheduler_state=scheduler_state)
+
+def generate_initial_frames(prompt, num_imgs=4, video_path="Motion 1", resolution=512):
     video_path = gradio_utils.motion_to_video_path(
         video_path) if 'Motion' in video_path else video_path
 
@@ -82,13 +84,32 @@ def generate_initial_frames(prompt, num_imgs=4, video_path="Motion 1", resolutio
                             )
     return images
 
+def generate_video_frames(prompt, prng, video_path="Motion 1", resolution=512):
 
-def select_initial_frame(evt: gr.SelectData):
+    video_path = gradio_utils.motion_to_video_path(
+        video_path) if 'Motion' in video_path else video_path
+
+    #added_prompt = 'best quality, HD, clay stop-motion, claymation, HQ, masterpiece, art, smooth'
+    #added_prompt = 'high quality, anatomically correct, clay stop-motion, aardman, claymation, smooth'
+    negative_prompts = 'longbody, lowres, bad anatomy, bad hands, missing fingers, extra digit, fewer difits, cropped, worst quality, low quality, deformed body, bloated, ugly'
+    video, fps = utils.prepare_video(
+        video_path, resolution, None, model.dtype, False, output_fps=4)
+    control = utils.pre_process_pose(video, apply_pose_detect=False)
+    f, _, h, w = video.shape
+
+    images = model.generate_video_from_frame(control, prompt, prng)
+    return images
+
+
+
+def select_initial_frame(evt: gr.SelectData, seeds):
     global initial_frame
 
     if evt.index < len(images):
         initial_frame = images[evt.index]
+        
         print(initial_frame)
+        return gr.update(value=seeds[evt.index])
 
 def pose_gallery_callback(evt: gr.SelectData):
     return f"Motion {evt.index+1}"
@@ -136,6 +157,7 @@ def create_demo():
                     pose_sequence_selector = gr.Markdown(
                         'Pose Sequence: **Motion 1**')
                     num_imgs = gr.Slider(1, 8, value=4, step=1, label="Number of images to generate")
+                    seeds = gr.State(value=[])
                     seed = gr.Slider(
                         label="Seed",
                         info="-1 for random seed on each run. Otherwise, the seed will be fixed.",
@@ -154,7 +176,7 @@ def create_demo():
                     ).style(
                         columns=[2], rows=[2], object_fit="scale-down", height="auto"
                     )
-                    initial_frames.select(select_initial_frame)
+                    initial_frames.select(select_initial_frame, [None, seeds], [seed])
                     select_frame_button = gr.Button(
                         value="Select Initial Frame", variant="secondary"
                     )
@@ -247,18 +269,21 @@ def create_demo():
                     result = gr.Video(label="Generated Video")
 
         inputs = [
+            input_video_path,
             prompt,
-            # model_link,
-            # is_safetensor,
-            motion_field_strength_x,
-            motion_field_strength_y,
-            t0,
-            t1,
-            n_prompt,
-            chunk_size,
-            video_length,
-            merging_ratio,
             seed,
+            # prompt,
+            # # model_link,
+            # # is_safetensor,
+            # motion_field_strength_x,
+            # motion_field_strength_y,
+            # t0,
+            # t1,
+            # n_prompt,
+            # chunk_size,
+            # video_length,
+            # merging_ratio,
+            # seed,
         ]
 
         # gr.Examples(examples=examples,
@@ -288,14 +313,14 @@ def create_demo():
         gen_frames_button.click(
             generate_initial_frames,
             inputs=frame_inputs,
-            outputs=initial_frames,
+            outputs=[initial_frames, seeds],
         )
         select_frame_button.click(
             submit_select, inputs=None, outputs=[frame_selection_col, gen_animation_col]
         )
 
         gen_animation_button.click(
-            fn=model.process_text2video,
+            fn=model.generate_video_from_frame,
             inputs=inputs,
             outputs=result,
         )
