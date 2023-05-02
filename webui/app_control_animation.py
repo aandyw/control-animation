@@ -262,7 +262,6 @@ def create_demo():
         # )
 
         frame_inputs = [
-            model,
             frames_prompt]
 
         def submit_select():
