@@ -402,7 +402,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
         controlnet_image = jnp.stack([controlnet_image[0]] * 2)
 
         @jax.jit
-        def _generate_starting_frames(params, stacked_prngs, num_inference_steps, timesteps, t0, t1, text_embeddings, latents, guidance_scale, controlnet_image, controlnet_conditioning_scale):
+        def _generate_starting_frames(params, stacked_prngs, text_embeddings, latents, controlnet_image, controlnet_conditioning_scale):
             #  perform ∆t backward steps by stable diffusion
 
             delta_t_diffusion = jax.vmap(lambda latent : self.DDIM_backward(params, num_inference_steps=num_inference_steps, timesteps=timesteps, skip_t=1000, t0=t0, t1=t1, do_classifier_free_guidance=do_classifier_free_guidance,
@@ -436,7 +436,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
             return imgs
 
         stacked_prngs = jnp.stack(prngs)
-        return _generate_starting_frames(params, stacked_prngs, num_inference_steps, timesteps, t0, t1, text_embeddings, latents, guidance_scale, controlnet_image, controlnet_conditioning_scale)
+        return _generate_starting_frames(params, stacked_prngs, text_embeddings, latents, controlnet_image, controlnet_conditioning_scale)
 
 
     def latent_to_video(self, params,
