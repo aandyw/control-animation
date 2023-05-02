@@ -143,7 +143,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
                         guidance_scale, controlnet_image=None, controlnet_conditioning_scale=None):
         scheduler_state = self.scheduler.set_timesteps(params["scheduler"], num_inference_steps)
         f = latents_local.shape[2]
-        latents_local = rearrange(latents_local, "b c f w h -> (b f) c w h")
+        latents_local = rearrange(latents_local, "b c f h w -> (b f) c h w")
         latents = latents_local.copy()
         x_t0_1 = None
         x_t1_1 = None
@@ -210,13 +210,13 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
                 step = step + 1
         else:
             _, latents, x_t0_1, x_t1_1, scheduler_state = jax.lax.while_loop(cond_fun, while_body, (0, latents, x_t0_1, x_t1_1, scheduler_state))
-        latents = rearrange(latents, "(b f) c w h -> b c f  w h", f=f)
+        latents = rearrange(latents, "(b f) c h w -> b c f h w", f=f)
         res = {"x0": latents.copy()}
         if x_t0_1 is not None:
-            x_t0_1 = rearrange(x_t0_1, "(b f) c w h -> b c f  w h", f=f)
+            x_t0_1 = rearrange(x_t0_1, "(b f) c h w -> b c f  h w", f=f)
             res["x_t0_1"] = x_t0_1.copy()
         if x_t1_1 is not None:
-            x_t1_1 = rearrange(x_t1_1, "(b f) c w h -> b c f  w h", f=f)
+            x_t1_1 = rearrange(x_t1_1, "(b f) c h w -> b c f  h w", f=f)
             res["x_t1_1"] = x_t1_1.copy()
         return res
     
@@ -348,6 +348,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
         x0 = ddim_res["x0"]
         return x0
 
+    @jax.jit
     def generate_starting_frames(self,
                                 params,
                                 prngs: list, #list of prngs for each img
@@ -369,7 +370,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
         shape = (1, self.unet.in_channels, 1, height //
         self.vae_scale_factor, width // self.vae_scale_factor) #b c f h w
         # scale the initial noise by the standard deviation required by the scheduler
-        latents = jnp.stack([jax.random.normal(prng, shape) for prng in prngs])
+        latents = jnp.stack([jax.random.normal(prng, shape) for prng in prngs]) # i b c f h w
         latents = latents * params["scheduler"].init_noise_sigma
 
         timesteps = params["scheduler"].timesteps
@@ -409,7 +410,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
 
 
         ddim_res = delta_t_diffusion(latents)
-        latents = ddim_res["x0"][:, 0]
+        latents = ddim_res["x0"] #output is  i b c f h w
 
         # DDPM forward for more motion freedom
         ddpm_fwd = jax.vmap(lambda prng, latent: self.DDPM_forward(params=params, prng=prng, x0=latent, t0=t0,
@@ -423,7 +424,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
                                             controlnet_image=controlnet_image, controlnet_conditioning_scale=controlnet_conditioning_scale))
 
         ddim_res = denoise_first_frame(latents)
-        latents = ddim_res["x0"][:, 0]
+        latents = rearrange(ddim_res["x0"], 'i b c f h w -> (i b) c f h w') #output is  i b c f h w
         del ddim_res
 
         # scale and decode the image latents with vae
