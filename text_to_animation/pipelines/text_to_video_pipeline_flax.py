@@ -425,13 +425,13 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
                                 prngs: list, #list of prngs for each img
                                 prompt,
                                 neg_prompt,
+                                controlnet_image,
                                 do_classifier_free_guidance = True,
                                 num_inference_steps: int = 50,
                                 guidance_scale: float = 7.5,
                                 t0: int = 44,
                                 t1: int = 47,
-                                controlnet_image=None,
-                                controlnet_conditioning_scale=0,
+                                controlnet_conditioning_scale=1.,
                                 ):
 
         height, width = controlnet_image.shape[-2:]
@@ -510,7 +510,6 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
             # latents = rearrange(latents, "b c h w -> (b f) c h w")
             imgs = self.vae.apply({"params": params["vae"]}, latents, method=self.vae.decode).sample
             imgs = (imgs / 2 + 0.5).clip(0, 1).transpose(0, 2, 3, 1)
-
             return imgs
         
         return _generate_starting_frames(params, text_embeddings, latents, controlnet_image, controlnet_conditioning_scale)

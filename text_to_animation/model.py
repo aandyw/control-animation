@@ -195,6 +195,19 @@ class ControlAnimationModel:
                 neg_prompt=neg_prompt,
                 )
         return [np.array(imgs[i]) for i in range(imgs.shape[0])]
+    
+    def generate_video_from_frame(self, controlnet_video, prompt, prng_seed):
+        vid = self.pipe.generate_video(
+                prompt,
+                image=controlnet_video,
+                params=self.params,
+                prng_seed= prng_seed,
+                neg_prompt = "",
+                controlnet_conditioning_scale = 1.0,
+                motion_field_strength_x = 3,
+                motion_field_strength_y = 4,
+             ).image
+        return vid
 
     def process_controlnet_pose(
         self,
