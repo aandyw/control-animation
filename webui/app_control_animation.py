@@ -39,7 +39,7 @@ examples = [
 images = []  # str path of generated images
 initial_frame = None
 
-def generate_initial_frames(prompt, video_path="Motion 1", num_imgs=4, resolution=512):
+def generate_initial_frames(prompt, num_imgs=4, video_path="Motion 1", resolution=512):
     video_path = gradio_utils.motion_to_video_path(video_path)
     model_id="runwayml/stable-diffusion-v1-5"
     controlnet_id = "fusing/stable-diffusion-v1-5-controlnet-openpose"
@@ -78,7 +78,7 @@ def generate_initial_frames(prompt, video_path="Motion 1", num_imgs=4, resolutio
                             control,
                             prompt,
                             negative_prompts,
-                            num_imgs=1,
+                            num_imgs=num_imgs,
                             )
     return images
 
@@ -108,21 +108,24 @@ def create_demo():
                     )
 
                 with gr.Column():
-                    model_link = gr.Textbox(
-                        label="Model Link",
-                        placeholder="dreamlike-art/dreamlike-photoreal-2.0",
-                        info="Give the hugging face model name or URL link to safetensor.",
-                    )
-                    is_safetensor = gr.Checkbox(label="Safetensors")
+                    # model_link = gr.Textbox(
+                    #     label="Model Link",
+                    #     placeholder="dreamlike-art/dreamlike-photoreal-2.0",
+                    #     info="Give the hugging face model name or URL link to safetensor.",
+                    # )
+                    # is_safetensor = gr.Checkbox(label="Safetensors")
                     gen_frames_button = gr.Button(
                         value="Generate Initial Frames", variant="primary"
                     )
 
             with gr.Row():
                 with gr.Column(scale=2):
-                    width = gr.Slider(32, 2048, value=512, label="Width")
-                    height = gr.Slider(32, 2048, value=512, label="Height")
-                    cfg_scale = gr.Slider(1, 20, value=7.0, step=0.1, label="CFG scale")
+                    # width = gr.Slider(32, 2048, value=512, label="Width")
+                    # height = gr.Slider(32, 2048, value=512, label="Height")
+                    # cfg_scale = gr.Slider(1, 20, value=7.0, step=0.1, label="CFG scale")
+                    gallery_pose_sequence = gr.Gallery(label="Pose Sequence", value=[('__assets__/poses_skeleton_gifs/dance1.gif', "Motion 1"), ('__assets__/poses_skeleton_gifs/dance2.gif', "Motion 2"), (
+                    '__assets__/poses_skeleton_gifs/dance3.gif', "Motion 3"), ('__assets__/poses_skeleton_gifs/dance4.gif', "Motion 4"), ('__assets__/poses_skeleton_gifs/dance5.gif', "Motion 5")]).style(grid=[2], height="auto")
+                    num_imgs = gr.Slider(1, 8, value=4, step=1, label="Number of images to generate")
                     seed = gr.Slider(
                         label="Seed",
                         info="-1 for random seed on each run. Otherwise, the seed will be fixed.",
@@ -232,8 +235,8 @@ def create_demo():
 
         inputs = [
             prompt,
-            model_link,
-            is_safetensor,
+            # model_link,
+            # is_safetensor,
             motion_field_strength_x,
             motion_field_strength_y,
             t0,
@@ -254,7 +257,7 @@ def create_demo():
         # )
 
         frame_inputs = [
-            frames_prompt]
+            frames_prompt, num_imgs, gallery_pose_sequence]
 
         def submit_select():
             show = True
