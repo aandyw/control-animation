@@ -500,7 +500,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
             #                                     controlnet_image=controlnet_image, controlnet_conditioning_scale=controlnet_conditioning_scale, use_vanilla=True)
             # latents = rearrange(latents, 'i b c f h w -> (i b) c f h w')
             # ddim_res = denoise_first_frame(latents)
-            latents = self.decode_latent(params, num_inference_steps=num_inference_steps, timesteps=timesteps, do_classifier_free_guidance=do_classifier_free_guidance,
+            latents = self.denoise_latent(params, num_inference_steps=num_inference_steps, timesteps=timesteps, do_classifier_free_guidance=do_classifier_free_guidance,
                                                 text_embeddings=text_embeddings, latents=latents, guidance_scale=guidance_scale,
                                                 controlnet_image=controlnet_image, controlnet_conditioning_scale=controlnet_conditioning_scale)
             # latents = rearrange(ddim_res["x0"], 'i b c f h w -> (i b) c f h w') #output is  i b c f h w
