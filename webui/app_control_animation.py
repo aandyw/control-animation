@@ -106,9 +106,7 @@ def create_demo(model: ControlAnimationModel):
                 with gr.Column(scale=3):
                     initial_frames = gr.Gallery(
                         label="Initial Frames", show_label=False
-                    ).style(
-                        columns=[2], rows=[2], object_fit="scale-down", height="auto"
-                    )
+                    ).style(columns=4, object_fit="contain")
                     initial_frames.select(select_initial_frame)
                     select_frame_button = gr.Button(
                         value="Select Initial Frame", variant="secondary"
