@@ -50,7 +50,7 @@ with gr.Blocks(css="style.css") as demo:
 
     # NOTE: In our final demo we should consider removing zero-shot t2v and pose conditional
     with gr.Tab("Control Animation"):
-        create_demo_animation(model)
+        create_demo_animation()
     # with gr.Tab("Zero-Shot Text2Video"):
     #     create_demo_text_to_video(model)
     # with gr.Tab("Pose Conditional"):

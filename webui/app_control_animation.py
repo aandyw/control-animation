@@ -75,8 +75,8 @@ def generate_initial_frames(prompt, video_path="Motion1", num_imgs=4, resolution
     control = utils.pre_process_pose(video, apply_pose_detect=False)
     f, _, h, w = video.shape
 
-    images = animation_model.generate_starting_frames(
-                            animation_model.params,
+    images = model.generate_starting_frames(
+                            model.params,
                             [jax.random.PRNGKey(i) for i in range(num_imgs)], #list of prngs for each img
                             prompt,
                             negative_prompts,
@@ -99,9 +99,8 @@ def select_initial_frame(evt: gr.SelectData):
         print(initial_frame)
 
 
-def create_demo(model: ControlAnimationModel):
-    global animation_model
-    animation_model = model
+def create_demo():
+    # global animation_model
 
     with gr.Blocks() as demo:
         with gr.Column(visible=True) as frame_selection_col:
@@ -263,7 +262,7 @@ def create_demo(model: ControlAnimationModel):
         # )
 
         frame_inputs = [
-            animation_model,
+            model,
             frames_prompt]
 
         def submit_select():
