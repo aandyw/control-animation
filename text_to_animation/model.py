@@ -204,22 +204,22 @@ class ControlAnimationModel:
         print(f"Generating video from prompt {prompt}, with {controlnet_video.shape[0]} frames and prng seed {seed}")
         prompt_ids = self.pipe.prepare_text_inputs([prompt]*len_vid)
         n_prompt_ids = self.pipe.prepare_text_inputs([neg_prompt]*len_vid)
-        prng_seed = replicate_devices(prng_seed) #jax.random.split(prng, jax.device_count())
+        prng = replicate_devices(prng_seed) #jax.random.split(prng, jax.device_count())
         image = replicate_devices(controlnet_video)
         prompt_ids = replicate_devices(prompt_ids)
         n_prompt_ids = replicate_devices(n_prompt_ids)
-        # motion_field_strength_x = replicate_devices(kwargs.pop("motion_field_strength_x"))
-        # motion_field_strength_y = replicate_devices(kwargs.pop("motion_field_strength_y"))
-        # smooth_bg_strength = replicate_devices(kwargs.pop("smooth_bg_strength"))
+        motion_field_strength_x = replicate_devices(jnp.array(3))
+        motion_field_strength_y = replicate_devices(jnp.array(4))
+        smooth_bg_strength = replicate_devices(jnp.array(0.8))
         vid = (self.pipe(image=image,
                         prompt_ids=prompt_ids,
                         neg_prompt_ids=n_prompt_ids, 
                         params=self.p_params,
-                        prng_seed=prng_seed,
+                        prng_seed=prng,
                         jit = True,
-                        # smooth_bg_strength=smooth_bg_strength,
-                        # motion_field_strength_x=motion_field_strength_x,
-                        # motion_field_strength_y=motion_field_strength_y,
+                        smooth_bg_strength=smooth_bg_strength,
+                        motion_field_strength_x=motion_field_strength_x,
+                        motion_field_strength_y=motion_field_strength_y,
                         ).images)[0]
         return utils.create_gif(np.array(vid), 4, path=None, watermark=None)
         
