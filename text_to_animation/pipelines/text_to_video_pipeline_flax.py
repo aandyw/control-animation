@@ -579,15 +579,15 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
             "not-safe-for-work" (nsfw) content, according to the `safety_checker`.
         """
         height, width = image.shape[-2:]
+        vid_length = image.shape[0]
         # get prompt text embeddings
-        prompt_ids = self.prepare_text_inputs(prompt)
-        neg_prompt_ids = self.prepare_text_inputs(neg_prompt)
+        prompt_ids = self.prepare_text_inputs([prompt] * vid_length)
+        neg_prompt_ids = self.prepare_text_inputs([neg_prompt] * vid_length)
 
         # TODO: currently it is assumed `do_classifier_free_guidance = guidance_scale > 1.0`
         # implement this conditional `do_classifier_free_guidance = guidance_scale > 1.0`
         batch_size = 1
 
-        image = jnp.stack([image[0]] * 2)
         if isinstance(guidance_scale, float):
             # Convert to a tensor so each device gets a copy. Follow the prompt_ids for
             # shape information, as they may be sharded (when `jit` is `True`), or not.
