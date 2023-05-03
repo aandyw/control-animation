@@ -617,8 +617,8 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
                 replicate_devices(xT) if xT is not None else None,
                 replicate_devices(motion_field_strength_x),
                 replicate_devices(motion_field_strength_y),
-                replicate_devices(t0),
-                replicate_devices(t1),
+                t0,
+                t1,
             )
         else:
             images = self._generate(
