@@ -209,7 +209,7 @@ class ControlAnimationModel:
                 motion_field_strength_x = 3,
                 motion_field_strength_y = 4,
                 jit=True
-             ).image
+             ).images
         return utils.create_gif(np.array(vid), 4, path=None, watermark=None)
 
     def process_controlnet_pose(
