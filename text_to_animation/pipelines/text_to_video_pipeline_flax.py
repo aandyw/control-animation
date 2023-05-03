@@ -607,7 +607,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
                 self,
                 replicate_devices(prompt_ids),
                 replicate_devices(image),
-                jax_utils.replicate(self.params),
+                jax_utils.replicate(params),
                 replicate_devices(prng_seed),
                 num_inference_steps,
                 replicate_devices(guidance_scale),
