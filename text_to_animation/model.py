@@ -198,21 +198,31 @@ class ControlAnimationModel:
                 )
         return [np.array(imgs[i]) for i in range(imgs.shape[0])], seeds
     
-    def generate_video_from_frame(self, controlnet_video, prompt, seed):
+    def generate_video_from_frame(self, controlnet_video, prompt, seed, neg_prompt=""):
         prng_seed = jax.random.PRNGKey(seed)
+        len_vid = controlnet_video.shape[0]
         print(f"Generating video from prompt {prompt}, with {controlnet_video.shape[0]} frames and prng seed {seed}")
-        vid = (self.pipe.generate_video(
-                prompt,
-                image=controlnet_video,
-                params=self.params,
-                prng_seed= prng_seed,
-                neg_prompt = "",
-                controlnet_conditioning_scale = 1.0,
-                motion_field_strength_x = 3,
-                motion_field_strength_y = 4,
-                jit=True
-             ).images)[0]
+        prompt_ids = self.pipe.prepare_text_inputs([prompt]*len_vid)
+        n_prompt_ids = self.pipe.prepare_text_inputs([neg_prompt]*len_vid)
+        prng_seed = replicate_devices(prng_seed) #jax.random.split(prng, jax.device_count())
+        image = replicate_devices(controlnet_video)
+        prompt_ids = replicate_devices(prompt_ids)
+        n_prompt_ids = replicate_devices(n_prompt_ids)
+        # motion_field_strength_x = replicate_devices(kwargs.pop("motion_field_strength_x"))
+        # motion_field_strength_y = replicate_devices(kwargs.pop("motion_field_strength_y"))
+        # smooth_bg_strength = replicate_devices(kwargs.pop("smooth_bg_strength"))
+        vid = (self.pipe(image=image,
+                        prompt_ids=prompt_ids,
+                        neg_prompt_ids=n_prompt_ids, 
+                        params=self.p_params,
+                        prng_seed=prng_seed,
+                        jit = True,
+                        # smooth_bg_strength=smooth_bg_strength,
+                        # motion_field_strength_x=motion_field_strength_x,
+                        # motion_field_strength_y=motion_field_strength_y,
+                        ).images)[0]
         return utils.create_gif(np.array(vid), 4, path=None, watermark=None)
+        
 
     def process_controlnet_pose(
         self,
