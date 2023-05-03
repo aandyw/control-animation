@@ -194,12 +194,13 @@ class ControlAnimationModel:
                 controlnet_image=controlnet_image,
                 prompt=prompt,
                 neg_prompt=neg_prompt,
+                num_inference_steps=20,
                 )
         return [np.array(imgs[i]) for i in range(imgs.shape[0])], seeds
     
     def generate_video_from_frame(self, controlnet_video, prompt, seed):
         prng_seed = jax.random.PRNGKey(seed)
-        vid = self.pipe.generate_video(
+        vid = (self.pipe.generate_video(
                 prompt,
                 image=controlnet_video,
                 params=self.params,
@@ -209,7 +210,7 @@ class ControlAnimationModel:
                 motion_field_strength_x = 3,
                 motion_field_strength_y = 4,
                 jit=True
-             ).images
+             ).images)[0]
         return utils.create_gif(np.array(vid), 4, path=None, watermark=None)
 
     def process_controlnet_pose(
