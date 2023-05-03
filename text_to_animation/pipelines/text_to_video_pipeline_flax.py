@@ -288,6 +288,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
                            guidance_scale: float = 7.5,
                            num_videos_per_prompt: Optional[int] = 1,
                            xT = None,
+                           smooth_bg_strength: float=0.,
                            motion_field_strength_x: float = 12,
                            motion_field_strength_y: float = 12,
                            t0: int = 44,
@@ -348,12 +349,31 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
         controlnet_video = controlnet_image[:video_length]
         controlnet_video = controlnet_video.at[1:].set(self.warp_vid_independently(controlnet_video[1:], reference_flow))
         controlnet_image = jnp.concatenate([controlnet_video]*2)
+        smooth_bg = True
 
-
+        if smooth_bg:
+            #latent shape: "b c f h w"
+            M_FG = repeat(get_mask_pose(controlnet_video), "f h w -> b c f h w", c=x_t1.shape[1], b=batch_size)
+            initial_bg = repeat(x_t1[:,:,0] * (1 - M_FG[:,:,0]), "b c h w -> b c f h w", f=video_length-1)
+            #warp the controlnet image following the same flow defined for latent #f c h w
+            initial_bg_warped = self.warp_latents_independently(initial_bg, reference_flow)
+            bgs = x_t1[:,:,1:] * (1 - M_FG[:,:,1:]) #initial background 
+            initial_mask_warped = 1 - self.warp_latents_independently(repeat(M_FG[:,:,0], "b c h w -> b c f h w", f = video_length-1), reference_flow)
+            # initial_mask_warped = 1 - warp_vid_independently(repeat(M_FG[:,:,0], "b c h w -> (b f) c h w", f = video_length-1), reference_flow)
+            # initial_mask_warped = rearrange(initial_mask_warped, "(b f) c h w -> b c f h w", b=batch_size)
+            mask = (1 - M_FG[:,:,1:]) * initial_mask_warped
+            x_t1 = x_t1.at[:,:,1:].set( (1 - mask) * x_t1[:,:,1:] + mask * (initial_bg_warped * smooth_bg_strength + (1 - smooth_bg_strength) * bgs))
+            
         ddim_res = self.DDIM_backward(params, num_inference_steps=num_inference_steps, timesteps=timesteps, skip_t=t1, t0=-1, t1=-1, do_classifier_free_guidance=do_classifier_free_guidance,
                                             text_embeddings=text_embeddings, latents_local=x_t1, guidance_scale=guidance_scale,
-                                            controlnet_image=controlnet_image, controlnet_conditioning_scale=controlnet_conditioning_scale)
+                                            controlnet_image=controlnet_image, controlnet_conditioning_scale=controlnet_conditioning_scale,
+                                     )
+        
         x0 = ddim_res["x0"]
+        del ddim_res
+        del x_t1
+        del x_t1_1
+        del x_t1_k
         return x0
 
     def denoise_latent(self, params, num_inference_steps, timesteps, do_classifier_free_guidance, text_embeddings, latents,
@@ -533,6 +553,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
         return_dict: bool = True,
         jit: bool = False,
         xT = None,
+        smooth_bg_strength: float=0.,
         motion_field_strength_x: float = 3,
         motion_field_strength_y: float = 4,
         t0: int = 44,
@@ -615,6 +636,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
                 replicate_devices(neg_prompt_ids) if neg_prompt_ids is not None else None,
                 replicate_devices(controlnet_conditioning_scale),
                 replicate_devices(xT) if xT is not None else None,
+                replicate_devices(smooth_bg_strength),
                 replicate_devices(motion_field_strength_x),
                 replicate_devices(motion_field_strength_y),
                 t0,
@@ -632,6 +654,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
                 neg_prompt_ids,
                 controlnet_conditioning_scale,
                 xT,
+                smooth_bg_strength,
                 motion_field_strength_x,
                 motion_field_strength_y,
                 t0,
@@ -714,6 +737,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
         neg_prompt_ids: Optional[jnp.array] = None,
         controlnet_conditioning_scale: float = 1.0,
         xT = None,
+        smooth_bg_strength: float = 0.,
         motion_field_strength_x: float = 12,
         motion_field_strength_y: float = 12,
         t0: int = 44,
@@ -743,7 +767,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
         latents = self.text_to_video_zero(params, seed_t2vz, text_embeddings=context, video_length=video_length,
                                           height=height, width = width, num_inference_steps=num_inference_steps,
                                           guidance_scale=guidance_scale, controlnet_image=image,
-                                          xT=xT, t0=t0, t1=t1,
+                                          xT=xT, smooth_bg_strength=smooth_bg_strength, t0=t0, t1=t1,
                                           motion_field_strength_x=motion_field_strength_x,
                                           motion_field_strength_y=motion_field_strength_y,
                                           controlnet_conditioning_scale=controlnet_conditioning_scale
@@ -770,6 +794,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
         return_dict: bool = True,
         jit: bool = False,
         xT = None,
+        smooth_bg_strength: float = 0.,
         motion_field_strength_x: float = 3,
         motion_field_strength_y: float = 4,
         t0: int = 44,
@@ -843,6 +868,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
                 neg_prompt_ids,
                 controlnet_conditioning_scale,
                 xT,
+                smooth_bg_strength,
                 motion_field_strength_x,
                 motion_field_strength_y,
                 t0,
@@ -860,6 +886,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
                 neg_prompt_ids,
                 controlnet_conditioning_scale,
                 xT,
+                smooth_bg_strength,
                 motion_field_strength_x,
                 motion_field_strength_y,
                 t0,
@@ -905,6 +932,7 @@ def _p_generate(
     neg_prompt_ids,
     controlnet_conditioning_scale,
     xT,
+    smooth_bg_strength,
     motion_field_strength_x,
     motion_field_strength_y,
     t0,
@@ -921,6 +949,7 @@ def _p_generate(
         neg_prompt_ids,
         controlnet_conditioning_scale,
         xT,
+        smooth_bg_strength,
         motion_field_strength_x,
         motion_field_strength_y,
         t0,
@@ -983,3 +1012,21 @@ def grid_sample(latents, grid, method):
       return safe_get_mirror(latents, jnp.array(grid[0], dtype=jnp.int16), jnp.array(grid[1], dtype=jnp.int16), latents.shape[0], latents.shape[1])
     else: #default is zero padding
       return safe_get_zeropad(latents, jnp.array(grid[0], dtype=jnp.int16), jnp.array(grid[1], dtype=jnp.int16), latents.shape[0], latents.shape[1])
+
+def bandw_vid(vid, threshold):
+  vid = jnp.max(vid, axis=1)
+  return jnp.where(vid > threshold, 1, 0)
+
+def mean_blur(vid, k):
+  window = jnp.ones((vid.shape[0], k, k))/ (k*k)
+  convolve=jax.vmap(lambda img, kernel:jax.scipy.signal.convolve(img, kernel, mode='same'))
+  smooth_vid = convolve(vid, window)
+  return smooth_vid
+
+def get_mask_pose(vid):
+  vid = bandw_vid(vid, 0.4)
+  l, h, w = vid.shape
+  vid = jax.image.resize(vid, (l, h//8, w//8), "nearest")
+  vid=bandw_vid(mean_blur(vid, 7)[:,None], threshold=0.01)
+  return vid/(jnp.max(vid) + 1e-4)
+  #return jax.image.resize(vid/(jnp.max(vid) + 1e-4), (l, h, w), "nearest")
