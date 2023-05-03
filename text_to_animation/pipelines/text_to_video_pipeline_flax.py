@@ -6,6 +6,7 @@ import jax.numpy as jnp
 import numpy as np
 from flax.core.frozen_dict import FrozenDict
 from flax.jax_utils import unreplicate
+from flax import jax_utils
 from flax.training.common_utils import shard
 from PIL import Image
 from transformers import CLIPFeatureExtractor, CLIPTokenizer, FlaxCLIPTextModel
@@ -29,6 +30,10 @@ Text2Video-Zero:
  - 3DUnet to replace 2DUnetConditional
 
 """
+
+def replicate_devices(array):
+    return jnp.expand_dims(array, 0).repeat(jax.device_count(), 0)
+
 
 DEBUG = False # Set to True to use python for loop instead of jax.fori_loop for easier debugging
 
@@ -600,20 +605,20 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
         if jit:
             images = _p_generate(
                 self,
-                prompt_ids,
-                image,
-                params,
-                prng_seed,
+                replicate_devices(prompt_ids),
+                replicate_devices(image),
+                jax_utils.replicate(self.params),
+                replicate_devices(prng_seed),
                 num_inference_steps,
-                guidance_scale,
-                latents,
-                neg_prompt_ids,
-                controlnet_conditioning_scale,
-                xT,
-                motion_field_strength_x,
-                motion_field_strength_y,
-                t0,
-                t1,
+                replicate_devices(guidance_scale),
+                replicate_devices(latents),
+                replicate_devices(neg_prompt_ids),
+                replicate_devices(controlnet_conditioning_scale),
+                replicate_devices(xT),
+                replicate_devices(motion_field_strength_x),
+                replicate_devices(motion_field_strength_y),
+                replicate_devices(t0),
+                replicate_devices(t1),
             )
         else:
             images = self._generate(
@@ -885,8 +890,8 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
 # Non-static args are (sharded) input tensors mapped over their first dimension (hence, `0`).
 @partial(
     jax.pmap,
-    in_axes=(None, 0, 0, 0, 0, None, 0, 0, 0, 0, 0, None, None, None, None),
-    static_broadcasted_argnums=(0, 5, 11, 12, 13, 14),
+    in_axes=(None, 0, 0, 0, 0, None, 0, 0, 0, 0, 0, 0, 0, None, None),
+    static_broadcasted_argnums=(0, 5, 13, 14),
 )
 def _p_generate(
     pipe,

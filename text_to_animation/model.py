@@ -208,6 +208,7 @@ class ControlAnimationModel:
                 controlnet_conditioning_scale = 1.0,
                 motion_field_strength_x = 3,
                 motion_field_strength_y = 4,
+                jit=True
              ).image
         return utils.create_gif(np.array(vid), 4, path=None, watermark=None)
 
