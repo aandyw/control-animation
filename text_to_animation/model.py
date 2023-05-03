@@ -80,7 +80,7 @@ class ControlAnimationModel:
         feature_extractor = CLIPFeatureExtractor.from_pretrained(
             model_id, subfolder="feature_extractor"
         )
-        unet, unet_params = CustomFlaxUNet2DConditionModel.from_pretrained(
+        unet, unet_params = FlaxUNet2DConditionModel.from_pretrained(
             model_id, subfolder="unet", from_pt=True, dtype=self.dtype
         )
         unet_vanilla, van_params = FlaxUNet2DConditionModel.from_pretrained(
