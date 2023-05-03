@@ -23,7 +23,7 @@ from diffusers.configuration_utils import ConfigMixin, flax_register_to_config
 from diffusers.utils import BaseOutput
 from diffusers.models.embeddings_flax import FlaxTimestepEmbedding, FlaxTimesteps
 from diffusers.models.modeling_flax_utils import FlaxModelMixin
-from .models.unet_2d_blocks_flax import (
+from .unet_2d_blocks_flax import (
     FlaxCrossAttnDownBlock2D,
     FlaxDownBlock2D,
     FlaxUNetCrossAttnMidBlock2D,
