@@ -587,7 +587,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
         # implement this conditional `do_classifier_free_guidance = guidance_scale > 1.0`
         batch_size = 1
 
-        controlnet_image = jnp.stack([controlnet_image[0]] * 2)
+        image = jnp.stack([image[0]] * 2)
         if isinstance(guidance_scale, float):
             # Convert to a tensor so each device gets a copy. Follow the prompt_ids for
             # shape information, as they may be sharded (when `jit` is `True`), or not.
