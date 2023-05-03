@@ -39,7 +39,7 @@ Our code uses <a href="https://www.humphreyshi.com/home">Text2Video-Zero</a> and
 notice = """
 <p>For faster inference without waiting in queue, you may duplicate the space and upgrade to GPU in settings.
 <br/>
-<a href="https://github.com/Pie31415/control-animation">
+<a href="https://huggingface.co/spaces/Pie31415/control-animation?duplicate=true">
 <img style="margin-top: 0em; margin-bottom: 0em" src="https://bit.ly/3gLdBN6" alt="Duplicate Space"></a>
 </p>
 """
@@ -54,10 +54,6 @@ with gr.Blocks(css="style.css") as demo:
     # NOTE: In our final demo we should consider removing zero-shot t2v and pose conditional
     with gr.Tab("Control Animation"):
         create_demo_animation(model)
-    # with gr.Tab("Zero-Shot Text2Video"):
-    #     create_demo_text_to_video(model)
-    # with gr.Tab("Pose Conditional"):
-    #     create_demo_pose(model)
 
 if on_huggingspace:
     demo.queue(max_size=20)
