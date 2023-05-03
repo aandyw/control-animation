@@ -918,7 +918,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
 @partial(
     jax.pmap,
     in_axes=(None, 0, 0, 0, 0, None, 0, 0, 0, 0, 0, 0, 0, 0, None, None),
-    static_broadcasted_argnums=(0, 5, 14, 15))
+    static_broadcasted_argnums=(0, 5, 14, 15)
 )
 def _p_generate(
     pipe,
