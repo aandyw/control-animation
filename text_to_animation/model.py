@@ -194,12 +194,13 @@ class ControlAnimationModel:
                 controlnet_image=controlnet_image,
                 prompt=prompt,
                 neg_prompt=neg_prompt,
-                num_inference_steps=20,
+                num_inference_steps=15,
                 )
         return [np.array(imgs[i]) for i in range(imgs.shape[0])], seeds
     
     def generate_video_from_frame(self, controlnet_video, prompt, seed):
         prng_seed = jax.random.PRNGKey(seed)
+        print(f"Generating video from prompt {prompt}, with {controlnet_video.shape[0]} frames and prng seed {seed}")
         vid = (self.pipe.generate_video(
                 prompt,
                 image=controlnet_video,
