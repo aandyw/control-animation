@@ -481,6 +481,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
         text_embeddings = jnp.concatenate([negative_prompt_embeds, prompt_embeds])
         controlnet_image = jnp.stack([controlnet_image[0]] * 2 * len(prngs))
 
+        @jax.jit
         def _generate_starting_frames(params, text_embeddings, latents, controlnet_image, controlnet_conditioning_scale):
             #  perform ∆t backward steps by stable diffusion
 
