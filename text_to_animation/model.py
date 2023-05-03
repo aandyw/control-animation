@@ -6,6 +6,9 @@ import jax.numpy as jnp
 import tomesd
 import jax
 
+from PIL import Image
+from typing import List
+
 from flax.training.common_utils import shard
 from flax.jax_utils import replicate
 from flax import jax_utils
@@ -381,16 +384,42 @@ class ControlAnimationModel:
             result, fps, path=path, watermark=gradio_utils.logo_name_to_path(watermark)
         )
 
-    def generate_animation(
+    def generate_initial_frames(
         self,
         prompt: str,
         model_link: str = "dreamlike-art/dreamlike-photoreal-2.0",
-        is_safetensor: bool = False,
+        negative_prompt: str = "",
+        seed: int = 0,
+    ) -> List[Image.Image]:
+        generator = torch.Generator().manual_seed(seed)
+        pipe = StableDiffusionPipeline.from_pretrained(model_link)
+
+        batch_size = 4
+        prompt = [prompt] * batch_size
+        negative_prompt = [negative_prompt] * batch_size
+
+        # images = pipe(
+        #     prompt,
+        #     negative_prompt=negative_prompt,
+        #     width=width,
+        #     height=height,
+        #     guidance_scale=cfg_scale,
+        #     generator=generator,
+        #     output_type="pil",
+        # ).images
+
+        return images
+
+    def generate_animation(
+        self,
+        prompt: str,
+        initial_frame_index: int,
+        model_link: str = "dreamlike-art/dreamlike-photoreal-2.0",
         motion_field_strength_x: int = 12,
         motion_field_strength_y: int = 12,
         t0: int = 44,
         t1: int = 47,
-        n_prompt: str = "",
+        negative_prompt: str = "",
         chunk_size: int = 8,
         video_length: int = 8,
         merging_ratio: float = 0.0,
@@ -403,37 +432,4 @@ class ControlAnimationModel:
         smooth_bg_strength: float = 0.4,
         path: str = None,
     ):
-        if is_safetensor and model_link[-len(".safetensors") :] == ".safetensors":
-            pipe = utils.load_safetensors_model(model_link)
-        return
-
-    def generate_initial_frames(
-        self,
-        prompt: str,
-        model_link: str = "dreamlike-art/dreamlike-photoreal-2.0",
-        is_safetensor: bool = False,
-        n_prompt: str = "",
-        width: int = 512,
-        height: int = 512,
-        # batch_count: int = 4,
-        # batch_size: int = 1,
-        cfg_scale: float = 7.0,
-        seed: int = 0,
-    ):
-        print(f">>> prompt: {prompt}, model_link: {model_link}")
-
-        pipe = StableDiffusionPipeline.from_pretrained(model_link)
-
-        batch_size = 4
-        prompt = [prompt] * batch_size
-        negative_prompt = [n_prompt] * batch_size
-
-        images = pipe(
-            prompt,
-            negative_prompt=negative_prompt,
-            width=width,
-            height=height,
-            guidance_scale=cfg_scale,
-        ).images
-
-        return images
+        return None
