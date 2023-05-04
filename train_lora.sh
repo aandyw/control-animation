@@ -1,0 +1,18 @@
+python train_lora_flax.py \
+--pretrained_model_name_or_path runwayml/stable-diffusion-v1-5 \
+--hub_model_id gigant/lora-aardman-sd15 \
+--mixed_precision fp16 \
+--train_batch_size 16 \
+--revision flax \ 
+--instance_prompt="<aardman> style" \
+--class_prompt="style" \
+--instance_data_dir="../aardman/imgs" \
+--output_dir=$OUTPUT_DIR \
+--with_prior_preservation --prior_loss_weight=1.0 \
+--learning_rate=2e-6 \
+--lr_scheduler="constant" \
+--lr_warmup_steps=0 \
+--num_class_images=200 \
+--max_train_steps=800 \
+--push_to_hub \
+--num_train_epochs 1

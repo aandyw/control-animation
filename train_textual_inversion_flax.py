@@ -33,8 +33,9 @@ from diffusers import (
     FlaxDDPMScheduler,
     FlaxPNDMScheduler,
     FlaxStableDiffusionPipeline,
-    FlaxUNet2DConditionModel,
+    # FlaxUNet2DConditionModel,
 )
+from custom_flaxunet2D.unet_2d_condition_flax import FlaxLoRAUNet2DConditionModel
 from diffusers.pipelines.stable_diffusion import FlaxStableDiffusionSafetyChecker
 from diffusers.utils import check_min_version
 

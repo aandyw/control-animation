@@ -265,22 +265,23 @@ class FlaxLoRACrossFrameAttention(nn.Module):
         value_proj = self.value(context) + scale * self.to_v_lora(context)
 
         # Sparse Attention
-        if not is_cross_attention:
-            video_length = 1 if key_proj.shape[0] < self.batch_size else key_proj.shape[0] // self.batch_size
-            first_frame_index = [0] * video_length
-            #first frame ==> previous frame
-            previous_frame_index = jnp.array([0] + list(range(video_length - 1)))
+        #for training, lets use regular cross attention
+        # if not is_cross_attention:
+        #     video_length = 1 if key_proj.shape[0] < self.batch_size else key_proj.shape[0] // self.batch_size
+        #     first_frame_index = [0] * video_length
+        #     #first frame ==> previous frame
+        #     previous_frame_index = jnp.array([0] + list(range(video_length - 1)))
 
-            # rearrange keys to have batch and frames in the 1st and 2nd dims respectively
-            key_proj = rearrange_3(key_proj, video_length)
-            key_proj = (key_proj[:, first_frame_index] + scale * key_proj[:, previous_frame_index]) / (1 + scale)
-            # rearrange values to have batch and frames in the 1st and 2nd dims respectively
-            value_proj = rearrange_3(value_proj, video_length)
-            value_proj = (value_proj[:, first_frame_index] + scale * value_proj[:, previous_frame_index]) / (1 + scale)
+        #     # rearrange keys to have batch and frames in the 1st and 2nd dims respectively
+        #     key_proj = rearrange_3(key_proj, video_length)
+        #     key_proj = key_proj[:, first_frame_index]
+        #     # rearrange values to have batch and frames in the 1st and 2nd dims respectively
+        #     value_proj = rearrange_3(value_proj, video_length)
+        #     value_proj = value_proj[:, first_frame_index]
 
-            # rearrange back to original shape
-            key_proj = rearrange_4(key_proj)
-            value_proj = rearrange_4(value_proj)
+        #     # rearrange back to original shape
+        #     key_proj = rearrange_4(key_proj)
+        #     value_proj = rearrange_4(value_proj)
 
         query_states = self.reshape_heads_to_batch_dim(query_proj)
         key_states = self.reshape_heads_to_batch_dim(key_proj)

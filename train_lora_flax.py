@@ -81,9 +81,51 @@ def parse_args():
         help="Pretrained tokenizer name or path if not the same as model_name",
     )
     parser.add_argument(
+        "--instance_data_dir",
+        type=str,
+        default=None,
+        required=True,
+        help="A folder containing the training data of instance images.",
+    )
+    parser.add_argument(
+        "--class_data_dir",
+        type=str,
+        default=None,
+        required=False,
+        help="A folder containing the training data of class images.",
+    )
+    parser.add_argument(
+        "--instance_prompt",
+        type=str,
+        default=None,
+        help="The prompt with identifier specifying the instance",
+    )
+    parser.add_argument(
+        "--class_prompt",
+        type=str,
+        default=None,
+        help="The prompt to specify images in the same class as provided instance images.",
+    )
+    parser.add_argument(
+        "--with_prior_preservation",
+        default=False,
+        action="store_true",
+        help="Flag to add prior preservation loss.",
+    )
+    parser.add_argument("--prior_loss_weight", type=float, default=1.0, help="The weight of prior preservation loss.")
+    parser.add_argument(
+        "--num_class_images",
+        type=int,
+        default=100,
+        help=(
+            "Minimal class images for prior preservation loss. If there are not enough images already present in"
+            " class_data_dir, additional images will be sampled with class_prompt."
+        ),
+    )
+    parser.add_argument(
         "--output_dir",
         type=str,
-        default="lora-model",
+        default="text-inversion-model",
         help="The output directory where the model predictions and checkpoints will be written.",
     )
     parser.add_argument("--save_steps", type=int, default=None, help="Save a checkpoint every X steps.")
@@ -97,9 +139,18 @@ def parse_args():
             " resolution"
         ),
     )
+    parser.add_argument(
+        "--center_crop",
+        default=False,
+        action="store_true",
+        help=(
+            "Whether to center crop the input images to the resolution. If not set, the images will be randomly"
+            " cropped. The images will be resized to the resolution first before cropping."
+        ),
+    )
     parser.add_argument("--train_text_encoder", action="store_true", help="Whether to train the text encoder")
     parser.add_argument(
-        "--train_batch_size", type=int, default=1, help="Batch size (per device) for the training dataloader."
+        "--train_batch_size", type=int, default=4, help="Batch size (per device) for the training dataloader."
     )
     parser.add_argument(
         "--sample_batch_size", type=int, default=4, help="Batch size (per device) for sampling images."
@@ -114,7 +165,7 @@ def parse_args():
     parser.add_argument(
         "--learning_rate",
         type=float,
-        default=5e-4,
+        default=5e-6,
         help="Initial learning rate (after the potential warmup period) to use.",
     )
     parser.add_argument(
@@ -157,113 +208,104 @@ def parse_args():
         ),
     )
     parser.add_argument("--local_rank", type=int, default=-1, help="For distributed training: local_rank")
+class DreamBoothDataset(Dataset):
+    """
+    A dataset to prepare the instance and class images with the prompts for fine-tuning the model.
+    It pre-processes the images and the tokenizes prompts.
+    """
 
-    args = parser.parse_args()
-    env_local_rank = int(os.environ.get("LOCAL_RANK", -1))
-    if env_local_rank != -1 and env_local_rank != args.local_rank:
-        args.local_rank = env_local_rank
+    def __init__(
+        self,
+        instance_data_root,
+        instance_prompt,
+        tokenizer,
+        class_data_root=None,
+        class_prompt=None,
+        class_num=None,
+        size=512,
+        center_crop=False,
+    ):
+        self.size = size
+        self.center_crop = center_crop
+        self.tokenizer = tokenizer
 
-    return args
+        self.instance_data_root = Path(instance_data_root)
+        if not self.instance_data_root.exists():
+            raise ValueError("Instance images root doesn't exists.")
 
+        self.instance_images_path = list(Path(instance_data_root).iterdir())
+        self.num_instance_images = len(self.instance_images_path)
+        self.instance_prompt = instance_prompt
+        self._length = self.num_instance_images
 
-# class DreamBoothDataset(Dataset):
-#     """
-#     A dataset to prepare the instance and class images with the prompts for fine-tuning the model.
-#     It pre-processes the images and the tokenizes prompts.
-#     """
+        if class_data_root is not None:
+            self.class_data_root = Path(class_data_root)
+            self.class_data_root.mkdir(parents=True, exist_ok=True)
+            self.class_images_path = list(self.class_data_root.iterdir())
+            if class_num is not None:
+                self.num_class_images = min(len(self.class_images_path), class_num)
+            else:
+                self.num_class_images = len(self.class_images_path)
+            self._length = max(self.num_class_images, self.num_instance_images)
+            self.class_prompt = class_prompt
+        else:
+            self.class_data_root = None
 
-#     def __init__(
-#         self,
-#         instance_data_root,
-#         instance_prompt,
-#         tokenizer,
-#         class_data_root=None,
-#         class_prompt=None,
-#         class_num=None,
-#         size=512,
-#         center_crop=False,
-#     ):
-#         self.size = size
-#         self.center_crop = center_crop
-#         self.tokenizer = tokenizer
+        self.image_transforms = transforms.Compose(
+            [
+                transforms.Resize(size, interpolation=transforms.InterpolationMode.BILINEAR),
+                transforms.CenterCrop(size) if center_crop else transforms.RandomCrop(size),
+                transforms.ToTensor(),
+                transforms.Normalize([0.5], [0.5]),
+            ]
+        )
 
-#         self.instance_data_root = Path(instance_data_root)
-#         if not self.instance_data_root.exists():
-#             raise ValueError("Instance images root doesn't exists.")
+    def __len__(self):
+        return self._length
 
-#         self.instance_images_path = list(Path(instance_data_root).iterdir())
-#         self.num_instance_images = len(self.instance_images_path)
-#         self.instance_prompt = instance_prompt
-#         self._length = self.num_instance_images
+    def __getitem__(self, index):
+        example = {}
+        instance_image = Image.open(self.instance_images_path[index % self.num_instance_images])
+        if not instance_image.mode == "RGB":
+            instance_image = instance_image.convert("RGB")
+        example["instance_images"] = self.image_transforms(instance_image)
+        example["instance_prompt_ids"] = self.tokenizer(
+            self.instance_prompt,
+            padding="do_not_pad",
+            truncation=True,
+            max_length=self.tokenizer.model_max_length,
+        ).input_ids
 
-#         if class_data_root is not None:
-#             self.class_data_root = Path(class_data_root)
-#             self.class_data_root.mkdir(parents=True, exist_ok=True)
-#             self.class_images_path = list(self.class_data_root.iterdir())
-#             if class_num is not None:
-#                 self.num_class_images = min(len(self.class_images_path), class_num)
-#             else:
-#                 self.num_class_images = len(self.class_images_path)
-#             self._length = max(self.num_class_images, self.num_instance_images)
-#             self.class_prompt = class_prompt
-#         else:
-#             self.class_data_root = None
+        if self.class_data_root:
+            class_image = Image.open(self.class_images_path[index % self.num_class_images])
+            if not class_image.mode == "RGB":
+                class_image = class_image.convert("RGB")
+            example["class_images"] = self.image_transforms(class_image)
+            example["class_prompt_ids"] = self.tokenizer(
+                self.class_prompt,
+                padding="do_not_pad",
+                truncation=True,
+                max_length=self.tokenizer.model_max_length,
+            ).input_ids
 
-#         self.image_transforms = transforms.Compose(
-#             [
-#                 transforms.Resize(size, interpolation=transforms.InterpolationMode.BILINEAR),
-#                 transforms.CenterCrop(size) if center_crop else transforms.RandomCrop(size),
-#                 transforms.ToTensor(),
-#                 transforms.Normalize([0.5], [0.5]),
-#             ]
-#         )
-
-#     def __len__(self):
-#         return self._length
-
-#     def __getitem__(self, index):
-#         example = {}
-#         instance_image = Image.open(self.instance_images_path[index % self.num_instance_images])
-#         if not instance_image.mode == "RGB":
-#             instance_image = instance_image.convert("RGB")
-#         example["instance_images"] = self.image_transforms(instance_image)
-#         example["instance_prompt_ids"] = self.tokenizer(
-#             self.instance_prompt,
-#             padding="do_not_pad",
-#             truncation=True,
-#             max_length=self.tokenizer.model_max_length,
-#         ).input_ids
-
-#         if self.class_data_root:
-#             class_image = Image.open(self.class_images_path[index % self.num_class_images])
-#             if not class_image.mode == "RGB":
-#                 class_image = class_image.convert("RGB")
-#             example["class_images"] = self.image_transforms(class_image)
-#             example["class_prompt_ids"] = self.tokenizer(
-#                 self.class_prompt,
-#                 padding="do_not_pad",
-#                 truncation=True,
-#                 max_length=self.tokenizer.model_max_length,
-#             ).input_ids
-
-#         return example
+        return example
 
 
-# class PromptDataset(Dataset):
-#     "A simple dataset to prepare the prompts to generate class images on multiple GPUs."
+class PromptDataset(Dataset):
+    "A simple dataset to prepare the prompts to generate class images on multiple GPUs."
 
-#     def __init__(self, prompt, num_samples):
-#         self.prompt = prompt
-#         self.num_samples = num_samples
+    def __init__(self, prompt, num_samples):
+        self.prompt = prompt
+        self.num_samples = num_samples
 
-#     def __len__(self):
-#         return self.num_samples
+    def __len__(self):
+        return self.num_samples
 
-#     def __getitem__(self, index):
-#         example = {}
-#         example["prompt"] = self.prompt
-#         example["index"] = index
-#         return example
+    def __getitem__(self, index):
+        example = {}
+        example["prompt"] = self.prompt
+        example["index"] = index
+        return example
 
 
 def get_full_repo_name(model_id: str, organization: Optional[str] = None, token: Optional[str] = None):
@@ -300,43 +342,43 @@ def main():
 
     rng = jax.random.PRNGKey(args.seed)
 
-    # if args.with_prior_preservation:
-    #     class_images_dir = Path(args.class_data_dir)
-    #     if not class_images_dir.exists():
-    #         class_images_dir.mkdir(parents=True)
-    #     cur_class_images = len(list(class_images_dir.iterdir()))
+    if args.with_prior_preservation:
+        class_images_dir = Path(args.class_data_dir)
+        if not class_images_dir.exists():
+            class_images_dir.mkdir(parents=True)
+        cur_class_images = len(list(class_images_dir.iterdir()))
 
-    #     if cur_class_images < args.num_class_images:
-    #         pipeline, params = FlaxStableDiffusionPipeline.from_pretrained(
-    #             args.pretrained_model_name_or_path, safety_checker=None, revision=args.revision
-    #         )
-    #         pipeline.set_progress_bar_config(disable=True)
+        if cur_class_images < args.num_class_images:
+            pipeline, params = FlaxStableDiffusionPipeline.from_pretrained(
+                args.pretrained_model_name_or_path, safety_checker=None, revision=args.revision
+            )
+            pipeline.set_progress_bar_config(disable=True)
 
-    #         num_new_images = args.num_class_images - cur_class_images
-    #         logger.info(f"Number of class images to sample: {num_new_images}.")
+            num_new_images = args.num_class_images - cur_class_images
+            logger.info(f"Number of class images to sample: {num_new_images}.")
 
-    #         sample_dataset = PromptDataset(args.class_prompt, num_new_images)
-    #         total_sample_batch_size = args.sample_batch_size * jax.local_device_count()
-    #         sample_dataloader = torch.utils.data.DataLoader(sample_dataset, batch_size=total_sample_batch_size)
+            sample_dataset = PromptDataset(args.class_prompt, num_new_images)
+            total_sample_batch_size = args.sample_batch_size * jax.local_device_count()
+            sample_dataloader = torch.utils.data.DataLoader(sample_dataset, batch_size=total_sample_batch_size)
 
-    #         for example in tqdm(
-    #             sample_dataloader, desc="Generating class images", disable=not jax.process_index() == 0
-    #         ):
-    #             prompt_ids = pipeline.prepare_inputs(example["prompt"])
-    #             prompt_ids = shard(prompt_ids)
-    #             p_params = jax_utils.replicate(params)
-    #             rng = jax.random.split(rng)[0]
-    #             sample_rng = jax.random.split(rng, jax.device_count())
-    #             images = pipeline(prompt_ids, p_params, sample_rng, jit=True).images
-    #             images = images.reshape((images.shape[0] * images.shape[1],) + images.shape[-3:])
-    #             images = pipeline.numpy_to_pil(np.array(images))
+            for example in tqdm(
+                sample_dataloader, desc="Generating class images", disable=not jax.process_index() == 0
+            ):
+                prompt_ids = pipeline.prepare_inputs(example["prompt"])
+                prompt_ids = shard(prompt_ids)
+                p_params = jax_utils.replicate(params)
+                rng = jax.random.split(rng)[0]
+                sample_rng = jax.random.split(rng, jax.device_count())
+                images = pipeline(prompt_ids, p_params, sample_rng, jit=True).images
+                images = images.reshape((images.shape[0] * images.shape[1],) + images.shape[-3:])
+                images = pipeline.numpy_to_pil(np.array(images))
 
-    #             for i, image in enumerate(images):
-    #                 hash_image = hashlib.sha1(image.tobytes()).hexdigest()
-    #                 image_filename = class_images_dir / f"{example['index'][i] + cur_class_images}-{hash_image}.jpg"
-    #                 image.save(image_filename)
+                for i, image in enumerate(images):
+                    hash_image = hashlib.sha1(image.tobytes()).hexdigest()
+                    image_filename = class_images_dir / f"{example['index'][i] + cur_class_images}-{hash_image}.jpg"
+                    image.save(image_filename)
 
-    #         del pipeline
+            del pipeline
 
     # Handle the repository creation
     if jax.process_index() == 0:
@@ -377,7 +419,7 @@ def main():
     #     center_crop=args.center_crop,
     # )
 
-    train_dataset = datasets.load_dataset("gigant/webvid-mini-frames", split="train")
+    train_dataset = #datasets.load_dataset("gigant/webvid-mini-frames", split="train")
 
     def collate_fn(examples):
         #result is already sharded
@@ -573,7 +615,7 @@ def main():
     def train_step(unet_state, text_encoder_state, vae_params, batch, train_rng):
         dropout_rng, sample_rng, new_train_rng = jax.random.split(train_rng, 3)
 
-        if False:#args.train_text_encoder:
+        if args.train_text_encoder:
             params = {"text_encoder": text_encoder_state.params, "unet": unet_state.params}
         else:
             params = {"unet": unet_state.params}
@@ -605,7 +647,7 @@ def main():
             noisy_latents = noise_scheduler.add_noise(noise_scheduler_state, latents, noise, timesteps)
 
             # Get the text embedding for conditioning
-            if False:#args.train_text_encoder:
+            if args.train_text_encoder:
                 encoder_hidden_states = text_encoder_state.apply_fn(
                     batch["input_ids"], params=params["text_encoder"], dropout_rng=dropout_rng, train=True
                 )[0]
@@ -627,7 +669,7 @@ def main():
             else:
                 raise ValueError(f"Unknown prediction type {noise_scheduler.config.prediction_type}")
 
-            if False:
+            if args.with_prior_preservation:
                 # Chunk the noise and noise_pred into two parts and compute the loss on each part separately.
                 model_pred, model_pred_prior = jnp.split(model_pred, 2, axis=0)
                 target, target_prior = jnp.split(target, 2, axis=0)
@@ -654,7 +696,7 @@ def main():
         grad = jax.lax.pmean(grad, "batch")
 
         new_unet_state = unet_state.apply_gradients(grads=grad["unet"])
-        if False:#args.train_text_encoder:
+        if args.train_text_encoder:
             new_text_encoder_state = text_encoder_state.apply_gradients(grads=grad["text_encoder"])
         else:
             new_text_encoder_state = text_encoder_state
