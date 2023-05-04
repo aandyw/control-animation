@@ -290,7 +290,6 @@ class DreamBoothDataset(Dataset):
 
         return example
 
-
 class PromptDataset(Dataset):
     "A simple dataset to prepare the prompts to generate class images on multiple GPUs."
 
@@ -408,100 +407,100 @@ def main():
     else:
         raise NotImplementedError("No tokenizer specified!")
 
-    # train_dataset = DreamBoothDataset(
-    #     instance_data_root=args.instance_data_dir,
-    #     instance_prompt=args.instance_prompt,
-    #     class_data_root=args.class_data_dir if args.with_prior_preservation else None,
-    #     class_prompt=args.class_prompt,
-    #     class_num=args.num_class_images,
-    #     tokenizer=tokenizer,
-    #     size=args.resolution,
-    #     center_crop=args.center_crop,
-    # )
+    train_dataset = DreamBoothDataset(
+        instance_data_root=args.instance_data_dir,
+        instance_prompt=args.instance_prompt,
+        class_data_root=args.class_data_dir if args.with_prior_preservation else None,
+        class_prompt=args.class_prompt,
+        class_num=args.num_class_images,
+        tokenizer=tokenizer,
+        size=args.resolution,
+        center_crop=args.center_crop,
+    )
 
-    train_dataset = #datasets.load_dataset("gigant/webvid-mini-frames", split="train")
-
-    def collate_fn(examples):
-        #result is already sharded
-        size = 512
-        
-        # input_ids = [tokenizer(
-        #                 example["prompt"],
-        #                 padding="do_not_pad",
-        #                 truncation=True,
-        #                 max_length=tokenizer.model_max_length,
-        #             ).input_ids for example in examples]
-
-        input_ids = [example["prompt"] for example in examples]
-        
-        # input_ids = [example["prompt_ids"] for example in examples]
-
-        # topil = [[Image.fromarray(np.array(frame, dtype="uint8"))
-        #         for frame in list_frames['frames']
-        #         ] for list_frames in examples]
-
-        # pixel_values = [torch.stack([transforms.Compose(
-        #     [
-        #         transforms.Resize(size, interpolation=transforms.InterpolationMode.BILINEAR),
-        #         transforms.RandomCrop(size),
-        #         transforms.ToTensor(),
-        #         transforms.Normalize([0.5], [0.5]),
-        #     ])(example) for example in list_frames]) for list_frames in topil]
-
-        # pixel_values = [torch.stack([transforms.Compose(
-        #     [
-        #         transforms.Resize(size, interpolation=transforms.InterpolationMode.BILINEAR),
-        #         transforms.RandomCrop(size),
-        #         transforms.ToTensor(),
-        #         transforms.Normalize([0.5], [0.5]),
-        #     ])(Image.open(io.BytesIO(example["bytes"]))) for example in list_frames["frames"]]) for list_frames in examples]
-
-        pixel_values = [transforms.Compose(
-            [
-                transforms.Resize(size, interpolation=transforms.InterpolationMode.BILINEAR),
-                transforms.RandomCrop(size),
-                transforms.ToTensor(),
-                transforms.Normalize([0.5], [0.5]),
-            ])(example["image"]) for example in examples]
-
-        pixel_values = torch.stack(pixel_values)
-        pixel_values = pixel_values.to(memory_format=torch.contiguous_format).float()
-
-        input_ids = [tokenizer.pad(
-            {"input_ids": input_id}, padding="max_length", max_length=tokenizer.model_max_length, return_tensors="pt"
-        ).input_ids for input_id in input_ids]
-
-        input_ids = torch.stack(input_ids)
-        batch = {
-            "input_ids": input_ids,
-            "pixel_values": pixel_values,
-        }
-        batch = {k: v.numpy() for k, v in batch.items()}
-        return batch
+    # # train_dataset = #datasets.load_dataset("gigant/webvid-mini-frames", split="train")
 
     # def collate_fn(examples):
-    #     input_ids = [example["instance_prompt_ids"] for example in examples]
-    #     pixel_values = [example["instance_images"] for example in examples]
+    #     #result is already sharded
+    #     size = 512
+        
+    #     # input_ids = [tokenizer(
+    #     #                 example["prompt"],
+    #     #                 padding="do_not_pad",
+    #     #                 truncation=True,
+    #     #                 max_length=tokenizer.model_max_length,
+    #     #             ).input_ids for example in examples]
 
-    #     # Concat class and instance examples for prior preservation.
-    #     # We do this to avoid doing two forward passes.
-    #     if args.with_prior_preservation:
-    #         input_ids += [example["class_prompt_ids"] for example in examples]
-    #         pixel_values += [example["class_images"] for example in examples]
+    #     input_ids = [example["prompt"] for example in examples]
+        
+    #     # input_ids = [example["prompt_ids"] for example in examples]
+
+    #     # topil = [[Image.fromarray(np.array(frame, dtype="uint8"))
+    #     #         for frame in list_frames['frames']
+    #     #         ] for list_frames in examples]
+
+    #     # pixel_values = [torch.stack([transforms.Compose(
+    #     #     [
+    #     #         transforms.Resize(size, interpolation=transforms.InterpolationMode.BILINEAR),
+    #     #         transforms.RandomCrop(size),
+    #     #         transforms.ToTensor(),
+    #     #         transforms.Normalize([0.5], [0.5]),
+    #     #     ])(example) for example in list_frames]) for list_frames in topil]
+
+    #     # pixel_values = [torch.stack([transforms.Compose(
+    #     #     [
+    #     #         transforms.Resize(size, interpolation=transforms.InterpolationMode.BILINEAR),
+    #     #         transforms.RandomCrop(size),
+    #     #         transforms.ToTensor(),
+    #     #         transforms.Normalize([0.5], [0.5]),
+    #     #     ])(Image.open(io.BytesIO(example["bytes"]))) for example in list_frames["frames"]]) for list_frames in examples]
+
+    #     pixel_values = [transforms.Compose(
+    #         [
+    #             transforms.Resize(size, interpolation=transforms.InterpolationMode.BILINEAR),
+    #             transforms.RandomCrop(size),
+    #             transforms.ToTensor(),
+    #             transforms.Normalize([0.5], [0.5]),
+    #         ])(example["image"]) for example in examples]
 
     #     pixel_values = torch.stack(pixel_values)
     #     pixel_values = pixel_values.to(memory_format=torch.contiguous_format).float()
 
-    #     input_ids = tokenizer.pad(
-    #         {"input_ids": input_ids}, padding="max_length", max_length=tokenizer.model_max_length, return_tensors="pt"
-    #     ).input_ids
+    #     input_ids = [tokenizer.pad(
+    #         {"input_ids": input_id}, padding="max_length", max_length=tokenizer.model_max_length, return_tensors="pt"
+    #     ).input_ids for input_id in input_ids]
 
+    #     input_ids = torch.stack(input_ids)
     #     batch = {
     #         "input_ids": input_ids,
     #         "pixel_values": pixel_values,
     #     }
     #     batch = {k: v.numpy() for k, v in batch.items()}
     #     return batch
+
+    def collate_fn(examples):
+        input_ids = [example["instance_prompt_ids"] for example in examples]
+        pixel_values = [example["instance_images"] for example in examples]
+
+        # Concat class and instance examples for prior preservation.
+        # We do this to avoid doing two forward passes.
+        if args.with_prior_preservation:
+            input_ids += [example["class_prompt_ids"] for example in examples]
+            pixel_values += [example["class_images"] for example in examples]
+
+        pixel_values = torch.stack(pixel_values)
+        pixel_values = pixel_values.to(memory_format=torch.contiguous_format).float()
+
+        input_ids = tokenizer.pad(
+            {"input_ids": input_ids}, padding="max_length", max_length=tokenizer.model_max_length, return_tensors="pt"
+        ).input_ids
+
+        batch = {
+            "input_ids": input_ids,
+            "pixel_values": pixel_values,
+        }
+        batch = {k: v.numpy() for k, v in batch.items()}
+        return batch
 
     total_train_batch_size = args.train_batch_size * jax.local_device_count()
     if len(train_dataset) < total_train_batch_size:
