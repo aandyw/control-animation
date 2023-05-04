@@ -4,9 +4,9 @@ python train_lora_flax.py \
 --mixed_precision fp16 \
 --train_batch_size 16 \
 --revision flax \ 
+--instance_data_dir "../aardman/imgs" \
 --instance_prompt "<aardman> style" \
 --class_prompt "style" \
---instance_data_dir "../aardman/imgs" \
 --output_dir "lora_output" \
 --with_prior_preservation --prior_loss_weight=1.0 \
 --learning_rate 2e-6 \
