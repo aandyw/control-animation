@@ -1,7 +1,7 @@
 python ./train_textual_inversion_flax.py \
 --pretrained_model_name_or_path "runwayml/stable-diffusion-v1-5" \
 --revision "flax" \
---train_data_dir "../aardman" \
+--train_data_dir "../aardman/data" \
 --learnable_property="style" \
 --placeholder_token="<aardman>" --initializer_token="clay" \
 --resolution=512 \
