@@ -74,23 +74,23 @@ class ControlAnimationModel:
             self.pipe = None
         gc.collect()
         scheduler, scheduler_state = FlaxDDIMScheduler.from_pretrained(
-            "gigant/textual_inversion_aardman", subfolder="scheduler"
+            model_id, revision="flax", subfolder="scheduler"
         )
         tokenizer = CLIPTokenizer.from_pretrained(
             "gigant/textual_inversion_aardman", subfolder="tokenizer"
         )
         feature_extractor = CLIPFeatureExtractor.from_pretrained(
-            "gigant/textual_inversion_aardman", subfolder="feature_extractor"
+            model_id, revision="flax", subfolder="feature_extractor"
         )
         unet, unet_params = CustomFlaxUNet2DConditionModel.from_pretrained(
-            "gigant/textual_inversion_aardman", subfolder="unet", dtype=self.dtype
+            model_id, revision="flax", subfolder="unet", dtype=self.dtype
         )
         unet_vanilla, vanilla_params = FlaxUNet2DConditionModel.from_pretrained(
-            "gigant/textual_inversion_aardman", subfolder="unet", dtype=self.dtype
+            model_id, revision="flax", subfolder="unet", dtype=self.dtype
         )
         del vanilla_params
         vae, vae_params = FlaxAutoencoderKL.from_pretrained(
-            "gigant/textual_inversion_aardman", subfolder="vae", dtype=self.dtype
+            model_id, revision="flax", subfolder="vae", dtype=self.dtype
         )
         text_encoder = FlaxCLIPTextModel.from_pretrained(
             "gigant/textual_inversion_aardman", subfolder="text_encoder", dtype=self.dtype
@@ -195,7 +195,7 @@ class ControlAnimationModel:
                 params=self.params,
                 prngs=prngs,
                 controlnet_image=controlnet_image,
-                prompt=prompt + "in the style of <aardman>",
+                prompt=prompt + " in the style of <aardman>",
                 neg_prompt=neg_prompt,
                 num_inference_steps=15,
                 )
@@ -204,8 +204,8 @@ class ControlAnimationModel:
     def generate_video_from_frame(self, controlnet_video, prompt, seed, neg_prompt=""):
         prng_seed = jax.random.PRNGKey(seed)
         len_vid = controlnet_video.shape[0]
-        print(f"Generating video from prompt {prompt}, with {controlnet_video.shape[0]} frames and prng seed {seed}")
-        prompt_ids = self.pipe.prepare_text_inputs([prompt + "in the style of <aardman>"]*len_vid)
+        print(f"Generating video from prompt {prompt + ' in the style of <aardman>'}, with {controlnet_video.shape[0]} frames and prng seed {seed}")
+        prompt_ids = self.pipe.prepare_text_inputs([prompt + " in the style of <aardman>"]*len_vid)
         n_prompt_ids = self.pipe.prepare_text_inputs([neg_prompt]*len_vid)
         prng = replicate_devices(prng_seed) #jax.random.split(prng, jax.device_count())
         image = replicate_devices(controlnet_video)
