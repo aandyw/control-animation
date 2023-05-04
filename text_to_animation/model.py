@@ -74,24 +74,24 @@ class ControlAnimationModel:
             self.pipe = None
         gc.collect()
         scheduler, scheduler_state = FlaxDDIMScheduler.from_pretrained(
-            model_id, subfolder="scheduler", from_pt=True
+            "gigant/textual_inversion_aardman", subfolder="scheduler"
         )
         tokenizer = CLIPTokenizer.from_pretrained(model_id, subfolder="tokenizer")
         feature_extractor = CLIPFeatureExtractor.from_pretrained(
-            model_id, subfolder="feature_extractor"
+            "gigant/textual_inversion_aardman", subfolder="feature_extractor"
         )
         unet, unet_params = CustomFlaxUNet2DConditionModel.from_pretrained(
-            model_id, subfolder="unet", from_pt=True, dtype=self.dtype
+            "gigant/textual_inversion_aardman", subfolder="unet", dtype=self.dtype
         )
         unet_vanilla, van_params = FlaxUNet2DConditionModel.from_pretrained(
-            model_id, subfolder="unet", from_pt=True, dtype=self.dtype
+            "gigant/textual_inversion_aardman", subfolder="unet", dtype=self.dtype
         )
         del van_params
         vae, vae_params = FlaxAutoencoderKL.from_pretrained(
-            model_id, subfolder="vae", from_pt=True, dtype=self.dtype
+            "gigant/textual_inversion_aardman", subfolder="vae", dtype=self.dtype
         )
         text_encoder = FlaxCLIPTextModel.from_pretrained(
-            model_id, subfolder="text_encoder", from_pt=True, dtype=self.dtype
+            "gigant/textual_inversion_aardman", subfolder="text_encoder", dtype=self.dtype
         )
         self.pipe = FlaxTextToVideoPipeline(
             vae=vae,
@@ -193,7 +193,7 @@ class ControlAnimationModel:
                 params=self.params,
                 prngs=prngs,
                 controlnet_image=controlnet_image,
-                prompt=prompt,
+                prompt=prompt + "in the style of <aardman>",
                 neg_prompt=neg_prompt,
                 num_inference_steps=15,
                 )
@@ -203,7 +203,7 @@ class ControlAnimationModel:
         prng_seed = jax.random.PRNGKey(seed)
         len_vid = controlnet_video.shape[0]
         print(f"Generating video from prompt {prompt}, with {controlnet_video.shape[0]} frames and prng seed {seed}")
-        prompt_ids = self.pipe.prepare_text_inputs([prompt]*len_vid)
+        prompt_ids = self.pipe.prepare_text_inputs([prompt + "in the style of <aardman>"]*len_vid)
         n_prompt_ids = self.pipe.prepare_text_inputs([neg_prompt]*len_vid)
         prng = replicate_devices(prng_seed) #jax.random.split(prng, jax.device_count())
         image = replicate_devices(controlnet_video)
