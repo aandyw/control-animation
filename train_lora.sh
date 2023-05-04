@@ -9,8 +9,6 @@ python train_lora_flax.py \
 --with_prior_preservation \
 --prior_loss_weight 1.0 \
 --learning_rate 2e-6 \
---lr_scheduler "constant" \
---lr_warmup_steps 0 \
 --num_class_images 200 \
 --max_train_steps 800 \
 --push_to_hub \
