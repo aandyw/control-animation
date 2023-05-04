@@ -76,17 +76,19 @@ class ControlAnimationModel:
         scheduler, scheduler_state = FlaxDDIMScheduler.from_pretrained(
             "gigant/textual_inversion_aardman", subfolder="scheduler"
         )
-        tokenizer = CLIPTokenizer.from_pretrained(model_id, subfolder="tokenizer")
+        tokenizer = CLIPTokenizer.from_pretrained(
+            "gigant/textual_inversion_aardman", subfolder="tokenizer"
+        )
         feature_extractor = CLIPFeatureExtractor.from_pretrained(
             "gigant/textual_inversion_aardman", subfolder="feature_extractor"
         )
         unet, unet_params = CustomFlaxUNet2DConditionModel.from_pretrained(
             "gigant/textual_inversion_aardman", subfolder="unet", dtype=self.dtype
         )
-        unet_vanilla, van_params = FlaxUNet2DConditionModel.from_pretrained(
+        unet_vanilla, vanilla_params = FlaxUNet2DConditionModel.from_pretrained(
             "gigant/textual_inversion_aardman", subfolder="unet", dtype=self.dtype
         )
-        del van_params
+        del vanilla_params
         vae, vae_params = FlaxAutoencoderKL.from_pretrained(
             "gigant/textual_inversion_aardman", subfolder="vae", dtype=self.dtype
         )
