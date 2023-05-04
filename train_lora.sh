@@ -3,10 +3,10 @@ python train_lora_flax.py \
 --instance_data_dir ../aardman/imgs \
 --hub_model_id gigant/lora-aardman-sd15 \
 --mixed_precision fp16 \
---train_batch_size 16 \
+--train_batch_size 1 \
 --revision flax \
 --output_dir "lora_output" \
---learning_rate 2e-6 \
+--learning_rate 1e-4 \
 --max_train_steps 800 \
 --push_to_hub \
 --num_train_epochs 1
