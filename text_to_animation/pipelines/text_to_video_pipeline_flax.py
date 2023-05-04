@@ -528,7 +528,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
 
         negative_prompt_embeds = self.text_encoder(uncond_input, params=params["text_encoder"])[0]
         text_embeddings = jnp.concatenate([negative_prompt_embeds, prompt_embeds])
-        controlnet_image = jnp.stack([controlnet_image[0]] * 2 * len(prngs))
+        controlnet_image = jnp.stack([controlnet_image[0]] * 2)
         #latent is shape # b c h w
         vmap_gen_start_frame = jax.vmap(lambda latent: self._generate_starting_frames(num_inference_steps, params, timesteps, text_embeddings, latent[None], guidance_scale, controlnet_image, controlnet_conditioning_scale))
         return vmap_gen_start_frame(latents)

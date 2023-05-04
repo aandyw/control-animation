@@ -190,7 +190,7 @@ class ControlAnimationModel:
                 params=self.params,
                 prngs=prngs,
                 controlnet_image=controlnet_image,
-                prompt=prompt + " in the style of <aardman>",
+                prompt="aardman style "+ prompt,
                 neg_prompt=neg_prompt,
                 num_inference_steps=15,
                 )
@@ -199,8 +199,8 @@ class ControlAnimationModel:
     def generate_video_from_frame(self, controlnet_video, prompt, seed, neg_prompt=""):
         prng_seed = jax.random.PRNGKey(seed)
         len_vid = controlnet_video.shape[0]
-        print(f"Generating video from prompt {prompt + ' in the style of <aardman>'}, with {controlnet_video.shape[0]} frames and prng seed {seed}")
-        prompt_ids = self.pipe.prepare_text_inputs([prompt + " in the style of <aardman>"]*len_vid)
+        print(f"Generating video from prompt {'aardman style '+ prompt}, with {controlnet_video.shape[0]} frames and prng seed {seed}")
+        prompt_ids = self.pipe.prepare_text_inputs(["aardman style "+ prompt]*len_vid)
         n_prompt_ids = self.pipe.prepare_text_inputs([neg_prompt]*len_vid)
         prng = replicate_devices(prng_seed) #jax.random.split(prng, jax.device_count())
         image = replicate_devices(controlnet_video)
