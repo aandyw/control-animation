@@ -6,7 +6,8 @@ python train_lora_flax.py \
 --train_batch_size 16 \
 --revision flax \
 --output_dir "lora_output" \
---with_prior_preservation --prior_loss_weight=1.0 \
+--with_prior_preservation \
+--prior_loss_weight 1.0 \
 --learning_rate 2e-6 \
 --lr_scheduler "constant" \
 --lr_warmup_steps 0 \
