@@ -294,7 +294,7 @@ class TextualInversionDataset(Dataset):
         self.templates = imagenet_style_templates_small if learnable_property == "style" else imagenet_templates_small
         self.flip_transform = transforms.RandomHorizontalFlip(p=self.flip_p)
 
-        self.ds = load_dataset("gigant/aardman-images-w-prompts")
+        self.ds = load_dataset("gigant/aardman-images-w-prompts", split="train")
 
     def __len__(self):
         return self._length
