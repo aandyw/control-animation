@@ -77,7 +77,7 @@ class ControlAnimationModel:
             model_id, revision="flax", subfolder="scheduler"
         )
         tokenizer = CLIPTokenizer.from_pretrained(
-            "gigant/textual_inversion_aardman", subfolder="tokenizer"
+            "gigant/textual_inversion_aardman", subfolder="tokenizer" #model is loaded from the textual inversion checkpoint, finetuned for stop motion style
         )
         feature_extractor = CLIPFeatureExtractor.from_pretrained(
             model_id, revision="flax", subfolder="feature_extractor"
