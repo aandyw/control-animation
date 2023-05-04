@@ -50,7 +50,6 @@ class FlaxCrossFrameAttention(nn.Module):
         batch_size: The number that represents actual batch size, other than the frames.
             For example, using calling unet with a single prompt and num_images_per_prompt=1, batch_size should be
             equal to 2, due to classifier-free guidance.
-
     """
     query_dim: int
     heads: int = 8
