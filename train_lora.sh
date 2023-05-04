@@ -4,9 +4,7 @@ python train_lora_flax.py \
 --hub_model_id gigant/lora-aardman-sd15 \
 --mixed_precision fp16 \
 --train_batch_size 16 \
---revision flax \ 
---instance_prompt "aardman style" \
---class_prompt "style" \
+--revision flax \
 --output_dir "lora_output" \
 --with_prior_preservation --prior_loss_weight=1.0 \
 --learning_rate 2e-6 \

@@ -97,13 +97,13 @@ def parse_args():
     parser.add_argument(
         "--instance_prompt",
         type=str,
-        default=None,
+        default="aardman style",
         help="The prompt with identifier specifying the instance",
     )
     parser.add_argument(
         "--class_prompt",
         type=str,
-        default=None,
+        default="style",
         help="The prompt to specify images in the same class as provided instance images.",
     )
     parser.add_argument(
