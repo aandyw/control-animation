@@ -101,7 +101,6 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
         text_encoder,
         tokenizer,
         unet,
-        unet_vanilla,
         controlnet,
         scheduler: Union[
             FlaxDDIMScheduler, FlaxPNDMScheduler, FlaxLMSDiscreteScheduler, FlaxDPMSolverMultistepScheduler
@@ -128,7 +127,6 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
             text_encoder=text_encoder,
             tokenizer=tokenizer,
             unet=unet,
-            unet_vanilla=unet_vanilla,
             controlnet=controlnet,
             scheduler=scheduler,
             safety_checker=safety_checker,
@@ -407,7 +405,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
                     return_dict=False,
                 )
                 # predict the noise residual
-                noise_pred = self.unet_vanilla.apply(
+                noise_pred = self.unet.apply(
                     {"params": params["unet"]},
                     jnp.array(latent_model_input),
                     jnp.array(timestep, dtype=jnp.int32),
@@ -416,7 +414,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
                     mid_block_additional_residual=mid_block_res_sample,
                 ).sample
             else:
-                noise_pred = self.unet_vanilla.apply(
+                noise_pred = self.unet.apply(
                     {"params": params["unet"]},
                     jnp.array(latent_model_input),
                     jnp.array(timestep, dtype=jnp.int32),
@@ -461,7 +459,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
         # main backward diffusion
         # denoise_first_frame = lambda latent : self.DDIM_backward(params, num_inference_steps=num_inference_steps, timesteps=timesteps, skip_t=100000, t0=-1, t1=-1, do_classifier_free_guidance=do_classifier_free_guidance,
         #                                     text_embeddings=text_embeddings, latents_local=latent, guidance_scale=guidance_scale,
-        #                                     controlnet_image=controlnet_image, controlnet_conditioning_scale=controlnet_conditioning_scale, use_vanilla=True)
+        #                                     controlnet_image=controlnet_image, controlnet_conditioning_scale=controlnet_conditioning_scale)
         # latents = rearrange(latents, 'i b c f h w -> (i b) c f h w')
         # ddim_res = denoise_first_frame(latents)
         latents = self.denoise_latent(params, num_inference_steps=num_inference_steps, timesteps=timesteps, do_classifier_free_guidance=True,
@@ -475,7 +473,6 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
         imgs = self.vae.apply({"params": params["vae"]}, latents, method=self.vae.decode).sample
         imgs = (imgs / 2 + 0.5).clip(0, 1).transpose(0, 2, 3, 1)
         return imgs
-        
 
     def generate_starting_frames(self,
                                 params,
@@ -532,7 +529,9 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
         negative_prompt_embeds = self.text_encoder(uncond_input, params=params["text_encoder"])[0]
         text_embeddings = jnp.concatenate([negative_prompt_embeds, prompt_embeds])
         controlnet_image = jnp.stack([controlnet_image[0]] * 2 * len(prngs))
-        return self._generate_starting_frames(num_inference_steps, params, timesteps, text_embeddings, latents, guidance_scale, controlnet_image, controlnet_conditioning_scale)
+        #latent is shape # b c h w
+        vmap_gen_start_frame = lambda latent: self._generate_starting_frames(num_inference_steps, params, timesteps, text_embeddings, latent[None], guidance_scale, controlnet_image, controlnet_conditioning_scale)
+        return vmap_gen_start_frame(latents)
 
     def generate_video(
         self,

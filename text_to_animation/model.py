@@ -16,9 +16,8 @@ from diffusers import (
     FlaxAutoencoderKL,
     FlaxStableDiffusionControlNetPipeline,
     StableDiffusionPipeline,
-    FlaxUNet2DConditionModel
 )
-from text_to_animation.models.unet_2d_condition_flax import FlaxUNet2DConditionModel as CustomFlaxUNet2DConditionModel
+from text_to_animation.models.unet_2d_condition_flax import FlaxLoRAUNet2DConditionModel
 from text_to_animation.models.controlnet_flax import FlaxControlNetModel
 
 from text_to_animation.pipelines.text_to_video_pipeline_flax import (
@@ -77,15 +76,12 @@ class ControlAnimationModel:
             model_id, revision="flax", subfolder="scheduler"
         )
         tokenizer = CLIPTokenizer.from_pretrained(
-            "gigant/textual_inversion_aardman", subfolder="tokenizer" #model is loaded from the textual inversion checkpoint, finetuned for stop motion style
+            model_id, revision="flax", subfolder="tokenizer" #model is loaded from the textual inversion checkpoint, finetuned for stop motion style
         )
         feature_extractor = CLIPFeatureExtractor.from_pretrained(
             model_id, revision="flax", subfolder="feature_extractor"
         )
-        unet, unet_params = CustomFlaxUNet2DConditionModel.from_pretrained(
-            model_id, revision="flax", subfolder="unet", dtype=self.dtype
-        )
-        unet_vanilla, vanilla_params = FlaxUNet2DConditionModel.from_pretrained(
+        unet, unet_params = FlaxLoRAUNet2DConditionModel.from_pretrained(
             model_id, revision="flax", subfolder="unet", dtype=self.dtype
         )
         del vanilla_params
@@ -93,14 +89,13 @@ class ControlAnimationModel:
             model_id, revision="flax", subfolder="vae", dtype=self.dtype
         )
         text_encoder = FlaxCLIPTextModel.from_pretrained(
-            "gigant/textual_inversion_aardman", subfolder="text_encoder", dtype=self.dtype
+            model_id, revision="flax", subfolder="text_encoder", dtype=self.dtype
         )
         self.pipe = FlaxTextToVideoPipeline(
             vae=vae,
             text_encoder=text_encoder,
             tokenizer=tokenizer,
             unet=unet,
-            unet_vanilla=unet_vanilla,
             controlnet=controlnet,
             scheduler=scheduler,
             safety_checker=None,

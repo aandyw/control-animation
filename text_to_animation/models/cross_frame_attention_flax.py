@@ -273,10 +273,10 @@ class FlaxLoRACrossFrameAttention(nn.Module):
 
             # rearrange keys to have batch and frames in the 1st and 2nd dims respectively
             key_proj = rearrange_3(key_proj, video_length)
-            key_proj = (key_proj[:, first_frame_index] + scale * key_proj[:, previous_frame_index]) / (1 + scale)
+            key_proj = key_proj[:, first_frame_index]
             # rearrange values to have batch and frames in the 1st and 2nd dims respectively
             value_proj = rearrange_3(value_proj, video_length)
-            value_proj = (value_proj[:, first_frame_index] + scale * value_proj[:, previous_frame_index]) / (1 + scale)
+            value_proj = value_proj[:, first_frame_index]
 
             # rearrange back to original shape
             key_proj = rearrange_4(key_proj)
@@ -656,4 +656,3 @@ class FlaxLoRACrossFrameTransformer2DModel(nn.Module):
 
         hidden_states = hidden_states + residual
         return hidden_states
-
