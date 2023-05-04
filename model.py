@@ -246,7 +246,7 @@ class Model:
         video, fps = utils.prepare_video(
             video_path, resolution, self.device, self.dtype, False, output_fps=4)
         control = utils.pre_process_pose(
-            video[:8], apply_pose_detect=False)
+            video, apply_pose_detect=False)
         f, _, h, w = video.shape
 
         # self.rng, latents_rng = jax.random.split(self.rng)

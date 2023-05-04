@@ -185,12 +185,11 @@ class LoRAPositionalEncoding(nn.Module):
         self.pe = pe
         self.lora_pe = FlaxLoRALinearLayer(self.d_model, rank=self.rank, dtype=self.dtype)
 
-    def __call__(self, x, scale):
+    def __call__(self, x):
         #x is (F // f, f, D, C)
         b, f, d, c = x.shape
         pe = repeat(self.lora_pe(self.pe[:f]), 'f c -> b f d c', b=b, d=d)
-        x = x + scale * pe
-        return x
+        return x + pe
 
 class FlaxLoRACrossFrameAttention(nn.Module):
     r"""
@@ -242,8 +241,6 @@ class FlaxLoRACrossFrameAttention(nn.Module):
         self.to_v_lora = FlaxLoRALinearLayer(inner_dim, rank=self.rank, dtype=self.dtype)
         self.to_out_lora = FlaxLoRALinearLayer(inner_dim, rank=self.rank, dtype=self.dtype)
 
-        self.frame_pe_lora = LoRAPositionalEncoding(inner_dim, rank=self.rank, dtype=self.dtype)
-
     def reshape_heads_to_batch_dim(self, tensor):
         batch_size, seq_len, dim = tensor.shape
         head_size = self.heads
@@ -270,17 +267,16 @@ class FlaxLoRACrossFrameAttention(nn.Module):
         # Sparse Attention
         if not is_cross_attention:
             video_length = 1 if key_proj.shape[0] < self.batch_size else key_proj.shape[0] // self.batch_size
-            #first_frame_index = [0] * video_length
+            first_frame_index = [0] * video_length
             #first frame ==> previous frame
             previous_frame_index = jnp.array([0] + list(range(video_length - 1)))
 
             # rearrange keys to have batch and frames in the 1st and 2nd dims respectively
             key_proj = rearrange_3(key_proj, video_length)
-            key_proj = self.frame_pe_lora(key_proj, scale=scale)
-            key_proj = key_proj[:, previous_frame_index]
+            key_proj = (key_proj[:, first_frame_index] + scale * key_proj[:, previous_frame_index]) / (1 + scale)
             # rearrange values to have batch and frames in the 1st and 2nd dims respectively
             value_proj = rearrange_3(value_proj, video_length)
-            value_proj = value_proj[:, previous_frame_index]
+            value_proj = (value_proj[:, first_frame_index] + scale * value_proj[:, previous_frame_index]) / (1 + scale)
 
             # rearrange back to original shape
             key_proj = rearrange_4(key_proj)

@@ -351,6 +351,10 @@ class FlaxUNet2DConditionModel(nn.Module, FlaxModelMixin, ConfigMixin):
 
         return FlaxUNet2DConditionOutput(sample=sample)
 
+class FlaxUNet3DConditionModel(nn.Module, FlaxModelMixin, ConfigMixin):
+    #adapted from https://github.com/mayuelala/FollowYourPose
+    pass
+
 @flax_register_to_config
 class FlaxLoRAUNet2DConditionModel(nn.Module, FlaxModelMixin, ConfigMixin):
     r"""
