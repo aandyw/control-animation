@@ -307,7 +307,7 @@ class TextualInversionDataset(Dataset):
             image = image.convert("RGB")
 
         # placeholder_string = self.placeholder_token
-        text = (self.ds[i % self.num_images]["prompt"] + f" in the style of {self.placeholder_token}") #random.choice(self.templates).format(placeholder_string)
+        text = (self.ds[i % self.num_images]["prompt"][0] + f" in the style of {self.placeholder_token}") #random.choice(self.templates).format(placeholder_string)
 
         example["input_ids"] = self.tokenizer(
             text,
