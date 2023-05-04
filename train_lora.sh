@@ -4,7 +4,7 @@ python train_lora_flax.py \
 --mixed_precision fp16 \
 --train_batch_size 16 \
 --revision flax \ 
---instance_data_dir "../aardman/imgs" \
+--instance_data_dir ../aardman/imgs \
 --instance_prompt "<aardman> style" \
 --class_prompt "style" \
 --output_dir "lora_output" \
