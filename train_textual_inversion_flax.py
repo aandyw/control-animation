@@ -26,6 +26,8 @@ from torchvision import transforms
 from tqdm.auto import tqdm
 from transformers import CLIPImageProcessor, CLIPTokenizer, FlaxCLIPTextModel, set_seed
 
+from datasets import load_dataset
+
 from diffusers import (
     FlaxAutoencoderKL,
     FlaxDDPMScheduler,
@@ -292,18 +294,20 @@ class TextualInversionDataset(Dataset):
         self.templates = imagenet_style_templates_small if learnable_property == "style" else imagenet_templates_small
         self.flip_transform = transforms.RandomHorizontalFlip(p=self.flip_p)
 
+        self.ds = load_dataset("gigant/aardman-images-w-prompts")
+
     def __len__(self):
         return self._length
 
     def __getitem__(self, i):
         example = {}
-        image = Image.open(self.image_paths[i % self.num_images])
+        image = self.ds[i % self.num_images]["image"]#Image.open(self.image_paths[i % self.num_images])
 
         if not image.mode == "RGB":
             image = image.convert("RGB")
 
-        placeholder_string = self.placeholder_token
-        text = random.choice(self.templates).format(placeholder_string)
+        # placeholder_string = self.placeholder_token
+        text = (self.ds[i % self.num_images]["prompt"] + f" in the style of {self.placeholder_token}") #random.choice(self.templates).format(placeholder_string)
 
         example["input_ids"] = self.tokenizer(
             text,
