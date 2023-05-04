@@ -493,7 +493,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
             raise ValueError(f"`height` and `width` have to be divisible by 64 but are {height} and {width}.")
 
         shape = (self.unet.in_channels, height //
-        self.vae_scale_factor, width // self.vae_scale_factor) #b c h w
+        self.vae_scale_factor, width // self.vae_scale_factor) # c h w
         # scale the initial noise by the standard deviation required by the scheduler
 
         print(f"Generating {len(prngs)} first frames with prompt {prompt}, for {num_inference_steps} steps. PRNG seeds are: {prngs}")
@@ -530,7 +530,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
         text_embeddings = jnp.concatenate([negative_prompt_embeds, prompt_embeds])
         controlnet_image = jnp.stack([controlnet_image[0]] * 2 * len(prngs))
         #latent is shape # b c h w
-        vmap_gen_start_frame = lambda latent: self._generate_starting_frames(num_inference_steps, params, timesteps, text_embeddings, latent[None], guidance_scale, controlnet_image, controlnet_conditioning_scale)
+        vmap_gen_start_frame = jax.vmap(lambda latent: self._generate_starting_frames(num_inference_steps, params, timesteps, text_embeddings, latent[None], guidance_scale, controlnet_image, controlnet_conditioning_scale))
         return vmap_gen_start_frame(latents)
 
     def generate_video(
