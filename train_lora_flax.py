@@ -31,6 +31,8 @@ from flax.core.frozen_dict import FrozenDict
 
 import datasets
 
+from datasets import load_dataset
+
 from diffusers import (
     FlaxAutoencoderKL,
     FlaxDDPMScheduler,
