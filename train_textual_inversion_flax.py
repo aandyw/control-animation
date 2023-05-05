@@ -425,9 +425,9 @@ def main():
     vae, vae_params = FlaxAutoencoderKL.from_pretrained(
         args.pretrained_model_name_or_path, subfolder="vae", revision=args.revision
     )
-    unet, unet_params = FlaxUNet2DConditionModel.from_pretrained(
+    unet, unet_params = FlaxLoRAUNet2DConditionModel.from_pretrained(
         args.pretrained_model_name_or_path, subfolder="unet", revision=args.revision
-    )
+    ) #changed
 
     # Create sampling rng
     rng = jax.random.PRNGKey(args.seed)

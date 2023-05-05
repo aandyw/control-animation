@@ -254,6 +254,7 @@ class DreamBoothDataset(Dataset):
         self.num_instance_images = len(self.instance_images_path)
         self.instance_prompt = instance_prompt
         self._length = self.num_instance_images
+        self.dataset = load_dataset("gigant/aardman-images-w-prompts", split="train")
 
         if class_data_root is not None:
             self.class_data_root = Path(class_data_root)
@@ -282,12 +283,12 @@ class DreamBoothDataset(Dataset):
 
     def __getitem__(self, index):
         example = {}
-        instance_image = Image.open(self.instance_images_path[index % self.num_instance_images])
+        instance_image = self.dataset[index % self.num_instance_images]["image"] #Image.open(self.instance_images_path[index % self.num_instance_images])
         if not instance_image.mode == "RGB":
             instance_image = instance_image.convert("RGB")
         example["instance_images"] = self.image_transforms(instance_image)
         example["instance_prompt_ids"] = self.tokenizer(
-            self.instance_prompt,
+            self.instance_prompt + self.dataset[index % self.num_instance_images]["prompt"][0],
             padding="do_not_pad",
             truncation=True,
             max_length=self.tokenizer.model_max_length,

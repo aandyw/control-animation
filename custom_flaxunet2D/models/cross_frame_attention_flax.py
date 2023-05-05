@@ -264,8 +264,7 @@ class FlaxLoRACrossFrameAttention(nn.Module):
         key_proj = self.key(context) + scale * self.to_k_lora(context)
         value_proj = self.value(context) + scale * self.to_v_lora(context)
 
-        # Sparse Attention
-        #for training, lets use regular cross attention
+        # # Sparse Attention
         # if not is_cross_attention:
         #     video_length = 1 if key_proj.shape[0] < self.batch_size else key_proj.shape[0] // self.batch_size
         #     first_frame_index = [0] * video_length
