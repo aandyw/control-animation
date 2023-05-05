@@ -6,8 +6,7 @@ python train_lora_flax.py \
 --train_batch_size 1 \
 --revision flax \
 --output_dir "lora_output" \
---learning_rate 1e-4 \
+--learning_rate 3e-5 \
 --max_train_steps 500 \
---train_text_encoder \
 --push_to_hub \
 --num_train_epochs 1
