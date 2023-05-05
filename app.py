@@ -51,7 +51,6 @@ with gr.Blocks(css="style.css") as demo:
     if on_huggingspace:
         gr.HTML(notice)
 
-    # NOTE: In our final demo we should consider removing zero-shot t2v and pose conditional
     with gr.Tab("Control Animation"):
         create_demo_animation(model)
 
