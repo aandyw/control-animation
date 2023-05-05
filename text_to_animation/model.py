@@ -73,11 +73,12 @@ class ControlAnimationModel:
             self.pipe = None
         gc.collect()
         model_id = "gigant/lora-aardman-sd15"
+        textual_inversion_id="gigant/textual_inversion_lora_aardman"
         scheduler, scheduler_state = FlaxDDIMScheduler.from_pretrained(
             model_id, subfolder="scheduler"
         )
         tokenizer = CLIPTokenizer.from_pretrained(
-            model_id, subfolder="tokenizer" #model is loaded from the textual inversion checkpoint, finetuned for stop motion style
+            textual_inversion_id, subfolder="tokenizer" #model is loaded from the textual inversion checkpoint, finetuned for stop motion style
         )
         feature_extractor = CLIPFeatureExtractor.from_pretrained(
             model_id, subfolder="feature_extractor"
@@ -89,7 +90,7 @@ class ControlAnimationModel:
             model_id, subfolder="vae", dtype=self.dtype
         )
         text_encoder = FlaxCLIPTextModel.from_pretrained(
-            model_id, subfolder="text_encoder", dtype=self.dtype
+            textual_inversion_id, subfolder="text_encoder", dtype=self.dtype
         )
         self.pipe = FlaxTextToVideoPipeline(
             vae=vae,
