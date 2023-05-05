@@ -39,7 +39,7 @@ def create_demo(model: ControlAnimationModel):
                     # TODO: update so that model_link is customizable
                     model_link = gr.Dropdown(
                         label="Model Link",
-                        # choices=get_model_list(),
+                        choices=["runwayml/stable-diffusion-v1-5"],
                         value="runwayml/stable-diffusion-v1-5",
                     )
                     prompt = gr.Textbox(
