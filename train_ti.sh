@@ -10,4 +10,4 @@ python ./train_textual_inversion_flax.py \
 --lr_scheduler="constant" \
 --lr_warmup_steps=0 \
 --push_to_hub \
---output_dir="textual_inversion_aardman"
+--output_dir="textual_inversion_lora_aardman"
