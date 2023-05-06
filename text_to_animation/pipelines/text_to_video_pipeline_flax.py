@@ -541,8 +541,13 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
         text_embeddings = prepare_text(params, prompt_ids, uncond_input)
 
         controlnet_image = shard(jnp.stack([controlnet_image[0]] * 2))
+
+        timesteps = shard(jnp.array(timesteps))
+        guidance_scale = shard(jnp.array(guidance_scale))
+        controlnet_conditioning_scale = shard(jnp.array(controlnet_conditioning_scale))
+
         #latent is shape # b c h w
-        vmap_gen_start_frame = jax.vmap(lambda latent: self._generate_starting_frames(num_inference_steps, params, shard(timesteps), text_embeddings, shard(latent[None]), shard(guidance_scale), controlnet_image, shard(controlnet_conditioning_scale)))
+        vmap_gen_start_frame = jax.vmap(lambda latent: self._generate_starting_frames(num_inference_steps, params, timesteps, text_embeddings, shard(latent[None]), guidance_scale, controlnet_image, controlnet_conditioning_scale))
         decoded_latents = vmap_gen_start_frame(latents)
         # print(f"shape output: {decoded_latents.shape}")
         return unshard(decoded_latents)[:, 0]
