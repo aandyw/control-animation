@@ -511,7 +511,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
         t1 = timesteps_ddpm[t1]
 
         # get prompt text embeddings
-        prompt_ids = self.prepare_text_inputs(shard(prompt))
+        prompt_ids = self.prepare_text_inputs(prompt)
         prompt_embeds = self.text_encoder(prompt_ids, params=params["text_encoder"])[0]
 
         # TODO: currently it is assumed `do_classifier_free_guidance = guidance_scale > 1.0`
