@@ -443,41 +443,6 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
         # latents = rearrange(latents, "(b f) c h w -> b c f h w", f=f)
         return latents
 
-    @partial(
-    jax.pmap,
-    in_axes=(None, None, 0, 0, 0, 0, 0, 0, 0),
-    static_broadcasted_argnums=(0, 1)
-    )
-    def _generate_starting_frames(self, num_inference_steps, params, timesteps, text_embeddings, latents, guidance_scale, controlnet_image, controlnet_conditioning_scale):
-        #  perform ∆t backward steps by stable diffusion
-        # delta_t_diffusion = jax.vmap(lambda latent : self.DDIM_backward(params, num_inference_steps=num_inference_steps, timesteps=timesteps, skip_t=1000, t0=t0, t1=t1, do_classifier_free_guidance=do_classifier_free_guidance,
-        #                                     text_embeddings=text_embeddings, latents_local=latent, guidance_scale=guidance_scale,
-        #                                     controlnet_image=controlnet_image, controlnet_conditioning_scale=controlnet_conditioning_scale))
-        # ddim_res = delta_t_diffusion(latents)
-        # latents = ddim_res["x0"] #output is  i b c f h w
-
-        # DDPM forward for more motion freedom
-        # ddpm_fwd = jax.vmap(lambda prng, latent: self.DDPM_forward(params=params, prng=prng, x0=latent, t0=t0,
-        #                 tMax=t1, shape=shape, text_embeddings=text_embeddings))
-        # latents = ddpm_fwd(stacked_prngs, latents)
-        # main backward diffusion
-        # denoise_first_frame = lambda latent : self.DDIM_backward(params, num_inference_steps=num_inference_steps, timesteps=timesteps, skip_t=100000, t0=-1, t1=-1, do_classifier_free_guidance=do_classifier_free_guidance,
-        #                                     text_embeddings=text_embeddings, latents_local=latent, guidance_scale=guidance_scale,
-        #                                     controlnet_image=controlnet_image, controlnet_conditioning_scale=controlnet_conditioning_scale)
-        # latents = rearrange(latents, 'i b c f h w -> (i b) c f h w')
-        # ddim_res = denoise_first_frame(latents)
-        latents = self.denoise_latent(params, num_inference_steps=num_inference_steps, timesteps=timesteps, do_classifier_free_guidance=True,
-                                            text_embeddings=text_embeddings, latents=latents, guidance_scale=guidance_scale,
-                                            controlnet_image=controlnet_image, controlnet_conditioning_scale=controlnet_conditioning_scale)
-        # latents = rearrange(ddim_res["x0"], 'i b c f h w -> (i b) c f h w') #output is  i b c f h w
-
-        # scale and decode the image latents with vae
-        latents = 1 / self.vae.config.scaling_factor * latents
-        # latents = rearrange(latents, "b c h w -> (b f) c h w")
-        imgs = self.vae.apply({"params": params["vae"]}, latents, method=self.vae.decode).sample
-        imgs = (imgs / 2 + 0.5).clip(0, 1).transpose(0, 2, 3, 1)
-        return imgs
-
     def generate_starting_frames(self,
                                 params,
                                 prngs: list, #list of prngs for each img
@@ -547,7 +512,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
         controlnet_conditioning_scale = shard(jnp.array(controlnet_conditioning_scale))
 
         #latent is shape # b c h w
-        vmap_gen_start_frame = jax.vmap(lambda latent: self._generate_starting_frames(num_inference_steps, params, timesteps, text_embeddings, shard(latent[None]), guidance_scale, controlnet_image, controlnet_conditioning_scale))
+        vmap_gen_start_frame = jax.vmap(lambda latent: p_generate_starting_frames(self, num_inference_steps, params, timesteps, text_embeddings, shard(latent[None]), guidance_scale, controlnet_image, controlnet_conditioning_scale))
         decoded_latents = vmap_gen_start_frame(latents)
         # print(f"shape output: {decoded_latents.shape}")
         return unshard(decoded_latents)[:, 0]
@@ -971,6 +936,44 @@ def _p_generate(
 @partial(jax.pmap, static_broadcasted_argnums=(0,))
 def _p_get_has_nsfw_concepts(pipe, features, params):
     return pipe._get_has_nsfw_concepts(features, params)
+
+@partial(
+jax.pmap,
+in_axes=(None, None, 0, 0, 0, 0, 0, 0, 0),
+static_broadcasted_argnums=(0, 1)
+)
+def p_generate_starting_frames(pipe, num_inference_steps, params, timesteps, text_embeddings, latents, guidance_scale, controlnet_image, controlnet_conditioning_scale):
+    #  perform ∆t backward steps by stable diffusion
+    # delta_t_diffusion = jax.vmap(lambda latent : self.DDIM_backward(params, num_inference_steps=num_inference_steps, timesteps=timesteps, skip_t=1000, t0=t0, t1=t1, do_classifier_free_guidance=do_classifier_free_guidance,
+    #                                     text_embeddings=text_embeddings, latents_local=latent, guidance_scale=guidance_scale,
+    #                                     controlnet_image=controlnet_image, controlnet_conditioning_scale=controlnet_conditioning_scale))
+    # ddim_res = delta_t_diffusion(latents)
+    # latents = ddim_res["x0"] #output is  i b c f h w
+
+    # DDPM forward for more motion freedom
+    # ddpm_fwd = jax.vmap(lambda prng, latent: self.DDPM_forward(params=params, prng=prng, x0=latent, t0=t0,
+    #                 tMax=t1, shape=shape, text_embeddings=text_embeddings))
+    # latents = ddpm_fwd(stacked_prngs, latents)
+    # main backward diffusion
+    # denoise_first_frame = lambda latent : self.DDIM_backward(params, num_inference_steps=num_inference_steps, timesteps=timesteps, skip_t=100000, t0=-1, t1=-1, do_classifier_free_guidance=do_classifier_free_guidance,
+    #                                     text_embeddings=text_embeddings, latents_local=latent, guidance_scale=guidance_scale,
+    #                                     controlnet_image=controlnet_image, controlnet_conditioning_scale=controlnet_conditioning_scale)
+    # latents = rearrange(latents, 'i b c f h w -> (i b) c f h w')
+    # ddim_res = denoise_first_frame(latents)
+    latents = pipe.denoise_latent(params, num_inference_steps=num_inference_steps, timesteps=timesteps, do_classifier_free_guidance=True,
+                                        text_embeddings=text_embeddings, latents=latents, guidance_scale=guidance_scale,
+                                        controlnet_image=controlnet_image, controlnet_conditioning_scale=controlnet_conditioning_scale)
+    # latents = rearrange(ddim_res["x0"], 'i b c f h w -> (i b) c f h w') #output is  i b c f h w
+
+    # scale and decode the image latents with vae
+    latents = 1 / self.vae.config.scaling_factor * latents
+    # latents = rearrange(latents, "b c h w -> (b f) c h w")
+    imgs = self.vae.apply({"params": params["vae"]}, latents, method=self.vae.decode).sample
+    imgs = (imgs / 2 + 0.5).clip(0, 1).transpose(0, 2, 3, 1)
+    return imgs
+
+
+
 def unshard(x: jnp.ndarray):
     # einops.rearrange(x, 'd b ... -> (d b) ...')
     num_devices, batch_size = x.shape[:2]
