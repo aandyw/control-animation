@@ -515,7 +515,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
         t1 = timesteps_ddpm[t1]
 
         # get prompt text embeddings
-        prompt_ids = self.prepare_text_inputs(prompt)
+        prompt_ids = shard(self.prepare_text_inputs(prompt))
         prompt_embeds = self.text_encoder(prompt_ids, params=params["text_encoder"])[0]
 
         # TODO: currently it is assumed `do_classifier_free_guidance = guidance_scale > 1.0`
@@ -531,7 +531,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
             uncond_input = neg_prompt_ids
 
         negative_prompt_embeds = self.text_encoder(uncond_input, params=params["text_encoder"])[0]
-        text_embeddings = shard(jnp.concatenate([negative_prompt_embeds, prompt_embeds]))
+        text_embeddings = jnp.concatenate([negative_prompt_embeds, prompt_embeds])
         controlnet_image = shard(jnp.stack([controlnet_image[0]] * 2))
         #latent is shape # b c h w
         vmap_gen_start_frame = jax.vmap(lambda latent: self._generate_starting_frames(num_inference_steps, params, shard(timesteps), text_embeddings, shard(latent[None]), shard(guidance_scale), controlnet_image, shard(controlnet_conditioning_scale)))
