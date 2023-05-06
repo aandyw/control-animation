@@ -516,22 +516,30 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
 
         # get prompt text embeddings
         prompt_ids = shard(self.prepare_text_inputs(prompt))
-        prompt_embeds = self.text_encoder(prompt_ids, params=params["text_encoder"])[0]
+
+        # prompt_embeds = jax.pmap( lambda prompt_ids, params:  )(prompt_ids, params)
+
+        @jax.pmap
+        def prepare_text(params, prompt_ids, uncond_input):
+            prompt_embeds = self.text_encoder(prompt_ids, params=params["text_encoder"])[0]
+            negative_prompt_embeds = self.text_encoder(uncond_input, params=params["text_encoder"])[0]
+            text_embeddings = jnp.concatenate([negative_prompt_embeds, prompt_embeds])
+            return text_embeddings
 
         # TODO: currently it is assumed `do_classifier_free_guidance = guidance_scale > 1.0`
         # implement this conditional `do_classifier_free_guidance = guidance_scale > 1.0`
         batch_size = 1
         max_length = prompt_ids.shape[-1]
         if neg_prompt is None:
-            uncond_input = self.tokenizer(
+            uncond_input = shard(self.tokenizer(
                 [""] * batch_size, padding="max_length", max_length=max_length, return_tensors="np"
-            ).input_ids
+            ).input_ids)
         else:
             neg_prompt_ids = self.prepare_text_inputs(neg_prompt)
-            uncond_input = neg_prompt_ids
+            uncond_input = shard(neg_prompt_ids)
 
-        negative_prompt_embeds = self.text_encoder(uncond_input, params=params["text_encoder"])[0]
-        text_embeddings = jnp.concatenate([negative_prompt_embeds, prompt_embeds])
+        text_embeddings = prepare_text(params, prompt_ids, uncond_input)
+
         controlnet_image = shard(jnp.stack([controlnet_image[0]] * 2))
         #latent is shape # b c h w
         vmap_gen_start_frame = jax.vmap(lambda latent: self._generate_starting_frames(num_inference_steps, params, shard(timesteps), text_embeddings, shard(latent[None]), shard(guidance_scale), controlnet_image, shard(controlnet_conditioning_scale)))
