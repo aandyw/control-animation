@@ -19,10 +19,10 @@ from diffusers import (
     FlaxAutoencoderKL,
     FlaxStableDiffusionControlNetPipeline,
     StableDiffusionPipeline,
-    FlaxUNet2DConditionModel,
+    # FlaxUNet2DConditionModel,
 )
 from text_to_animation.models.unet_2d_condition_flax import (
-    FlaxUNet2DConditionModel as CustomFlaxUNet2DConditionModel,
+    FlaxUNet2DConditionModel
 )
 from diffusers import FlaxControlNetModel
 
@@ -82,12 +82,12 @@ class ControlAnimationModel:
         feature_extractor = CLIPFeatureExtractor.from_pretrained(
             model_id, subfolder="feature_extractor"
         )
-        unet, unet_params = CustomFlaxUNet2DConditionModel.from_pretrained(
+        unet, unet_params = FlaxUNet2DConditionModel.from_pretrained(
             model_id, subfolder="unet", from_pt=True, dtype=self.dtype
         )
-        unet_vanilla, _ = FlaxUNet2DConditionModel.from_pretrained(
-            model_id, subfolder="unet", from_pt=True, dtype=self.dtype
-        )
+        # unet_vanilla, _ = FlaxUNet2DConditionModel.from_pretrained(
+        #     model_id, subfolder="unet", from_pt=True, dtype=self.dtype
+        # )
         vae, vae_params = FlaxAutoencoderKL.from_pretrained(
             model_id, subfolder="vae", from_pt=True, dtype=self.dtype
         )
@@ -99,7 +99,7 @@ class ControlAnimationModel:
             text_encoder=text_encoder,
             tokenizer=tokenizer,
             unet=unet,
-            unet_vanilla=unet_vanilla,
+            # unet_vanilla=unet_vanilla,
             controlnet=controlnet,
             scheduler=scheduler,
             safety_checker=None,
