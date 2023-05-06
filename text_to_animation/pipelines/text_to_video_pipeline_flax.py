@@ -966,9 +966,9 @@ def p_generate_starting_frames(pipe, num_inference_steps, params, timesteps, tex
     # latents = rearrange(ddim_res["x0"], 'i b c f h w -> (i b) c f h w') #output is  i b c f h w
 
     # scale and decode the image latents with vae
-    latents = 1 / self.vae.config.scaling_factor * latents
+    latents = 1 / pipe.vae.config.scaling_factor * latents
     # latents = rearrange(latents, "b c h w -> (b f) c h w")
-    imgs = self.vae.apply({"params": params["vae"]}, latents, method=self.vae.decode).sample
+    imgs = pipe.vae.apply({"params": params["vae"]}, latents, method=pipe.vae.decode).sample
     imgs = (imgs / 2 + 0.5).clip(0, 1).transpose(0, 2, 3, 1)
     return imgs
 
