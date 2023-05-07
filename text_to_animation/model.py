@@ -86,6 +86,9 @@ class ControlAnimationModel:
         unet, unet_params = FlaxLoRAUNet2DConditionModel.from_pretrained(
             model_id, subfolder="unet", dtype=self.dtype
         )
+        # unet_vanilla = UNet2DConditionModel.from_config(
+        #     model_id, subfolder="unet", dtype=self.dtype
+        # )
         vae, vae_params = FlaxAutoencoderKL.from_pretrained(
             model_id, subfolder="vae", dtype=self.dtype
         )
@@ -97,6 +100,7 @@ class ControlAnimationModel:
             text_encoder=text_encoder,
             tokenizer=tokenizer,
             unet=unet,
+            unet_vanilla=unet,
             controlnet=controlnet,
             scheduler=scheduler,
             safety_checker=None,
