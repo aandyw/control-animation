@@ -279,6 +279,31 @@ class Model:
                                 )
         return utils.create_gif(result, fps, path=save_path, watermark=None)
     def generate_video_from_frame(self, video_path, prompt, seed, lora_scale,smooth_bg_strength,motion_field_strength_x,motion_field_strength_y, neg_prompt=""):
+        if self.model_type != ModelType.ControlNetPose:
+            # model_id="stabilityai/stable-diffusion-2-1"
+            model_id="runwayml/stable-diffusion-v1-5"
+            controlnet_id = "fusing/stable-diffusion-v1-5-controlnet-openpose"
+            # controlnet_id = "thibaud/controlnet-sd21-openpose-diffusers"
+            controlnet, controlnet_params = FlaxControlNetModel.from_pretrained(
+                controlnet_id,
+                # revision=args.controlnet_revision,
+                from_pt=True,
+                dtype=self.dtype,
+            )
+            tokenizer = CLIPTokenizer.from_pretrained(
+            model_id, subfolder="tokenizer", revision="fp16"
+            )
+            scheduler, scheduler_state = FlaxDDIMScheduler.from_pretrained(
+            model_id, subfolder ="scheduler", revision="fp16"
+            )
+            self.set_model(ModelType.ControlNetPose,
+                            model_id=model_id,
+                            tokenizer=tokenizer,
+                            controlnet=controlnet,
+                            controlnet_params=controlnet_params,
+                            scheduler=scheduler,
+                            scheduler_state=scheduler_state)
+        
         video_path = gradio_utils.motion_to_video_path(
             video_path) if 'Motion' in video_path else video_path
         
