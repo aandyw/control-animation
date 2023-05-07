@@ -101,6 +101,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
         text_encoder,
         tokenizer,
         unet,
+        unet_vanilla,
         controlnet,
         scheduler: Union[
             FlaxDDIMScheduler, FlaxPNDMScheduler, FlaxLMSDiscreteScheduler, FlaxDPMSolverMultistepScheduler
@@ -127,6 +128,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
             text_encoder=text_encoder,
             tokenizer=tokenizer,
             unet=unet,
+            unet_vanilla=unet_vanilla,
             controlnet=controlnet,
             scheduler=scheduler,
             safety_checker=safety_checker,
@@ -405,7 +407,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
                     return_dict=False,
                 )
                 # predict the noise residual
-                noise_pred = self.unet.apply(
+                noise_pred = self.unet_vanilla.apply(
                     {"params": params["unet"]},
                     jnp.array(latent_model_input),
                     jnp.array(timestep, dtype=jnp.int32),
@@ -414,7 +416,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
                     mid_block_additional_residual=mid_block_res_sample,
                 ).sample
             else:
-                noise_pred = self.unet.apply(
+                noise_pred = self.unet_vanilla.apply(
                     {"params": params["unet"]},
                     jnp.array(latent_model_input),
                     jnp.array(timestep, dtype=jnp.int32),
@@ -512,10 +514,11 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
         controlnet_conditioning_scale = shard(jnp.array(controlnet_conditioning_scale))
 
         #latent is shape # b c h w
-        vmap_gen_start_frame = jax.vmap(lambda latent: p_generate_starting_frames(self, num_inference_steps, params, timesteps, text_embeddings, shard(latent[None]), guidance_scale, controlnet_image, controlnet_conditioning_scale))
-        decoded_latents = vmap_gen_start_frame(latents)
+        # vmap_gen_start_frame = jax.vmap(lambda latent: p_generate_starting_frames(self, num_inference_steps, params, timesteps, text_embeddings, shard(latent[None]), guidance_scale, controlnet_image, controlnet_conditioning_scale))
+        # decoded_latents = vmap_gen_start_frame(latents)
+        decoded_latents = p_generate_starting_frames(self, num_inference_steps, params, timesteps, text_embeddings, shard(latents), guidance_scale, controlnet_image, controlnet_conditioning_scale)
         # print(f"shape output: {decoded_latents.shape}")
-        return unshard(decoded_latents)[:, 0]
+        return unshard(decoded_latents)#[:, 0]
 
     def generate_video(
         self,
