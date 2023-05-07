@@ -19,7 +19,7 @@ from diffusers import (
     FlaxAutoencoderKL,
     FlaxStableDiffusionControlNetPipeline,
     StableDiffusionPipeline,
-    # FlaxUNet2DConditionModel,
+    FlaxUNet2DConditionModel as VanillaFlaxUNet2DConditionModel,
 )
 from text_to_animation.models.unet_2d_condition_flax import (
     FlaxUNet2DConditionModel
@@ -85,9 +85,9 @@ class ControlAnimationModel:
         unet, unet_params = FlaxUNet2DConditionModel.from_pretrained(
             model_id, subfolder="unet", from_pt=True, dtype=self.dtype
         )
-        # unet_vanilla, _ = FlaxUNet2DConditionModel.from_pretrained(
-        #     model_id, subfolder="unet", from_pt=True, dtype=self.dtype
-        # )
+        unet_vanilla = VanillaFlaxUNet2DConditionModel.from_config(
+            model_id, subfolder="unet", from_pt=True, dtype=self.dtype
+        )
         vae, vae_params = FlaxAutoencoderKL.from_pretrained(
             model_id, subfolder="vae", from_pt=True, dtype=self.dtype
         )
@@ -99,7 +99,7 @@ class ControlAnimationModel:
             text_encoder=text_encoder,
             tokenizer=tokenizer,
             unet=unet,
-            # unet_vanilla=unet_vanilla,
+            unet_vanilla=unet_vanilla,
             controlnet=controlnet,
             scheduler=scheduler,
             safety_checker=None,
@@ -141,6 +141,7 @@ class ControlAnimationModel:
 
         seeds = [seed for seed in jax.random.randint(self.rng, [num_imgs], 0, 65536)]
         prngs = [jax.random.PRNGKey(seed) for seed in seeds]
+        print(seeds)
         images = self.pipe.generate_starting_frames(
             params=self.p_params,
             prngs=prngs,
@@ -153,7 +154,6 @@ class ControlAnimationModel:
 
         return images
 
-    
     def generate_video_from_frame(self, controlnet_video, prompt, seed, neg_prompt=""):
         # generate a video using the seed provided
         prng_seed = jax.random.PRNGKey(seed)

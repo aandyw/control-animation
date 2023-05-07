@@ -101,6 +101,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
         text_encoder,
         tokenizer,
         unet,
+        unet_vanilla,
         controlnet,
         scheduler: Union[
             FlaxDDIMScheduler, FlaxPNDMScheduler, FlaxLMSDiscreteScheduler, FlaxDPMSolverMultistepScheduler
@@ -127,6 +128,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
             text_encoder=text_encoder,
             tokenizer=tokenizer,
             unet=unet,
+            unet_vanilla=unet_vanilla,
             controlnet=controlnet,
             scheduler=scheduler,
             safety_checker=safety_checker,
@@ -405,7 +407,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
                     return_dict=False,
                 )
                 # predict the noise residual
-                noise_pred = self.unet.apply(
+                noise_pred = self.unet_vanilla.apply(
                     {"params": params["unet"]},
                     jnp.array(latent_model_input),
                     jnp.array(timestep, dtype=jnp.int32),
@@ -414,7 +416,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
                     mid_block_additional_residual=mid_block_res_sample,
                 ).sample
             else:
-                noise_pred = self.unet.apply(
+                noise_pred = self.unet_vanilla.apply(
                     {"params": params["unet"]},
                     jnp.array(latent_model_input),
                     jnp.array(timestep, dtype=jnp.int32),
@@ -465,7 +467,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
         self.vae_scale_factor, width // self.vae_scale_factor) # c h w
         # scale the initial noise by the standard deviation required by the scheduler
 
-        print(f"Generating {len(prngs)} first frames with prompt {prompt}, for {num_inference_steps} steps. PRNG seeds are: {prngs}")
+        # print(f"Generating {len(prngs)} first frames with prompt {prompt}, for {num_inference_steps} steps. PRNG seeds are: {prngs}")
 
         latents = jnp.stack([jax.random.normal(prng, shape) for prng in prngs]) # b c h w
         latents = latents * params["scheduler"].init_noise_sigma
@@ -505,17 +507,18 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
 
         text_embeddings = prepare_text(params, prompt_ids, uncond_input)
 
-        controlnet_image = shard(jnp.stack([controlnet_image[0]] * 2))
+        controlnet_image = shard(jnp.stack([controlnet_image[0]] * len(prngs) * 2))
 
         timesteps = shard(jnp.array(timesteps))
         guidance_scale = shard(jnp.array(guidance_scale))
         controlnet_conditioning_scale = shard(jnp.array(controlnet_conditioning_scale))
 
         #latent is shape # b c h w
-        vmap_gen_start_frame = jax.vmap(lambda latent: p_generate_starting_frames(self, num_inference_steps, params, timesteps, text_embeddings, shard(latent[None]), guidance_scale, controlnet_image, controlnet_conditioning_scale))
-        decoded_latents = vmap_gen_start_frame(latents)
+        # vmap_gen_start_frame = jax.vmap(lambda latent: p_generate_starting_frames(self, num_inference_steps, params, timesteps, text_embeddings, shard(latent[None]), guidance_scale, controlnet_image, controlnet_conditioning_scale))
+        # decoded_latents = vmap_gen_start_frame(latents)
+        decoded_latents = p_generate_starting_frames(self, num_inference_steps, params, timesteps, text_embeddings, shard(latents), guidance_scale, controlnet_image, controlnet_conditioning_scale)
         # print(f"shape output: {decoded_latents.shape}")
-        return unshard(decoded_latents)[:, 0]
+        return unshard(decoded_latents)#[:, 0]
 
     def generate_video(
         self,
