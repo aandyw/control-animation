@@ -197,7 +197,7 @@ class ControlAnimationModel:
                 )
         return [np.array(imgs[i]) for i in range(imgs.shape[0])], seeds
     
-    def generate_video_from_frame(self, controlnet_video, prompt, seed, neg_prompt=""):
+    def generate_video_from_frame(self, controlnet_video, prompt, seed, lora_scale, neg_prompt=""):
         prng_seed = jax.random.PRNGKey(seed)
         len_vid = controlnet_video.shape[0]
         print(f"Generating video from prompt {'<aardman> style '+ prompt}, with {controlnet_video.shape[0]} frames and prng seed {seed}")
@@ -210,6 +210,7 @@ class ControlAnimationModel:
         motion_field_strength_x = replicate_devices(jnp.array(3))
         motion_field_strength_y = replicate_devices(jnp.array(4))
         smooth_bg_strength = replicate_devices(jnp.array(0.8))
+        lora_scale = replicate_devices(jnp.array(lora_scale))
         vid = (self.pipe(image=image,
                         prompt_ids=prompt_ids,
                         neg_prompt_ids=n_prompt_ids, 
@@ -219,6 +220,7 @@ class ControlAnimationModel:
                         smooth_bg_strength=smooth_bg_strength,
                         motion_field_strength_x=motion_field_strength_x,
                         motion_field_strength_y=motion_field_strength_y,
+                        lora_scale=lora_scale,
                         ).images)[0]
         return utils.create_gif(np.array(vid), 4, path=None, watermark=None)
         

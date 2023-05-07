@@ -89,7 +89,7 @@ def generate_initial_frames(prompt, num_imgs=4, video_path="Motion 1", resolutio
     gen_seeds = seeds
     return images
 
-def generate_video_frames(prompt, prng, video_path="Motion 1", resolution=512):
+def generate_video_frames(prompt, prng, video_path="Motion 1", lora_scale=0. , resolution=512):
 
     video_path = gradio_utils.motion_to_video_path(
         video_path) if 'Motion' in video_path else video_path
@@ -102,7 +102,7 @@ def generate_video_frames(prompt, prng, video_path="Motion 1", resolution=512):
     control = utils.pre_process_pose(video, apply_pose_detect=False)
     f, _, h, w = video.shape
 
-    images = model.generate_video_from_frame(control, prompt, prng)
+    images = model.generate_video_from_frame(control, prompt, prng, lora_scale)
     return images
 
 
@@ -161,6 +161,7 @@ def create_demo():
                     gr.Markdown("## Selection")
                     pose_sequence_selector = gr.Markdown(
                         'Pose Sequence: **Motion 1**')
+                    lora_scale = gr.Slide(0, 1, value=0, step=0.1, label="Scale of lora model")
                     num_imgs = gr.Slider(1, 8, value=4, step=1, label="Number of images to generate")
                     seed = gr.Slider(
                         label="Seed",
@@ -276,6 +277,7 @@ def create_demo():
             prompt,
             seed,
             input_video_path,
+            lora_scale,
             # prompt, 
             # # model_link,
             # # is_safetensor,
