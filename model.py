@@ -310,7 +310,7 @@ class Model:
         
         video, fps = utils.prepare_video(
             video_path, 512, None, None, False, output_fps=4)
-        controlnet_video = utils.pre_process_pose(video, apply_pose_detect=False)
+        controlnet_video = utils.pre_process_pose(video, apply_pose_detect=False)[:5] #keep 5 frames
         # generate a video using the seed provided
         prng_seed = jax.random.PRNGKey(seed)
         len_vid = controlnet_video.shape[0]
