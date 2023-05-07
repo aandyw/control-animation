@@ -80,10 +80,10 @@ class ControlAnimationModel:
         feature_extractor = CLIPFeatureExtractor.from_pretrained(
             model_id, subfolder="feature_extractor"
         )
-        unet, unet_params = FlaxLoraUNet2DConditionModel.from_pretrained(
+        unet, unet_params = FlaxLoRAUNet2DConditionModel.from_pretrained(
             model_id, subfolder="unet", from_pt=True, dtype=self.dtype
         )
-        unet_vanilla = FlaxLoraUNet2DConditionModel.from_config(
+        unet_vanilla = FlaxLoRAUNet2DConditionModel.from_config(
             model_id, subfolder="unet", from_pt=True, dtype=self.dtype
         )
         vae, vae_params = FlaxAutoencoderKL.from_pretrained(
