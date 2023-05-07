@@ -154,6 +154,7 @@ def create_demo(model: ControlAnimationModel):
                     ).style(columns=4, rows=1, object_fit="contain", preview=True)
 
                     gr.Markdown("Select an initial frame to start your animation with.")
+
                     gen_animation_button = gr.Button(
                         value="Select Initial Frame & Generate Animation",
                         variant="secondary",
@@ -194,16 +195,20 @@ def create_demo(model: ControlAnimationModel):
         ]
 
         def submit_select(initial_frame_index: int):
-            if initial_frame_index != -1:  # More to next step
-                return {
-                    frame_selection_view: gr.update(visible=False),
-                    animation_view: gr.update(visible=True),
-                }
-
             return {
                 frame_selection_view: gr.update(visible=True),
-                animation_view: gr.update(visible=False),
+                animation_view: gr.update(visible=True),
             }
+            # if initial_frame_index != -1:  # More to next step
+            #     return {
+            #         frame_selection_view: gr.update(visible=False),
+            #         animation_view: gr.update(visible=True),
+            #     }
+
+            # return {
+            #     frame_selection_view: gr.update(visible=True),
+            #     animation_view: gr.update(visible=False),
+            # }
 
         gen_frames_button.click(
             fn=model.generate_initial_frames,
@@ -216,7 +221,7 @@ def create_demo(model: ControlAnimationModel):
             inputs=initial_frame_index,
             outputs=[frame_selection_view, animation_view],
         ).then(
-            fn=None,
+            fn=model.generate_video_from_frame,
             inputs=animation_inputs,
             outputs=result,
         )

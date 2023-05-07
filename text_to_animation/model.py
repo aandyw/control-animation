@@ -188,7 +188,6 @@ class ControlAnimationModel:
                         motion_field_strength_y=motion_field_strength_y,
                         ).images)[0]
         return utils.create_gif(np.array(vid), 4, path=None, watermark=None)
-        
 
 
     def generate_animation(
