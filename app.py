@@ -11,7 +11,7 @@ import jax.numpy as jnp
 huggingspace_name = os.environ.get("SPACE_AUTHOR_NAME")
 on_huggingspace = huggingspace_name if huggingspace_name is not None else False
 
-model = ControlAnimationModel(device="cuda", dtype=jnp.float16)
+model = ControlAnimationModel(dtype=jnp.float16)
 
 parser = argparse.ArgumentParser()
 parser.add_argument(

@@ -7,7 +7,8 @@ def motion_to_video_path(motion):
         "__assets__/dance2_corr.mp4",
         "__assets__/dance3_corr.mp4",
         "__assets__/dance4_corr.mp4",
-        "__assets__/dance5_corr.mp4"
+        "__assets__/dance5_corr.mp4",
+        "__assets__/walk_01.mp4",
     ]
     if len(motion.split(" ")) > 1 and motion.split(" ")[1].isnumeric():
         id = int(motion.split(" ")[1]) - 1

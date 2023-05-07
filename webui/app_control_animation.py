@@ -139,6 +139,7 @@ def create_demo(model: ControlAnimationModel):
                             ("__assets__/dance3.gif", "Motion 3"),
                             ("__assets__/dance4.gif", "Motion 4"),
                             ("__assets__/dance5.gif", "Motion 5"),
+                            ("__assets__/walk_01.gif", "Motion 6"),
                         ],
                     ).style(columns=3)
                     input_video_path = gr.Textbox(
