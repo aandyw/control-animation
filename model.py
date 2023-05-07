@@ -83,6 +83,7 @@ class Model:
                 "controlnet": controlnet_params,
                 "text_encoder": text_encoder.params}
         self.p_params = jax_utils.replicate(self.params)
+        del self.params
 
         self.model_type = model_type
         self.model_name = model_id
