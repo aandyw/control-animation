@@ -141,6 +141,7 @@ class ControlAnimationModel:
 
         seeds = [seed for seed in jax.random.randint(self.rng, [num_imgs], 0, 65536)]
         prngs = [jax.random.PRNGKey(seed) for seed in seeds]
+        print(seeds)
         images = self.pipe.generate_starting_frames(
             params=self.p_params,
             prngs=prngs,

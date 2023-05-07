@@ -467,7 +467,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
         self.vae_scale_factor, width // self.vae_scale_factor) # c h w
         # scale the initial noise by the standard deviation required by the scheduler
 
-        print(f"Generating {len(prngs)} first frames with prompt {prompt}, for {num_inference_steps} steps. PRNG seeds are: {prngs}")
+        # print(f"Generating {len(prngs)} first frames with prompt {prompt}, for {num_inference_steps} steps. PRNG seeds are: {prngs}")
 
         latents = jnp.stack([jax.random.normal(prng, shape) for prng in prngs]) # b c h w
         latents = latents * params["scheduler"].init_noise_sigma
