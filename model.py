@@ -72,6 +72,7 @@ class Model:
                                                         text_encoder=text_encoder,
                                                         tokenizer=tokenizer,
                                                         unet=unet,
+                                                        unet_vanilla=unet,
                                                         controlnet=controlnet,
                                                         scheduler=scheduler,
                                                         safety_checker=None,
