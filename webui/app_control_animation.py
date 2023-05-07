@@ -161,7 +161,7 @@ def create_demo():
                     gr.Markdown("## Selection")
                     pose_sequence_selector = gr.Markdown(
                         'Pose Sequence: **Motion 1**')
-                    lora_scale = gr.Slide(0, 1, value=0, step=0.1, label="Scale of lora model")
+                    lora_scale = gr.Slider(0, 1, value=0, step=0.1, label="Scale of lora model")
                     num_imgs = gr.Slider(1, 8, value=4, step=1, label="Number of images to generate")
                     seed = gr.Slider(
                         label="Seed",
