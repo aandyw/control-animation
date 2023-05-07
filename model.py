@@ -278,9 +278,12 @@ class Model:
                                 # merging_ratio=merging_ratio,
                                 )
         return utils.create_gif(result, fps, path=save_path, watermark=None)
-    def generate_video_from_frame(self, controlnet_video, prompt, seed, lora_scale,smooth_bg_strength,motion_field_strength_x,motion_field_strength_y, neg_prompt=""):
+    def generate_video_from_frame(self, video_path, prompt, seed, lora_scale,smooth_bg_strength,motion_field_strength_x,motion_field_strength_y, neg_prompt=""):
+        video_path = gradio_utils.motion_to_video_path(
+            video_path) if 'Motion' in video_path else video_path
+        
         video, fps = utils.prepare_video(
-            controlnet_video, 512, None, None, False, output_fps=4)
+            video_path, 512, None, None, False, output_fps=4)
         controlnet_video = utils.pre_process_pose(video, apply_pose_detect=False)
         # generate a video using the seed provided
         prng_seed = jax.random.PRNGKey(seed)
