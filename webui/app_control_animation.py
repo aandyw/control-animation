@@ -66,19 +66,19 @@ model.set_model(
                 scheduler_state=scheduler_state)
 
 def generate_initial_frames(prompt, num_imgs=4, video_path="Motion 1", resolution=512):
-    video_path = gradio_utils.motion_to_video_path(
-        video_path) if 'Motion' in video_path else video_path
+    # video_path = gradio_utils.motion_to_video_path(
+    #     video_path) if 'Motion' in video_path else video_path
 
     #added_prompt = 'best quality, HD, clay stop-motion, claymation, HQ, masterpiece, art, smooth'
     #added_prompt = 'high quality, anatomically correct, clay stop-motion, aardman, claymation, smooth'
     negative_prompts = 'longbody, lowres, bad anatomy, bad hands, missing fingers, extra digit, fewer difits, cropped, worst quality, low quality, deformed body, bloated, ugly'
-    video, fps = utils.prepare_video(
-        video_path, resolution, None, model.dtype, False, output_fps=4)
-    control = utils.pre_process_pose(video, apply_pose_detect=False)
-    f, _, h, w = video.shape
+    # video, fps = utils.prepare_video(
+    #     video_path, resolution, None, model.dtype, False, output_fps=4)
+    # control = utils.pre_process_pose(video, apply_pose_detect=False)
+    # f, _, h, w = video.shape
 
     images, seeds = model.generate_initial_frames(
-                            control,
+                            video_path,
                             prompt,
                             negative_prompts,
                             num_imgs,
