@@ -56,10 +56,8 @@ def create_demo(model: Model):
         inputs = [
             input_video_path,
             prompt,
-            added_prompt,
-            chunk_size,
-            lora_scale,
             prng,
+            lora_scale,
             smooth_bg_strength,
             motion_field_strength_x,
             motion_field_strength_y,
@@ -75,7 +73,7 @@ def create_demo(model: Model):
                     run_on_click=False,
                     )
 
-        run_button.click(fn=model.process_controlnet_pose,
+        run_button.click(fn=model.generate_video_from_frame,
                          inputs=inputs,
                          outputs=result,)
 

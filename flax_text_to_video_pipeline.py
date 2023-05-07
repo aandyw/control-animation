@@ -786,6 +786,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
         smooth_bg_strength: float = 0.,
         motion_field_strength_x: float = 3,
         motion_field_strength_y: float = 4,
+        lora_scale: float = 0.,
         t0: int = 44,
         t1: int = 47,
     ):
@@ -879,6 +880,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
                 smooth_bg_strength,
                 motion_field_strength_x,
                 motion_field_strength_y,
+                lora_scale,
                 t0,
                 t1,
             )
