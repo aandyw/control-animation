@@ -81,7 +81,7 @@ def generate_initial_frames(prompt, num_imgs=4, video_path="Motion 1", resolutio
                             control,
                             prompt,
                             negative_prompts,
-                            num_imgs=num_imgs,
+                            num_imgs,
                             )
     global gen_images
     global gen_seeds

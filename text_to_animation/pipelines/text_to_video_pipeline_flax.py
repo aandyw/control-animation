@@ -410,7 +410,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
                     return_dict=False,
                 )
                 # predict the noise residual
-                noise_pred = self.unet_vanilla.apply(
+                noise_pred = self.unet.apply(
                     {"params": params["unet"]},
                     jnp.array(latent_model_input),
                     jnp.array(timestep, dtype=jnp.int32),
@@ -419,7 +419,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
                     mid_block_additional_residual=mid_block_res_sample,
                 ).sample
             else:
-                noise_pred = self.unet_vanilla.apply(
+                noise_pred = self.unet.apply(
                     {"params": params["unet"]},
                     jnp.array(latent_model_input),
                     jnp.array(timestep, dtype=jnp.int32),
@@ -517,11 +517,11 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
         controlnet_conditioning_scale = shard(jnp.array(controlnet_conditioning_scale))
 
         #latent is shape # b c h w
-        # vmap_gen_start_frame = jax.vmap(lambda latent: p_generate_starting_frames(self, num_inference_steps, params, timesteps, text_embeddings, shard(latent[None]), guidance_scale, controlnet_image, controlnet_conditioning_scale))
-        # decoded_latents = vmap_gen_start_frame(latents)
-        decoded_latents = p_generate_starting_frames(self, num_inference_steps, params, timesteps, text_embeddings, shard(latents), guidance_scale, controlnet_image, controlnet_conditioning_scale)
+        vmap_gen_start_frame = jax.vmap(lambda latent: p_generate_starting_frames(self, num_inference_steps, params, timesteps, text_embeddings, shard(latent[None]), guidance_scale, controlnet_image, controlnet_conditioning_scale))
+        decoded_latents = vmap_gen_start_frame(latents)
+        # decoded_latents = p_generate_starting_frames(self, num_inference_steps, params, timesteps, text_embeddings, shard(latents), guidance_scale, controlnet_image, controlnet_conditioning_scale)
         # print(f"shape output: {decoded_latents.shape}")
-        return unshard(decoded_latents)#[:, 0]
+        return unshard(decoded_latents)[:, 0]
 
     def generate_video(
         self,

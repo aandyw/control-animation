@@ -456,33 +456,33 @@ class ControlAnimationModel:
             pipe = utils.load_safetensors_model(model_link)
         return
 
-    def generate_initial_frames(
-        self,
-        prompt: str,
-        model_link: str = "dreamlike-art/dreamlike-photoreal-2.0",
-        is_safetensor: bool = False,
-        n_prompt: str = "",
-        width: int = 512,
-        height: int = 512,
-        # batch_count: int = 4,
-        # batch_size: int = 1,
-        cfg_scale: float = 7.0,
-        seed: int = 0,
-    ):
-        print(f">>> prompt: {prompt}, model_link: {model_link}")
+    # def generate_initial_frames(
+    #     self,
+    #     prompt: str,
+    #     model_link: str = "dreamlike-art/dreamlike-photoreal-2.0",
+    #     is_safetensor: bool = False,
+    #     n_prompt: str = "",
+    #     width: int = 512,
+    #     height: int = 512,
+    #     # batch_count: int = 4,
+    #     # batch_size: int = 1,
+    #     cfg_scale: float = 7.0,
+    #     seed: int = 0,
+    # ):
+    #     print(f">>> prompt: {prompt}, model_link: {model_link}")
 
-        pipe = StableDiffusionPipeline.from_pretrained(model_link)
+    #     pipe = StableDiffusionPipeline.from_pretrained(model_link)
 
-        batch_size = 4
-        prompt = [prompt] * batch_size
-        negative_prompt = [n_prompt] * batch_size
+    #     batch_size = 4
+    #     prompt = [prompt] * batch_size
+    #     negative_prompt = [n_prompt] * batch_size
 
-        images = pipe(
-            prompt,
-            negative_prompt=negative_prompt,
-            width=width,
-            height=height,
-            guidance_scale=cfg_scale,
-        ).images
+    #     images = pipe(
+    #         prompt,
+    #         negative_prompt=negative_prompt,
+    #         width=width,
+    #         height=height,
+    #         guidance_scale=cfg_scale,
+    #     ).images
 
-        return images
+    #     return images
