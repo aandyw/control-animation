@@ -510,7 +510,8 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
 
         text_embeddings = prepare_text(params, prompt_ids, uncond_input)
 
-        controlnet_image = shard(jnp.stack([controlnet_image[0]] * len(prngs) * 2))
+        controlnet_image =shard(jnp.stack([controlnet_image[0]] * 2))
+        #.... shard(jnp.stack([controlnet_image[0]] * len(prngs) * 2))
 
         timesteps = shard(jnp.array(timesteps))
         guidance_scale = shard(jnp.array(guidance_scale))
