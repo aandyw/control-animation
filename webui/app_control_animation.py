@@ -77,7 +77,7 @@ def generate_initial_frames(prompt, num_imgs=4, video_path="Motion 1", resolutio
     control = utils.pre_process_pose(video, apply_pose_detect=False)
     f, _, h, w = video.shape
 
-    images, seeds = model.generate_starting_frames(
+    images, seeds = model.generate_initial_frames(
                             control,
                             prompt,
                             negative_prompts,

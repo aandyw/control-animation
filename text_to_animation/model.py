@@ -188,19 +188,59 @@ class ControlAnimationModel:
                     jit=False,
                 ).images
 
-    def generate_starting_frames(self, controlnet_image, prompt, neg_prompt="", num_imgs=8):
+    # def generate_starting_frames(self, controlnet_image, prompt, neg_prompt="", num_imgs=8):
+    #     seeds = [seed for seed in jax.random.randint(self.rng, [num_imgs], 0, 65536)]
+    #     prngs = [jax.random.PRNGKey(seed) for seed in seeds]
+    #     imgs = self.pipe.generate_starting_frames(
+    #             params=self.params,
+    #             prngs=prngs,
+    #             controlnet_image=controlnet_image,
+    #             prompt="<aardman> style "+ prompt,
+    #             neg_prompt=neg_prompt,
+    #             num_inference_steps=15,
+    #             )
+    #     return [np.array(imgs[i]) for i in range(imgs.shape[0])], seeds
+    
+    def generate_initial_frames(
+        self,
+        video_path: str,
+        prompt: str,
+        n_prompt: str = "",
+        num_imgs: int = 4,
+        resolution: int = 512,
+        model_id: str = "runwayml/stable-diffusion-v1-5",
+        ):
+        self.set_model(model_id=model_id)
+
+        video_path = gradio_utils.motion_to_video_path(video_path)
+
+        added_prompt = "high quality, best quality, HD, clay stop-motion, claymation, HQ, masterpiece, art, smooth"
+        prompts = added_prompt + ", " + prompt
+
+        added_n_prompt = "longbody, lowres, bad anatomy, bad hands, missing fingers, extra digit, fewer difits, cropped, worst quality, low quality, deformed body, bloated, ugly"
+        negative_prompts = added_n_prompt + ", " + n_prompt
+
+        video, fps = utils.prepare_video(
+            video_path, resolution, None, self.dtype, False, output_fps=4
+        )
+        control = utils.pre_process_pose(video, apply_pose_detect=False)
+
         seeds = [seed for seed in jax.random.randint(self.rng, [num_imgs], 0, 65536)]
         prngs = [jax.random.PRNGKey(seed) for seed in seeds]
-        imgs = self.pipe.generate_starting_frames(
-                params=self.params,
-                prngs=prngs,
-                controlnet_image=controlnet_image,
-                prompt="<aardman> style "+ prompt,
-                neg_prompt=neg_prompt,
-                num_inference_steps=15,
-                )
-        return [np.array(imgs[i]) for i in range(imgs.shape[0])], seeds
-    
+        print(seeds)
+        images = self.pipe.generate_starting_frames(
+            params=self.p_params,
+            prngs=prngs,
+            controlnet_image=control,
+            prompt=prompts,
+            neg_prompt=negative_prompts,
+        )
+
+        images = [np.array(images[i]) for i in range(images.shape[0])]
+
+        return images
+
+
     def generate_video_from_frame(self, controlnet_video, prompt, seed, lora_scale, neg_prompt=""):
         prng_seed = jax.random.PRNGKey(seed)
         len_vid = controlnet_video.shape[0]
