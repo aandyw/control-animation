@@ -6,7 +6,7 @@ from utils.hf_utils import get_model_list
 huggingspace_name = os.environ.get("SPACE_AUTHOR_NAME")
 on_huggingspace = huggingspace_name if huggingspace_name is not None else False
 
-examples = ["A surfer in miami walking by the beach",
+examples = [["A surfer in miami walking by the beach",
             None,
             "Motion 3",
             None,
@@ -18,7 +18,8 @@ examples = ["A surfer in miami walking by the beach",
             None,
             None,
             None,
-            0,]
+            0],
+            ]
 # examples = [
 #     ["an astronaut waving the arm on the moon"],
 #     ["a sloth surfing on a wakeboard"],
