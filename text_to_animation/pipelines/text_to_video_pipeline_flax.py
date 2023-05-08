@@ -6,6 +6,7 @@ import jax.numpy as jnp
 import numpy as np
 from flax.core.frozen_dict import FrozenDict
 from flax.jax_utils import unreplicate
+from flax import jax_utils
 from flax.training.common_utils import shard
 from PIL import Image
 from transformers import CLIPFeatureExtractor, CLIPTokenizer, FlaxCLIPTextModel
@@ -29,6 +30,10 @@ Text2Video-Zero:
  - 3DUnet to replace 2DUnetConditional
 
 """
+
+def replicate_devices(array):
+    return jnp.expand_dims(array, 0).repeat(jax.device_count(), 0)
+
 
 DEBUG = False # Set to True to use python for loop instead of jax.fori_loop for easier debugging
 
@@ -92,11 +97,12 @@ EXAMPLE_DOC_STRING = """
 class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
     def __init__(
         self,
-        vae: FlaxAutoencoderKL,
-        text_encoder: FlaxCLIPTextModel,
-        tokenizer: CLIPTokenizer,
-        unet: FlaxUNet2DConditionModel,
-        controlnet: FlaxControlNetModel,
+        vae,
+        text_encoder,
+        tokenizer,
+        unet,
+        unet_vanilla,
+        controlnet,
         scheduler: Union[
             FlaxDDIMScheduler, FlaxPNDMScheduler, FlaxLMSDiscreteScheduler, FlaxDPMSolverMultistepScheduler
         ],
@@ -122,6 +128,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
             text_encoder=text_encoder,
             tokenizer=tokenizer,
             unet=unet,
+            unet_vanilla=unet_vanilla,
             controlnet=controlnet,
             scheduler=scheduler,
             safety_checker=safety_checker,
@@ -143,7 +150,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
                         guidance_scale, controlnet_image=None, controlnet_conditioning_scale=None):
         scheduler_state = self.scheduler.set_timesteps(params["scheduler"], num_inference_steps)
         f = latents_local.shape[2]
-        latents_local = rearrange(latents_local, "b c f w h -> (b f) c w h")
+        latents_local = rearrange(latents_local, "b c f h w -> (b f) c h w")
         latents = latents_local.copy()
         x_t0_1 = None
         x_t1_1 = None
@@ -196,6 +203,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
             x_t0_1 = jax.lax.select((step < max_timestep-1) & (timesteps[step+1] == t0), latents, x_t0_1)
             x_t1_1 = jax.lax.select((step < max_timestep-1) & (timesteps[step+1] == t1), latents, x_t1_1)
             return (step + 1, latents, x_t0_1, x_t1_1, scheduler_state)
+        
         latents_shape = latents.shape
         x_t0_1, x_t1_1 = jnp.zeros(latents_shape), jnp.zeros(latents_shape)
 
@@ -210,13 +218,13 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
                 step = step + 1
         else:
             _, latents, x_t0_1, x_t1_1, scheduler_state = jax.lax.while_loop(cond_fun, while_body, (0, latents, x_t0_1, x_t1_1, scheduler_state))
-        latents = rearrange(latents, "(b f) c w h -> b c f  w h", f=f)
+        latents = rearrange(latents, "(b f) c h w -> b c f h w", f=f)
         res = {"x0": latents.copy()}
         if x_t0_1 is not None:
-            x_t0_1 = rearrange(x_t0_1, "(b f) c w h -> b c f  w h", f=f)
+            x_t0_1 = rearrange(x_t0_1, "(b f) c h w -> b c f  h w", f=f)
             res["x_t0_1"] = x_t0_1.copy()
         if x_t1_1 is not None:
-            x_t1_1 = rearrange(x_t1_1, "(b f) c w h -> b c f  w h", f=f)
+            x_t1_1 = rearrange(x_t1_1, "(b f) c h w -> b c f  h w", f=f)
             res["x_t1_1"] = x_t1_1.copy()
         return res
     
@@ -268,7 +276,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
             latents = latents.at[idx].set(self.warp_latents_independently(
                 latent[None], motion_field)[0])
         return motion_field, latents
-    
+
     def text_to_video_zero(self, params,
                            prng,
                            text_embeddings,
@@ -280,6 +288,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
                            guidance_scale: float = 7.5,
                            num_videos_per_prompt: Optional[int] = 1,
                            xT = None,
+                           smooth_bg_strength: float=0.,
                            motion_field_strength_x: float = 12,
                            motion_field_strength_y: float = 12,
                            t0: int = 44,
@@ -294,8 +303,8 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
         # Prepare latent variables
         num_channels_latents = self.unet.in_channels
         batch_size = 1
-        xT = prepare_latents(params, prng, batch_size * num_videos_per_prompt, num_channels_latents, 1, height, width, self.vae_scale_factor, xT)
-        xT = xT[:, :, :1]
+        xT = prepare_latents(params, prng, batch_size * num_videos_per_prompt, num_channels_latents, height, width, self.vae_scale_factor, xT)
+
         timesteps_ddpm = [981, 961, 941, 921, 901, 881, 861, 841, 821, 801, 781, 761, 741, 721,
                             701, 681, 661, 641, 621, 601, 581, 561, 541, 521, 501, 481, 461, 441,
                             421, 401, 381, 361, 341, 321, 301, 281, 261, 241, 221, 201, 181, 161,
@@ -332,7 +341,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
                               ddpm_fwd,
                               lambda:x_t0_k
         )
-        x_t1 = jnp.concatenate([x_t1_1, x_t1_k], axis=2).copy()
+        x_t1 = jnp.concatenate([x_t1_1, x_t1_k], axis=2)
 
         # backward stepts by stable diffusion
 
@@ -340,13 +349,317 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
         controlnet_video = controlnet_image[:video_length]
         controlnet_video = controlnet_video.at[1:].set(self.warp_vid_independently(controlnet_video[1:], reference_flow))
         controlnet_image = jnp.concatenate([controlnet_video]*2)
+        smooth_bg = True
 
-
+        if smooth_bg:
+            #latent shape: "b c f h w"
+            M_FG = repeat(get_mask_pose(controlnet_video), "f h w -> b c f h w", c=x_t1.shape[1], b=batch_size)
+            initial_bg = repeat(x_t1[:,:,0] * (1 - M_FG[:,:,0]), "b c h w -> b c f h w", f=video_length-1)
+            #warp the controlnet image following the same flow defined for latent #f c h w
+            initial_bg_warped = self.warp_latents_independently(initial_bg, reference_flow)
+            bgs = x_t1[:,:,1:] * (1 - M_FG[:,:,1:]) #initial background 
+            initial_mask_warped = 1 - self.warp_latents_independently(repeat(M_FG[:,:,0], "b c h w -> b c f h w", f = video_length-1), reference_flow)
+            # initial_mask_warped = 1 - warp_vid_independently(repeat(M_FG[:,:,0], "b c h w -> (b f) c h w", f = video_length-1), reference_flow)
+            # initial_mask_warped = rearrange(initial_mask_warped, "(b f) c h w -> b c f h w", b=batch_size)
+            mask = (1 - M_FG[:,:,1:]) * initial_mask_warped
+            x_t1 = x_t1.at[:,:,1:].set( (1 - mask) * x_t1[:,:,1:] + mask * (initial_bg_warped * smooth_bg_strength + (1 - smooth_bg_strength) * bgs))
+            
         ddim_res = self.DDIM_backward(params, num_inference_steps=num_inference_steps, timesteps=timesteps, skip_t=t1, t0=-1, t1=-1, do_classifier_free_guidance=do_classifier_free_guidance,
                                             text_embeddings=text_embeddings, latents_local=x_t1, guidance_scale=guidance_scale,
-                                            controlnet_image=controlnet_image, controlnet_conditioning_scale=controlnet_conditioning_scale)
+                                            controlnet_image=controlnet_image, controlnet_conditioning_scale=controlnet_conditioning_scale,
+                                     )
+        
         x0 = ddim_res["x0"]
+        del ddim_res
+        del x_t1
+        del x_t1_1
+        del x_t1_k
         return x0
+
+    def denoise_latent(self, params, num_inference_steps, timesteps, do_classifier_free_guidance, text_embeddings, latents,
+                        guidance_scale, controlnet_image=None, controlnet_conditioning_scale=None):
+        
+        scheduler_state = self.scheduler.set_timesteps(params["scheduler"], num_inference_steps)
+        # f = latents_local.shape[2]
+        # latents_local = rearrange(latents_local, "b c f h w -> (b f) c h w")
+
+        max_timestep = len(timesteps)-1
+        timesteps = jnp.array(timesteps)
+        def while_body(args):
+            step, latents, scheduler_state = args
+            t = jnp.array(scheduler_state.timesteps, dtype=jnp.int32)[step]
+            latent_model_input = jnp.concatenate(
+                [latents] * 2) if do_classifier_free_guidance else latents
+            latent_model_input = self.scheduler.scale_model_input(
+                scheduler_state, latent_model_input, timestep=t
+            )
+            f = latents.shape[0]
+            te = jnp.stack([text_embeddings[0, :, :]]*f + [text_embeddings[-1,:,:]]*f)
+            timestep = jnp.broadcast_to(t, latent_model_input.shape[0])
+            if controlnet_image is not None:
+                down_block_res_samples, mid_block_res_sample = self.controlnet.apply(
+                    {"params": params["controlnet"]},
+                    jnp.array(latent_model_input),
+                    jnp.array(timestep, dtype=jnp.int32),
+                    encoder_hidden_states=te,
+                    controlnet_cond=controlnet_image,
+                    conditioning_scale=controlnet_conditioning_scale,
+                    return_dict=False,
+                )
+                # predict the noise residual
+                noise_pred = self.unet_vanilla.apply(
+                    {"params": params["unet"]},
+                    jnp.array(latent_model_input),
+                    jnp.array(timestep, dtype=jnp.int32),
+                    encoder_hidden_states=te,
+                    down_block_additional_residuals=down_block_res_samples,
+                    mid_block_additional_residual=mid_block_res_sample,
+                ).sample
+            else:
+                noise_pred = self.unet_vanilla.apply(
+                    {"params": params["unet"]},
+                    jnp.array(latent_model_input),
+                    jnp.array(timestep, dtype=jnp.int32),
+                    encoder_hidden_states=te,
+                    ).sample
+            # perform guidance
+            if do_classifier_free_guidance:
+                noise_pred_uncond, noise_pred_text = jnp.split(noise_pred, 2, axis=0)
+                noise_pred = noise_pred_uncond + guidance_scale * \
+                    (noise_pred_text - noise_pred_uncond)
+            # compute the previous noisy sample x_t -> x_t-1
+            latents, scheduler_state = self.scheduler.step(scheduler_state, noise_pred, t, latents).to_tuple()
+            return (step + 1, latents, scheduler_state)
+        
+        def cond_fun(arg):
+            step, latents, scheduler_state = arg
+            return (step < num_inference_steps)
+        
+        if DEBUG:
+            step = 0
+            while cond_fun((step, latents, scheduler_state)):
+                step, latents, scheduler_state = while_body((step, latents, scheduler_state))
+                step = step + 1
+        else:
+            _, latents, scheduler_state = jax.lax.while_loop(cond_fun, while_body, (0, latents, scheduler_state))
+        # latents = rearrange(latents, "(b f) c h w -> b c f h w", f=f)
+        return latents
+
+    def generate_starting_frames(self,
+                                params,
+                                prngs: list, #list of prngs for each img
+                                prompt,
+                                neg_prompt,
+                                controlnet_image,
+                                do_classifier_free_guidance = True,
+                                num_inference_steps: int = 50,
+                                guidance_scale: float = 7.5,
+                                t0: int = 44,
+                                t1: int = 47,
+                                controlnet_conditioning_scale=1.,
+                                ):
+
+        height, width = controlnet_image.shape[-2:]
+        if height % 64 != 0 or width % 64 != 0:
+            raise ValueError(f"`height` and `width` have to be divisible by 64 but are {height} and {width}.")
+
+        shape = (self.unet.in_channels, height //
+        self.vae_scale_factor, width // self.vae_scale_factor) # c h w
+        # scale the initial noise by the standard deviation required by the scheduler
+
+        # print(f"Generating {len(prngs)} first frames with prompt {prompt}, for {num_inference_steps} steps. PRNG seeds are: {prngs}")
+
+        latents = jnp.stack([jax.random.normal(prng, shape) for prng in prngs]) # b c h w
+        latents = latents * params["scheduler"].init_noise_sigma
+
+        timesteps = params["scheduler"].timesteps
+        timesteps_ddpm = [981, 961, 941, 921, 901, 881, 861, 841, 821, 801, 781, 761, 741, 721,
+                            701, 681, 661, 641, 621, 601, 581, 561, 541, 521, 501, 481, 461, 441,
+                            421, 401, 381, 361, 341, 321, 301, 281, 261, 241, 221, 201, 181, 161,
+                            141, 121, 101,  81,  61,  41,  21,   1]
+        timesteps_ddpm.reverse()
+        t0 = timesteps_ddpm[t0]
+        t1 = timesteps_ddpm[t1]
+
+        # get prompt text embeddings
+        prompt_ids = shard(self.prepare_text_inputs(prompt))
+
+        # prompt_embeds = jax.pmap( lambda prompt_ids, params:  )(prompt_ids, params)
+
+        @jax.pmap
+        def prepare_text(params, prompt_ids, uncond_input):
+            prompt_embeds = self.text_encoder(prompt_ids, params=params["text_encoder"])[0]
+            negative_prompt_embeds = self.text_encoder(uncond_input, params=params["text_encoder"])[0]
+            text_embeddings = jnp.concatenate([negative_prompt_embeds, prompt_embeds])
+            return text_embeddings
+
+        # TODO: currently it is assumed `do_classifier_free_guidance = guidance_scale > 1.0`
+        # implement this conditional `do_classifier_free_guidance = guidance_scale > 1.0`
+        batch_size = 1
+        max_length = prompt_ids.shape[-1]
+        if neg_prompt is None:
+            uncond_input = shard(self.tokenizer(
+                [""] * batch_size, padding="max_length", max_length=max_length, return_tensors="np"
+            ).input_ids)
+        else:
+            neg_prompt_ids = self.prepare_text_inputs(neg_prompt)
+            uncond_input = shard(neg_prompt_ids)
+
+        text_embeddings = prepare_text(params, prompt_ids, uncond_input)
+
+        controlnet_image = shard(jnp.stack([controlnet_image[0]] * len(prngs) * 2))
+
+        timesteps = shard(jnp.array(timesteps))
+        guidance_scale = shard(jnp.array(guidance_scale))
+        controlnet_conditioning_scale = shard(jnp.array(controlnet_conditioning_scale))
+
+        #latent is shape # b c h w
+        # vmap_gen_start_frame = jax.vmap(lambda latent: p_generate_starting_frames(self, num_inference_steps, params, timesteps, text_embeddings, shard(latent[None]), guidance_scale, controlnet_image, controlnet_conditioning_scale))
+        # decoded_latents = vmap_gen_start_frame(latents)
+        decoded_latents = p_generate_starting_frames(self, num_inference_steps, params, timesteps, text_embeddings, shard(latents), guidance_scale, controlnet_image, controlnet_conditioning_scale)
+        # print(f"shape output: {decoded_latents.shape}")
+        return unshard(decoded_latents)#[:, 0]
+
+    def generate_video(
+        self,
+        prompt: str,
+        image: jnp.array,
+        params: Union[Dict, FrozenDict],
+        prng_seed: jax.random.KeyArray,
+        num_inference_steps: int = 50,
+        guidance_scale: Union[float, jnp.array] = 7.5,
+        latents: jnp.array = None,
+        neg_prompt: str = "",
+        controlnet_conditioning_scale: Union[float, jnp.array] = 1.0,
+        return_dict: bool = True,
+        jit: bool = False,
+        xT = None,
+        smooth_bg_strength: float=0.,
+        motion_field_strength_x: float = 3,
+        motion_field_strength_y: float = 4,
+        t0: int = 44,
+        t1: int = 47,
+    ):
+        r"""
+        Function invoked when calling the pipeline for generation.
+        Args:
+            prompt_ids (`jnp.array`):
+                The prompt or prompts to guide the image generation.
+            image (`jnp.array`):
+                Array representing the ControlNet input condition. ControlNet use this input condition to generate
+                guidance to Unet.
+            params (`Dict` or `FrozenDict`): Dictionary containing the model parameters/weights
+            prng_seed (`jax.random.KeyArray` or `jax.Array`): Array containing random number generator key
+            num_inference_steps (`int`, *optional*, defaults to 50):
+                The number of denoising steps. More denoising steps usually lead to a higher quality image at the
+                expense of slower inference.
+            guidance_scale (`float`, *optional*, defaults to 7.5):
+                Guidance scale as defined in [Classifier-Free Diffusion Guidance](https://arxiv.org/abs/2207.12598).
+                `guidance_scale` is defined as `w` of equation 2. of [Imagen
+                Paper](https://arxiv.org/pdf/2205.11487.pdf). Guidance scale is enabled by setting `guidance_scale >
+                1`. Higher guidance scale encourages to generate images that are closely linked to the text `prompt`,
+                usually at the expense of lower image quality.
+            latents (`jnp.array`, *optional*):
+                Pre-generated noisy latents, sampled from a Gaussian distribution, to be used as inputs for image
+                generation. Can be used to tweak the same generation with different prompts. If not provided, a latents
+                tensor will ge generated by sampling using the supplied random `generator`.
+            controlnet_conditioning_scale (`float` or `jnp.array`, *optional*, defaults to 1.0):
+                The outputs of the controlnet are multiplied by `controlnet_conditioning_scale` before they are added
+                to the residual in the original unet.
+            return_dict (`bool`, *optional*, defaults to `True`):
+                Whether or not to return a [`~pipelines.stable_diffusion.FlaxStableDiffusionPipelineOutput`] instead of
+                a plain tuple.
+            jit (`bool`, defaults to `False`):
+                Whether to run `pmap` versions of the generation and safety scoring functions. NOTE: This argument
+                exists because `__call__` is not yet end-to-end pmap-able. It will be removed in a future release.
+        Examples:
+        Returns:
+            [`~pipelines.stable_diffusion.FlaxStableDiffusionPipelineOutput`] or `tuple`:
+            [`~pipelines.stable_diffusion.FlaxStableDiffusionPipelineOutput`] if `return_dict` is True, otherwise a
+            `tuple. When returning a tuple, the first element is a list with the generated images, and the second
+            element is a list of `bool`s denoting whether the corresponding generated image likely represents
+            "not-safe-for-work" (nsfw) content, according to the `safety_checker`.
+        """
+        height, width = image.shape[-2:]
+        vid_length = image.shape[0]
+        # get prompt text embeddings
+        prompt_ids = self.prepare_text_inputs([prompt] * vid_length)
+        neg_prompt_ids = self.prepare_text_inputs([neg_prompt] * vid_length)
+
+        # TODO: currently it is assumed `do_classifier_free_guidance = guidance_scale > 1.0`
+        # implement this conditional `do_classifier_free_guidance = guidance_scale > 1.0`
+        batch_size = 1
+
+        if isinstance(guidance_scale, float):
+            # Convert to a tensor so each device gets a copy. Follow the prompt_ids for
+            # shape information, as they may be sharded (when `jit` is `True`), or not.
+            guidance_scale = jnp.array([guidance_scale] * prompt_ids.shape[0])
+            if len(prompt_ids.shape) > 2:
+                # Assume sharded
+                guidance_scale = guidance_scale[:, None]
+        if isinstance(controlnet_conditioning_scale, float):
+            # Convert to a tensor so each device gets a copy. Follow the prompt_ids for
+            # shape information, as they may be sharded (when `jit` is `True`), or not.
+            controlnet_conditioning_scale = jnp.array([controlnet_conditioning_scale] * prompt_ids.shape[0])
+            if len(prompt_ids.shape) > 2:
+                # Assume sharded
+                controlnet_conditioning_scale = controlnet_conditioning_scale[:, None]
+        if jit:
+            images = _p_generate(
+                self,
+                replicate_devices(prompt_ids),
+                replicate_devices(image),
+                jax_utils.replicate(params),
+                replicate_devices(prng_seed),
+                num_inference_steps,
+                replicate_devices(guidance_scale),
+                replicate_devices(latents) if latents is not None else None,
+                replicate_devices(neg_prompt_ids) if neg_prompt_ids is not None else None,
+                replicate_devices(controlnet_conditioning_scale),
+                replicate_devices(xT) if xT is not None else None,
+                replicate_devices(smooth_bg_strength),
+                replicate_devices(motion_field_strength_x),
+                replicate_devices(motion_field_strength_y),
+                t0,
+                t1,
+            )
+        else:
+            images = self._generate(
+                prompt_ids,
+                image,
+                params,
+                prng_seed,
+                num_inference_steps,
+                guidance_scale,
+                latents,
+                neg_prompt_ids,
+                controlnet_conditioning_scale,
+                xT,
+                smooth_bg_strength,
+                motion_field_strength_x,
+                motion_field_strength_y,
+                t0,
+                t1,
+            )
+        if self.safety_checker is not None:
+            safety_params = params["safety_checker"]
+            images_uint8_casted = (images * 255).round().astype("uint8")
+            num_devices, batch_size = images.shape[:2]
+            images_uint8_casted = np.asarray(images_uint8_casted).reshape(num_devices * batch_size, height, width, 3)
+            images_uint8_casted, has_nsfw_concept = self._run_safety_checker(images_uint8_casted, safety_params, jit)
+            images = np.asarray(images)
+            # block images
+            if any(has_nsfw_concept):
+                for i, is_nsfw in enumerate(has_nsfw_concept):
+                    if is_nsfw:
+                        images[i] = np.asarray(images_uint8_casted[i])
+            images = images.reshape(num_devices, batch_size, height, width, 3)
+        else:
+            images = np.asarray(images)
+            has_nsfw_concept = False
+        if not return_dict:
+            return (images, has_nsfw_concept)
+        return FlaxStableDiffusionPipelineOutput(images=images, nsfw_content_detected=has_nsfw_concept)
 
     def prepare_text_inputs(self, prompt: Union[str, List[str]]):
         if not isinstance(prompt, (str, list)):
@@ -405,6 +718,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
         neg_prompt_ids: Optional[jnp.array] = None,
         controlnet_conditioning_scale: float = 1.0,
         xT = None,
+        smooth_bg_strength: float = 0.,
         motion_field_strength_x: float = 12,
         motion_field_strength_y: float = 12,
         t0: int = 44,
@@ -434,7 +748,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
         latents = self.text_to_video_zero(params, seed_t2vz, text_embeddings=context, video_length=video_length,
                                           height=height, width = width, num_inference_steps=num_inference_steps,
                                           guidance_scale=guidance_scale, controlnet_image=image,
-                                          xT=xT, t0=t0, t1=t1,
+                                          xT=xT, smooth_bg_strength=smooth_bg_strength, t0=t0, t1=t1,
                                           motion_field_strength_x=motion_field_strength_x,
                                           motion_field_strength_y=motion_field_strength_y,
                                           controlnet_conditioning_scale=controlnet_conditioning_scale
@@ -461,6 +775,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
         return_dict: bool = True,
         jit: bool = False,
         xT = None,
+        smooth_bg_strength: float = 0.,
         motion_field_strength_x: float = 3,
         motion_field_strength_y: float = 4,
         t0: int = 44,
@@ -534,6 +849,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
                 neg_prompt_ids,
                 controlnet_conditioning_scale,
                 xT,
+                smooth_bg_strength,
                 motion_field_strength_x,
                 motion_field_strength_y,
                 t0,
@@ -551,6 +867,7 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
                 neg_prompt_ids,
                 controlnet_conditioning_scale,
                 xT,
+                smooth_bg_strength,
                 motion_field_strength_x,
                 motion_field_strength_y,
                 t0,
@@ -575,12 +892,14 @@ class FlaxTextToVideoPipeline(FlaxDiffusionPipeline):
         if not return_dict:
             return (images, has_nsfw_concept)
         return FlaxStableDiffusionPipelineOutput(images=images, nsfw_content_detected=has_nsfw_concept)
+
+
 # Static argnums are pipe, num_inference_steps. A change would trigger recompilation.
 # Non-static args are (sharded) input tensors mapped over their first dimension (hence, `0`).
 @partial(
     jax.pmap,
-    in_axes=(None, 0, 0, 0, 0, None, 0, 0, 0, 0, 0, None, None, None, None),
-    static_broadcasted_argnums=(0, 5, 11, 12, 13, 14),
+    in_axes=(None, 0, 0, 0, 0, None, 0, 0, 0, 0, 0, 0, 0, 0, None, None),
+    static_broadcasted_argnums=(0, 5, 14, 15)
 )
 def _p_generate(
     pipe,
@@ -594,6 +913,7 @@ def _p_generate(
     neg_prompt_ids,
     controlnet_conditioning_scale,
     xT,
+    smooth_bg_strength,
     motion_field_strength_x,
     motion_field_strength_y,
     t0,
@@ -610,6 +930,7 @@ def _p_generate(
         neg_prompt_ids,
         controlnet_conditioning_scale,
         xT,
+        smooth_bg_strength,
         motion_field_strength_x,
         motion_field_strength_y,
         t0,
@@ -618,6 +939,44 @@ def _p_generate(
 @partial(jax.pmap, static_broadcasted_argnums=(0,))
 def _p_get_has_nsfw_concepts(pipe, features, params):
     return pipe._get_has_nsfw_concepts(features, params)
+
+@partial(
+jax.pmap,
+in_axes=(None, None, 0, 0, 0, 0, 0, 0, 0),
+static_broadcasted_argnums=(0, 1)
+)
+def p_generate_starting_frames(pipe, num_inference_steps, params, timesteps, text_embeddings, latents, guidance_scale, controlnet_image, controlnet_conditioning_scale):
+    #  perform ∆t backward steps by stable diffusion
+    # delta_t_diffusion = jax.vmap(lambda latent : self.DDIM_backward(params, num_inference_steps=num_inference_steps, timesteps=timesteps, skip_t=1000, t0=t0, t1=t1, do_classifier_free_guidance=do_classifier_free_guidance,
+    #                                     text_embeddings=text_embeddings, latents_local=latent, guidance_scale=guidance_scale,
+    #                                     controlnet_image=controlnet_image, controlnet_conditioning_scale=controlnet_conditioning_scale))
+    # ddim_res = delta_t_diffusion(latents)
+    # latents = ddim_res["x0"] #output is  i b c f h w
+
+    # DDPM forward for more motion freedom
+    # ddpm_fwd = jax.vmap(lambda prng, latent: self.DDPM_forward(params=params, prng=prng, x0=latent, t0=t0,
+    #                 tMax=t1, shape=shape, text_embeddings=text_embeddings))
+    # latents = ddpm_fwd(stacked_prngs, latents)
+    # main backward diffusion
+    # denoise_first_frame = lambda latent : self.DDIM_backward(params, num_inference_steps=num_inference_steps, timesteps=timesteps, skip_t=100000, t0=-1, t1=-1, do_classifier_free_guidance=do_classifier_free_guidance,
+    #                                     text_embeddings=text_embeddings, latents_local=latent, guidance_scale=guidance_scale,
+    #                                     controlnet_image=controlnet_image, controlnet_conditioning_scale=controlnet_conditioning_scale)
+    # latents = rearrange(latents, 'i b c f h w -> (i b) c f h w')
+    # ddim_res = denoise_first_frame(latents)
+    latents = pipe.denoise_latent(params, num_inference_steps=num_inference_steps, timesteps=timesteps, do_classifier_free_guidance=True,
+                                        text_embeddings=text_embeddings, latents=latents, guidance_scale=guidance_scale,
+                                        controlnet_image=controlnet_image, controlnet_conditioning_scale=controlnet_conditioning_scale)
+    # latents = rearrange(ddim_res["x0"], 'i b c f h w -> (i b) c f h w') #output is  i b c f h w
+
+    # scale and decode the image latents with vae
+    latents = 1 / pipe.vae.config.scaling_factor * latents
+    # latents = rearrange(latents, "b c h w -> (b f) c h w")
+    imgs = pipe.vae.apply({"params": params["vae"]}, latents, method=pipe.vae.decode).sample
+    imgs = (imgs / 2 + 0.5).clip(0, 1).transpose(0, 2, 3, 1)
+    return imgs
+
+
+
 def unshard(x: jnp.ndarray):
     # einops.rearrange(x, 'd b ... -> (d b) ...')
     num_devices, batch_size = x.shape[:2]
@@ -632,9 +991,9 @@ def preprocess(image, dtype):
     image = image[None].transpose(0, 3, 1, 2)
     return image
 
-def prepare_latents(params, prng, batch_size, num_channels_latents, video_length, height, width, vae_scale_factor, latents=None):
-    shape = (batch_size, num_channels_latents, video_length, height //
-            vae_scale_factor, width // vae_scale_factor)
+def prepare_latents(params, prng, batch_size, num_channels_latents, height, width, vae_scale_factor, latents=None):
+    shape = (batch_size, num_channels_latents, 1, height //
+            vae_scale_factor, width // vae_scale_factor) #b c f h w
     # scale the initial noise by the standard deviation required by the scheduler
     if latents is None:
         latents = jax.random.normal(prng, shape)
@@ -672,3 +1031,21 @@ def grid_sample(latents, grid, method):
       return safe_get_mirror(latents, jnp.array(grid[0], dtype=jnp.int16), jnp.array(grid[1], dtype=jnp.int16), latents.shape[0], latents.shape[1])
     else: #default is zero padding
       return safe_get_zeropad(latents, jnp.array(grid[0], dtype=jnp.int16), jnp.array(grid[1], dtype=jnp.int16), latents.shape[0], latents.shape[1])
+
+def bandw_vid(vid, threshold):
+  vid = jnp.max(vid, axis=1)
+  return jnp.where(vid > threshold, 1, 0)
+
+def mean_blur(vid, k):
+  window = jnp.ones((vid.shape[0], k, k))/ (k*k)
+  convolve=jax.vmap(lambda img, kernel:jax.scipy.signal.convolve(img, kernel, mode='same'))
+  smooth_vid = convolve(vid, window)
+  return smooth_vid
+
+def get_mask_pose(vid):
+  vid = bandw_vid(vid, 0.4)
+  l, h, w = vid.shape
+  vid = jax.image.resize(vid, (l, h//8, w//8), "nearest")
+  vid=bandw_vid(mean_blur(vid, 7)[:,None], threshold=0.01)
+  return vid/(jnp.max(vid) + 1e-4)
+  #return jax.image.resize(vid/(jnp.max(vid) + 1e-4), (l, h, w), "nearest")

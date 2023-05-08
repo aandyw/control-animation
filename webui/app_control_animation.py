@@ -6,17 +6,37 @@ from utils.hf_utils import get_model_list
 huggingspace_name = os.environ.get("SPACE_AUTHOR_NAME")
 on_huggingspace = huggingspace_name if huggingspace_name is not None else False
 
-examples = [
-    ["an astronaut waving the arm on the moon"],
-    ["a sloth surfing on a wakeboard"],
-    ["an astronaut walking on a street"],
-    ["a cute cat walking on grass"],
-    ["a horse is galloping on a street"],
-    ["an astronaut is skiing down the hill"],
-    ["a gorilla walking alone down the street"],
-    ["a gorilla dancing on times square"],
-    ["A panda dancing dancing like crazy on Times Square"],
-]
+examples = [["A surfer in miami walking by the beach",
+            None,
+            "Motion 3",
+            None,
+            3,
+            0,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            0],
+            ]
+# examples = [
+#     ["an astronaut waving the arm on the moon"],
+#     ["a sloth surfing on a wakeboard"],
+#     ["an astronaut walking on a street"],
+#     ["a cute cat walking on grass"],
+#     ["a horse is galloping on a street"],
+#     ["an astronaut is skiing down the hill"],
+#     ["a gorilla walking alone down the street"],
+#     ["a gorilla dancing on times square"],
+#     ["A panda dancing dancing like crazy on Times Square"],
+# ]
+
+def on_video_path_update(evt: gr.EventData):
+    return f"Selection: **{evt._data}**"
+
+def pose_gallery_callback(evt: gr.SelectData):
+    return f"Motion {evt.index+1}"
 
 
 def get_frame_index(evt: gr.SelectData):
@@ -24,15 +44,15 @@ def get_frame_index(evt: gr.SelectData):
 
 
 def create_demo(model: ControlAnimationModel):
-    with gr.Blocks(css="style.css") as demo:
+    with gr.Blocks() as demo:
         with gr.Column():
             with gr.Row():
                 with gr.Column():
                     # TODO: update so that model_link is customizable
                     model_link = gr.Dropdown(
                         label="Model Link",
-                        choices=get_model_list(),
-                        value="dreamlike-art/dreamlike-photoreal-2.0",
+                        choices=["runwayml/stable-diffusion-v1-5"],
+                        value="runwayml/stable-diffusion-v1-5",
                     )
                     prompt = gr.Textbox(
                         placeholder="Prompt",
@@ -46,14 +66,10 @@ def create_demo(model: ControlAnimationModel):
                         lines=2,
                     )
 
-                with gr.Column():
-                    pose_video = gr.Video()
                     gen_frames_button = gr.Button(
                         value="Generate Initial Frames", variant="primary"
                     )
 
-            with gr.Row():
-                with gr.Column(scale=2):
                     with gr.Accordion("Advanced options", open=False):
                         if on_huggingspace:
                             video_length = gr.Slider(
@@ -126,37 +142,61 @@ def create_demo(model: ControlAnimationModel):
                             info="Ratio of how many tokens are merged. The higher the more compression (less memory and faster inference).",
                         )
 
-                with gr.Column(scale=3, visible=True) as frame_selection_view:
+                with gr.Column():
+                    gallery_pose_sequence = gr.Gallery(
+                        label="Pose Sequence",
+                        value=[
+                            ("__assets__/walk_01.gif", "Motion 1"),
+                            ("__assets__/walk_02.gif", "Motion 2"),
+                            ("__assets__/walk_03.gif", "Motion 3"),
+                            ("__assets__/run.gif", "Motion 4"),
+                            ("__assets__/dance1.gif", "Motion 5"),
+                            ("__assets__/dance2.gif", "Motion 6"),
+                            ("__assets__/dance3.gif", "Motion 7"),
+                            ("__assets__/dance4.gif", "Motion 8"),
+                            ("__assets__/dance5.gif", "Motion 9"),
+                        ],
+                    ).style(columns=3)
+                    input_video_path = gr.Textbox(
+                        label="Pose Sequence", visible=False, value="Motion 1"
+                    )
+                    pose_sequence_selector = gr.Markdown("Pose Sequence: **Motion 1**")
+
+            with gr.Row():
+                with gr.Column(visible=True) as frame_selection_view:
                     initial_frames = gr.Gallery(
                         label="Initial Frames", show_label=False
-                    ).style(
-                        grid=4, columns=4, rows=1, object_fit="contain", preview=True
-                    )
+                    ).style(columns=4, rows=1, object_fit="contain", preview=True)
 
                     gr.Markdown("Select an initial frame to start your animation with.")
+
                     gen_animation_button = gr.Button(
                         value="Select Initial Frame & Generate Animation",
                         variant="secondary",
                     )
 
-                with gr.Column(scale=3, visible=False) as animation_view:
-                    result = gr.Video(label="Generated Video")
+                with gr.Column(visible=True) as animation_view:
+                    result = gr.Image(label="Generated Video")
 
         with gr.Box(visible=False):
             initial_frame_index = gr.Number(
                 label="Selected Initial Frame Index", value=-1, precision=0
             )
 
+        input_video_path.change(on_video_path_update, None, pose_sequence_selector)
+        gallery_pose_sequence.select(pose_gallery_callback, None, input_video_path)
+        initial_frames.select(fn=get_frame_index, outputs=initial_frame_index)
+
         frame_inputs = [
             prompt,
-            model_link,
+            input_video_path,
             negative_prompt,
-            seed,
         ]
 
         animation_inputs = [
             prompt,
             initial_frame_index,
+            input_video_path,
             model_link,
             motion_field_strength_x,
             motion_field_strength_y,
@@ -169,19 +209,17 @@ def create_demo(model: ControlAnimationModel):
             seed,
         ]
 
-        def submit_select(initial_frame_index: int):
-            if initial_frame_index != -1:  # More to next step
-                return {
-                    frame_selection_view: gr.update(visible=False),
-                    animation_view: gr.update(visible=True),
-                }
+        # def submit_select(initial_frame_index: int):
+        #     if initial_frame_index != -1:  # More to next step
+        #         return {
+        #             frame_selection_view: gr.update(visible=False),
+        #             animation_view: gr.update(visible=True),
+        #         }
 
-            return {
-                frame_selection_view: gr.update(visible=True),
-                animation_view: gr.update(visible=False),
-            }
-
-        initial_frames.select(fn=get_frame_index, outputs=initial_frame_index)
+        #     return {
+        #         frame_selection_view: gr.update(visible=True),
+        #         animation_view: gr.update(visible=False),
+        #     }
 
         gen_frames_button.click(
             fn=model.generate_initial_frames,
@@ -189,11 +227,17 @@ def create_demo(model: ControlAnimationModel):
             outputs=initial_frames,
         )
 
+        # gen_animation_button.click(
+        #     fn=submit_select,
+        #     inputs=initial_frame_index,
+        #     outputs=[frame_selection_view, animation_view],
+        # ).then(
+        #     fn=model.generate_animation,
+        #     inputs=animation_inputs,
+        #     outputs=result,
+        # )
+
         gen_animation_button.click(
-            fn=submit_select,
-            inputs=initial_frame_index,
-            outputs=[frame_selection_view, animation_view],
-        ).then(
             fn=model.generate_animation,
             inputs=animation_inputs,
             outputs=result,
@@ -206,5 +250,13 @@ def create_demo(model: ControlAnimationModel):
         #             run_on_click=False,
         #             cache_examples=on_huggingspace,
         # )
+
+        gr.Examples(examples=examples,
+                    inputs=animation_inputs,
+                    outputs=result,
+                    fn=model.generate_animation,
+                    cache_examples=on_huggingspace,
+                    run_on_click=True,
+                    )
 
     return demo
