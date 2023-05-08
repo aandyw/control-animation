@@ -6,22 +6,21 @@ from utils.hf_utils import get_model_list
 huggingspace_name = os.environ.get("SPACE_AUTHOR_NAME")
 on_huggingspace = huggingspace_name if huggingspace_name is not None else False
 
-examples = [
-    ["an astronaut waving the arm on the moon"],
-    ["a sloth surfing on a wakeboard"],
-    ["an astronaut walking on a street"],
-    ["a cute cat walking on grass"],
-    ["a horse is galloping on a street"],
-    ["an astronaut is skiing down the hill"],
-    ["a gorilla walking alone down the street"],
-    ["a gorilla dancing on times square"],
-    ["A panda dancing dancing like crazy on Times Square"],
-]
-
+examples = []
+# examples = [
+#     ["an astronaut waving the arm on the moon"],
+#     ["a sloth surfing on a wakeboard"],
+#     ["an astronaut walking on a street"],
+#     ["a cute cat walking on grass"],
+#     ["a horse is galloping on a street"],
+#     ["an astronaut is skiing down the hill"],
+#     ["a gorilla walking alone down the street"],
+#     ["a gorilla dancing on times square"],
+#     ["A panda dancing dancing like crazy on Times Square"],
+# ]
 
 def on_video_path_update(evt: gr.EventData):
     return f"Selection: **{evt._data}**"
-
 
 def pose_gallery_callback(evt: gr.SelectData):
     return f"Motion {evt.index+1}"
@@ -161,7 +160,7 @@ def create_demo(model: ControlAnimationModel):
                     )
 
                 with gr.Column(visible=False) as animation_view:
-                    result = gr.Video(label="Generated Video")
+                    result = gr.Image(label="Generated Video")
 
         with gr.Box(visible=False):
             initial_frame_index = gr.Number(
@@ -229,5 +228,14 @@ def create_demo(model: ControlAnimationModel):
         #             run_on_click=False,
         #             cache_examples=on_huggingspace,
         # )
+
+        gr.Examples(examples=examples,
+                    inputs=animation_inputs,
+                    outputs=result,
+                    fn=model.generate_animation,
+                    cache_examples=on_huggingspace,
+                    cache_examples=False,
+                    run_on_click=True,
+                    )
 
     return demo
