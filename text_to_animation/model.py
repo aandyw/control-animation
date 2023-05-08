@@ -221,7 +221,7 @@ class ControlAnimationModel:
         negative_prompts = added_n_prompt + ", " + n_prompt
 
         video, fps = utils.prepare_video(
-            video_path, resolution, None, self.dtype, False, output_fps=4
+            input_video_path, resolution, None, self.dtype, False, output_fps=4
         )
         control = utils.pre_process_pose(video, apply_pose_detect=False)
         len_vid, _, h, w = video.shape
