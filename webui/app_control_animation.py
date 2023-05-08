@@ -6,7 +6,19 @@ from utils.hf_utils import get_model_list
 huggingspace_name = os.environ.get("SPACE_AUTHOR_NAME")
 on_huggingspace = huggingspace_name if huggingspace_name is not None else False
 
-examples = []
+examples = ["A surfer in miami walking by the beach",
+            None,
+            "Motion 3",
+            None,
+            3,
+            0,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            0,]
 # examples = [
 #     ["an astronaut waving the arm on the moon"],
 #     ["a sloth surfing on a wakeboard"],
@@ -162,7 +174,7 @@ def create_demo(model: ControlAnimationModel):
                         variant="secondary",
                     )
 
-                with gr.Column(visible=False) as animation_view:
+                with gr.Column(visible=True) as animation_view:
                     result = gr.Image(label="Generated Video")
 
         with gr.Box(visible=False):
@@ -196,17 +208,17 @@ def create_demo(model: ControlAnimationModel):
             seed,
         ]
 
-        def submit_select(initial_frame_index: int):
-            if initial_frame_index != -1:  # More to next step
-                return {
-                    frame_selection_view: gr.update(visible=False),
-                    animation_view: gr.update(visible=True),
-                }
+        # def submit_select(initial_frame_index: int):
+        #     if initial_frame_index != -1:  # More to next step
+        #         return {
+        #             frame_selection_view: gr.update(visible=False),
+        #             animation_view: gr.update(visible=True),
+        #         }
 
-            return {
-                frame_selection_view: gr.update(visible=True),
-                animation_view: gr.update(visible=False),
-            }
+        #     return {
+        #         frame_selection_view: gr.update(visible=True),
+        #         animation_view: gr.update(visible=False),
+        #     }
 
         gen_frames_button.click(
             fn=model.generate_initial_frames,
@@ -214,11 +226,17 @@ def create_demo(model: ControlAnimationModel):
             outputs=initial_frames,
         )
 
+        # gen_animation_button.click(
+        #     fn=submit_select,
+        #     inputs=initial_frame_index,
+        #     outputs=[frame_selection_view, animation_view],
+        # ).then(
+        #     fn=model.generate_animation,
+        #     inputs=animation_inputs,
+        #     outputs=result,
+        # )
+
         gen_animation_button.click(
-            fn=submit_select,
-            inputs=initial_frame_index,
-            outputs=[frame_selection_view, animation_view],
-        ).then(
             fn=model.generate_animation,
             inputs=animation_inputs,
             outputs=result,
