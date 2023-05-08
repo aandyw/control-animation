@@ -234,7 +234,6 @@ def create_demo(model: ControlAnimationModel):
                     outputs=result,
                     fn=model.generate_animation,
                     cache_examples=on_huggingspace,
-                    cache_examples=False,
                     run_on_click=True,
                     )
 
