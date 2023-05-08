@@ -160,7 +160,7 @@ def create_demo(model: ControlAnimationModel):
                         variant="secondary",
                     )
 
-                with gr.Column(visible=True) as animation_view: #debug ==> True TODO set False
+                with gr.Column(visible=False) as animation_view:
                     result = gr.Video(label="Generated Video")
 
         with gr.Box(visible=False):
@@ -212,17 +212,11 @@ def create_demo(model: ControlAnimationModel):
             outputs=initial_frames,
         )
 
-        # gen_animation_button.click(
-        #     fn=submit_select,
-        #     inputs=initial_frame_index,
-        #     outputs=[frame_selection_view, animation_view],
-        # ).then(
-        #     fn=model.generate_animation,
-        #     inputs=animation_inputs,
-        #     outputs=result,
-        # )
-
         gen_animation_button.click(
+            fn=submit_select,
+            inputs=initial_frame_index,
+            outputs=[frame_selection_view, animation_view],
+        ).then(
             fn=model.generate_animation,
             inputs=animation_inputs,
             outputs=result,

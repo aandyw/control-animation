@@ -213,7 +213,7 @@ class ControlAnimationModel:
         smooth_bg_strength=0.4,#: float = 0.4,
         path=None,#: str = None,
     ):
-        video_path = gradio_utils.motion_to_video_path(video_path)
+        video_path = gradio_utils.motion_to_video_path(input_video_path)
 
         # added_prompt = 'best quality, HD, clay stop-motion, claymation, HQ, masterpiece, art, smooth'
         # added_prompt = 'high quality, anatomically correct, clay stop-motion, aardman, claymation, smooth'
@@ -221,7 +221,7 @@ class ControlAnimationModel:
         negative_prompts = added_n_prompt + ", " + n_prompt
 
         video, fps = utils.prepare_video(
-            input_video_path, resolution, None, self.dtype, False, output_fps=4
+            video_path, resolution, None, self.dtype, False, output_fps=4
         )
         control = utils.pre_process_pose(video, apply_pose_detect=False)
         len_vid, _, h, w = video.shape
