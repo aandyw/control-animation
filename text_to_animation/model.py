@@ -224,18 +224,26 @@ class ControlAnimationModel:
             video_path, resolution, None, self.dtype, False, output_fps=4
         )
         control = utils.pre_process_pose(video, apply_pose_detect=False)
-        f, _, h, w = video.shape
-
+        len_vid, _, h, w = video.shape
         prng_seed = jax.random.PRNGKey(seed)
-        vid = self.pipe.generate_video(
-            prompt,
-            image=control,
-            params=self.params,
-            prng_seed=prng_seed,
-            neg_prompt="",
-            controlnet_conditioning_scale=1.0,
-            motion_field_strength_x=3,
-            motion_field_strength_y=4,
-            jit=True,
-        ).image
+        prompts = prompt
+        prompt_ids = self.pipe.prepare_text_inputs([prompts]*len_vid)
+        n_prompt_ids = self.pipe.prepare_text_inputs([negative_prompts]*len_vid)
+        prng = replicate_devices(prng_seed) #jax.random.split(prng, jax.device_count())
+        image = replicate_devices(control)
+        prompt_ids = replicate_devices(prompt_ids)
+        n_prompt_ids = replicate_devices(n_prompt_ids)
+        motion_field_strength_x = replicate_devices(jnp.array(motion_field_strength_x))
+        motion_field_strength_y = replicate_devices(jnp.array(motion_field_strength_y))
+        smooth_bg_strength = replicate_devices(jnp.array(smooth_bg_strength))
+        vid = (self.pipe(image=image,
+                        prompt_ids=prompt_ids,
+                        neg_prompt_ids=n_prompt_ids, 
+                        params=self.p_params,
+                        prng_seed=prng,
+                        jit = True,
+                        smooth_bg_strength=smooth_bg_strength,
+                        motion_field_strength_x=motion_field_strength_x,
+                        motion_field_strength_y=motion_field_strength_y,
+                        ).images)[0]
         return utils.create_gif(np.array(vid), 4, path=None, watermark=None)

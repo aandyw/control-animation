@@ -195,20 +195,16 @@ def create_demo(model: ControlAnimationModel):
         ]
 
         def submit_select(initial_frame_index: int):
+            if initial_frame_index != -1:  # More to next step
+                return {
+                    frame_selection_view: gr.update(visible=False),
+                    animation_view: gr.update(visible=True),
+                }
+
             return {
                 frame_selection_view: gr.update(visible=True),
-                animation_view: gr.update(visible=True),
+                animation_view: gr.update(visible=False),
             }
-            # if initial_frame_index != -1:  # More to next step
-            #     return {
-            #         frame_selection_view: gr.update(visible=False),
-            #         animation_view: gr.update(visible=True),
-            #     }
-
-            # return {
-            #     frame_selection_view: gr.update(visible=True),
-            #     animation_view: gr.update(visible=False),
-            # }
 
         gen_frames_button.click(
             fn=model.generate_initial_frames,
