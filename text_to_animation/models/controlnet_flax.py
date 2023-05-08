@@ -23,12 +23,10 @@ from diffusers.configuration_utils import ConfigMixin, flax_register_to_config
 from diffusers.utils import BaseOutput
 from diffusers.models.embeddings_flax import FlaxTimestepEmbedding, FlaxTimesteps
 from diffusers.models.modeling_flax_utils import FlaxModelMixin
-from diffusers.models.unet_2d_blocks_flax import (
+from .unet_2d_blocks_flax import (
     FlaxCrossAttnDownBlock2D,
-    FlaxCrossAttnUpBlock2D,
     FlaxDownBlock2D,
-    FlaxUNetMidBlock2DCrossAttn,
-    FlaxUpBlock2D,
+    FlaxUNetCrossAttnMidBlock2D,
 )
 
 
@@ -171,18 +169,14 @@ class FlaxControlNetModel(nn.Module, FlaxModelMixin, ConfigMixin):
         sample_shape = (1, self.in_channels, self.sample_size, self.sample_size)
         sample = jnp.zeros(sample_shape, dtype=jnp.float32)
         timesteps = jnp.ones((1,), dtype=jnp.int32)
-        encoder_hidden_states = jnp.zeros(
-            (1, 1, self.cross_attention_dim), dtype=jnp.float32
-        )
+        encoder_hidden_states = jnp.zeros((1, 1, self.cross_attention_dim), dtype=jnp.float32)
         controlnet_cond_shape = (1, 3, self.sample_size * 8, self.sample_size * 8)
         controlnet_cond = jnp.zeros(controlnet_cond_shape, dtype=jnp.float32)
 
         params_rng, dropout_rng = jax.random.split(rng)
         rngs = {"params": params_rng, "dropout": dropout_rng}
 
-        return self.init(
-            rngs, sample, timesteps, encoder_hidden_states, controlnet_cond
-        )["params"]
+        return self.init(rngs, sample, timesteps, encoder_hidden_states, controlnet_cond)["params"]
 
     def setup(self):
         block_out_channels = self.block_out_channels
@@ -199,9 +193,7 @@ class FlaxControlNetModel(nn.Module, FlaxModelMixin, ConfigMixin):
 
         # time
         self.time_proj = FlaxTimesteps(
-            block_out_channels[0],
-            flip_sin_to_cos=self.flip_sin_to_cos,
-            freq_shift=self.config.freq_shift,
+            block_out_channels[0], flip_sin_to_cos=self.flip_sin_to_cos, freq_shift=self.config.freq_shift
         )
         self.time_embedding = FlaxTimestepEmbedding(time_embed_dim, dtype=self.dtype)
 
@@ -290,7 +282,7 @@ class FlaxControlNetModel(nn.Module, FlaxModelMixin, ConfigMixin):
 
         # mid
         mid_block_channel = block_out_channels[-1]
-        self.mid_block = FlaxUNetMidBlock2DCrossAttn(
+        self.mid_block = FlaxUNetCrossAttnMidBlock2D(
             in_channels=mid_block_channel,
             dropout=self.dropout,
             attn_num_head_channels=attention_head_dim[-1],
@@ -361,23 +353,17 @@ class FlaxControlNetModel(nn.Module, FlaxModelMixin, ConfigMixin):
         down_block_res_samples = (sample,)
         for down_block in self.down_blocks:
             if isinstance(down_block, FlaxCrossAttnDownBlock2D):
-                sample, res_samples = down_block(
-                    sample, t_emb, encoder_hidden_states, deterministic=not train
-                )
+                sample, res_samples = down_block(sample, t_emb, encoder_hidden_states, deterministic=not train)
             else:
                 sample, res_samples = down_block(sample, t_emb, deterministic=not train)
             down_block_res_samples += res_samples
 
         # 4. mid
-        sample = self.mid_block(
-            sample, t_emb, encoder_hidden_states, deterministic=not train
-        )
+        sample = self.mid_block(sample, t_emb, encoder_hidden_states, deterministic=not train)
 
         # 5. contronet blocks
         controlnet_down_block_res_samples = ()
-        for down_block_res_sample, controlnet_block in zip(
-            down_block_res_samples, self.controlnet_down_blocks
-        ):
+        for down_block_res_sample, controlnet_block in zip(down_block_res_samples, self.controlnet_down_blocks):
             down_block_res_sample = controlnet_block(down_block_res_sample)
             controlnet_down_block_res_samples += (down_block_res_sample,)
 
@@ -386,15 +372,12 @@ class FlaxControlNetModel(nn.Module, FlaxModelMixin, ConfigMixin):
         mid_block_res_sample = self.controlnet_mid_block(sample)
 
         # 6. scaling
-        down_block_res_samples = [
-            sample * conditioning_scale for sample in down_block_res_samples
-        ]
+        down_block_res_samples = [sample * conditioning_scale for sample in down_block_res_samples]
         mid_block_res_sample *= conditioning_scale
 
         if not return_dict:
             return (down_block_res_samples, mid_block_res_sample)
 
         return FlaxControlNetOutput(
-            down_block_res_samples=down_block_res_samples,
-            mid_block_res_sample=mid_block_res_sample,
+            down_block_res_samples=down_block_res_samples, mid_block_res_sample=mid_block_res_sample
         )

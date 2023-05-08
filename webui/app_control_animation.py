@@ -133,12 +133,15 @@ def create_demo(model: ControlAnimationModel):
                     gallery_pose_sequence = gr.Gallery(
                         label="Pose Sequence",
                         value=[
-                            ("__assets__/dance1.gif", "Motion 1"),
-                            ("__assets__/dance2.gif", "Motion 2"),
-                            ("__assets__/dance3.gif", "Motion 3"),
-                            ("__assets__/dance4.gif", "Motion 4"),
-                            ("__assets__/dance5.gif", "Motion 5"),
-                            ("__assets__/walk_01.gif", "Motion 6"),
+                            ("__assets__/walk_01.gif", "Motion 1"),
+                            ("__assets__/walk_02.gif", "Motion 2"),
+                            ("__assets__/walk_03.gif", "Motion 3"),
+                            ("__assets__/run.gif", "Motion 4"),
+                            ("__assets__/dance1.gif", "Motion 5"),
+                            ("__assets__/dance2.gif", "Motion 6"),
+                            ("__assets__/dance3.gif", "Motion 7"),
+                            ("__assets__/dance4.gif", "Motion 8"),
+                            ("__assets__/dance5.gif", "Motion 9"),
                         ],
                     ).style(columns=3)
                     input_video_path = gr.Textbox(
