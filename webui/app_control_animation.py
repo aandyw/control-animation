@@ -217,7 +217,7 @@ def create_demo(model: ControlAnimationModel):
             inputs=initial_frame_index,
             outputs=[frame_selection_view, animation_view],
         ).then(
-            fn=model.generate_video_from_frame,
+            fn=model.generate_animation,
             inputs=animation_inputs,
             outputs=result,
         )
