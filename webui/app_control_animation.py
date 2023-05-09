@@ -20,17 +20,6 @@ examples = [["A surfer in miami walking by the beach",
             None,
             0],
             ]
-# examples = [
-#     ["an astronaut waving the arm on the moon"],
-#     ["a sloth surfing on a wakeboard"],
-#     ["an astronaut walking on a street"],
-#     ["a cute cat walking on grass"],
-#     ["a horse is galloping on a street"],
-#     ["an astronaut is skiing down the hill"],
-#     ["a gorilla walking alone down the street"],
-#     ["a gorilla dancing on times square"],
-#     ["A panda dancing dancing like crazy on Times Square"],
-# ]
 
 def on_video_path_update(evt: gr.EventData):
     return f"Selection: **{evt._data}**"
@@ -209,17 +198,17 @@ def create_demo(model: ControlAnimationModel):
             seed,
         ]
 
-        # def submit_select(initial_frame_index: int):
-        #     if initial_frame_index != -1:  # More to next step
-        #         return {
-        #             frame_selection_view: gr.update(visible=False),
-        #             animation_view: gr.update(visible=True),
-        #         }
+        def submit_select(initial_frame_index: int):
+            if initial_frame_index != -1:  # More to next step
+                return {
+                    frame_selection_view: gr.update(visible=False),
+                    animation_view: gr.update(visible=True),
+                }
 
-        #     return {
-        #         frame_selection_view: gr.update(visible=True),
-        #         animation_view: gr.update(visible=False),
-        #     }
+            return {
+                frame_selection_view: gr.update(visible=True),
+                animation_view: gr.update(visible=False),
+            }
 
         gen_frames_button.click(
             fn=model.generate_initial_frames,
@@ -227,36 +216,22 @@ def create_demo(model: ControlAnimationModel):
             outputs=initial_frames,
         )
 
-        # gen_animation_button.click(
-        #     fn=submit_select,
-        #     inputs=initial_frame_index,
-        #     outputs=[frame_selection_view, animation_view],
-        # ).then(
-        #     fn=model.generate_animation,
-        #     inputs=animation_inputs,
-        #     outputs=result,
-        # )
-
         gen_animation_button.click(
+            fn=submit_select,
+            inputs=initial_frame_index,
+            outputs=[frame_selection_view, animation_view],
+        ).then(
             fn=model.generate_animation,
             inputs=animation_inputs,
             outputs=result,
         )
 
-        # gr.Examples(examples=examples,
-        #             inputs=inputs,
-        #             outputs=result,
-        #             fn=None,
-        #             run_on_click=False,
-        #             cache_examples=on_huggingspace,
-        # )
-
-        gr.Examples(examples=examples,
-                    inputs=animation_inputs,
-                    outputs=result,
-                    fn=model.generate_animation,
-                    cache_examples=on_huggingspace,
-                    run_on_click=True,
-                    )
+#         gr.Examples(examples=examples,
+#                     inputs=animation_inputs,
+#                     outputs=result,
+#                     fn=model.generate_animation,
+#                     cache_examples=on_huggingspace,
+#                     run_on_click=True,
+#                     )
 
     return demo
