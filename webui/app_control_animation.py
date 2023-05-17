@@ -230,12 +230,12 @@ def create_demo(model: ControlAnimationModel):
             outputs=result,
         )
 
-        gr.Examples(examples=examples,
-                    inputs=animation_inputs,
-                    outputs=result,
-                    fn=model.generate_animation,
-                    cache_examples=on_huggingspace,
-                    run_on_click=True,
-                    )
+        # gr.Examples(examples=examples,
+        #             inputs=animation_inputs,
+        #             outputs=result,
+        #             fn=model.generate_animation,
+        #             cache_examples=on_huggingspace,
+        #             run_on_click=True,
+        #             )
 
     return demo
