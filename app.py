@@ -1,8 +1,6 @@
 import gradio as gr
 
 from text_to_animation.model import ControlAnimationModel
-from webui.app_pose import create_demo as create_demo_pose
-from webui.app_text_to_video import create_demo as create_demo_text_to_video
 from webui.app_control_animation import create_demo as create_demo_animation
 import argparse
 import os

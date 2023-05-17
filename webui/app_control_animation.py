@@ -38,11 +38,11 @@ def create_demo(model: ControlAnimationModel):
             with gr.Row():
                 with gr.Column():
                     # TODO: update so that model_link is customizable
-                    model_link = gr.Dropdown(
-                        label="Model Link",
-                        choices=["runwayml/stable-diffusion-v1-5"],
-                        value="runwayml/stable-diffusion-v1-5",
-                    )
+                    # model_link = gr.Dropdown(
+                    #     label="Model Link",
+                    #     choices=["runwayml/stable-diffusion-v1-5"],
+                    #     value="runwayml/stable-diffusion-v1-5",
+                    # )
                     prompt = gr.Textbox(
                         placeholder="Prompt",
                         show_label=False,
@@ -145,7 +145,7 @@ def create_demo(model: ControlAnimationModel):
                             ("__assets__/dance4.gif", "Motion 8"),
                             ("__assets__/dance5.gif", "Motion 9"),
                         ],
-                    ).style(columns=3)
+                    ).style(grid=3, columns=3)
                     input_video_path = gr.Textbox(
                         label="Pose Sequence", visible=False, value="Motion 1"
                     )
@@ -155,7 +155,7 @@ def create_demo(model: ControlAnimationModel):
                 with gr.Column(visible=True) as frame_selection_view:
                     initial_frames = gr.Gallery(
                         label="Initial Frames", show_label=False
-                    ).style(columns=4, rows=1, object_fit="contain", preview=True)
+                    ).style(grid=4, columns=4, rows=1, object_fit="contain", preview=True)
 
                     gr.Markdown("Select an initial frame to start your animation with.")
 
@@ -168,6 +168,7 @@ def create_demo(model: ControlAnimationModel):
                     result = gr.Image(label="Generated Video")
 
         with gr.Box(visible=False):
+            controlnet_video = gr.Video(label="ControlNet Video")
             initial_frame_index = gr.Number(
                 label="Selected Initial Frame Index", value=-1, precision=0
             )
@@ -180,22 +181,25 @@ def create_demo(model: ControlAnimationModel):
             prompt,
             input_video_path,
             negative_prompt,
+            seed,
         ]
 
         animation_inputs = [
+            controlnet_video,
             prompt,
-            initial_frame_index,
-            input_video_path,
-            model_link,
-            motion_field_strength_x,
-            motion_field_strength_y,
-            t0,
-            t1,
+            # initial_frame_index,
+            # input_video_path,
+            # model_link,
+            # motion_field_strength_x,
+            # motion_field_strength_y,
+            # t0,
+            # t1,
+            # negative_prompt,
+            # chunk_size,
+            # video_length,
+            # merging_ratio,
             negative_prompt,
-            chunk_size,
-            video_length,
-            merging_ratio,
-            seed,
+            seed
         ]
 
         def submit_select(initial_frame_index: int):
@@ -213,7 +217,7 @@ def create_demo(model: ControlAnimationModel):
         gen_frames_button.click(
             fn=model.generate_initial_frames,
             inputs=frame_inputs,
-            outputs=initial_frames,
+            outputs=[controlnet_video, initial_frames],
         )
 
         gen_animation_button.click(
@@ -221,17 +225,17 @@ def create_demo(model: ControlAnimationModel):
             inputs=initial_frame_index,
             outputs=[frame_selection_view, animation_view],
         ).then(
-            fn=model.generate_animation,
+            fn=model.generate_video_from_frame,
             inputs=animation_inputs,
             outputs=result,
         )
 
-#         gr.Examples(examples=examples,
-#                     inputs=animation_inputs,
-#                     outputs=result,
-#                     fn=model.generate_animation,
-#                     cache_examples=on_huggingspace,
-#                     run_on_click=True,
-#                     )
+        gr.Examples(examples=examples,
+                    inputs=animation_inputs,
+                    outputs=result,
+                    fn=model.generate_animation,
+                    cache_examples=on_huggingspace,
+                    run_on_click=True,
+                    )
 
     return demo

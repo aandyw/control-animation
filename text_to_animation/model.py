@@ -120,6 +120,7 @@ class ControlAnimationModel:
         prompt: str,
         video_path: str,
         n_prompt: str = "",
+        seed: int = 0,
         num_imgs: int = 4,
         resolution: int = 512,
         model_id: str = "runwayml/stable-diffusion-v1-5",
@@ -139,9 +140,8 @@ class ControlAnimationModel:
         )
         control = utils.pre_process_pose(video, apply_pose_detect=False)
 
-        seeds = [seed for seed in jax.random.randint(self.rng, [num_imgs], 0, 65536)]
-        prngs = [jax.random.PRNGKey(seed) for seed in seeds]
-        print(seeds)
+        # seeds = [seed for seed in jax.random.randint(self.rng, [num_imgs], 0, 65536)]
+        prngs = [jax.random.PRNGKey(seed)] * num_imgs
         images = self.pipe.generate_starting_frames(
             params=self.p_params,
             prngs=prngs,
@@ -152,9 +152,9 @@ class ControlAnimationModel:
 
         images = [np.array(images[i]) for i in range(images.shape[0])]
 
-        return images
+        return video, images
 
-    def generate_video_from_frame(self, controlnet_video, prompt, seed, neg_prompt=""):
+    def generate_video_from_frame(self, controlnet_video, prompt, n_prompt, seed):
         # generate a video using the seed provided
         prng_seed = jax.random.PRNGKey(seed)
         len_vid = controlnet_video.shape[0]
@@ -163,7 +163,7 @@ class ControlAnimationModel:
         prompts = added_prompt + ", " + prompt
 
         added_n_prompt = "longbody, lowres, bad anatomy, bad hands, missing fingers, extra digit, fewer difits, cropped, worst quality, low quality, deformed body, bloated, ugly"
-        negative_prompts = added_n_prompt + ", " + neg_prompt
+        negative_prompts = added_n_prompt + ", " + n_prompt
         
         # prompt_ids = self.pipe.prepare_text_inputs(["aardman style "+ prompt]*len_vid)
         # n_prompt_ids = self.pipe.prepare_text_inputs([neg_prompt]*len_vid)
