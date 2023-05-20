@@ -1,34 +1,17 @@
-import torch
 from enum import Enum
 import gc
 import numpy as np
-import jax.numpy as jnp
-import jax
+import tomesd
+import torch
 
-from PIL import Image
-from typing import List
-
-from flax.training.common_utils import shard
-from flax.jax_utils import replicate
-from flax import jax_utils
-import einops
-
-from transformers import CLIPTokenizer, CLIPFeatureExtractor, FlaxCLIPTextModel
 from diffusers import (
-    FlaxDDIMScheduler,
-    FlaxAutoencoderKL,
-    FlaxStableDiffusionControlNetPipeline,
-    StableDiffusionPipeline,
-    FlaxUNet2DConditionModel as VanillaFlaxUNet2DConditionModel,
+    StableDiffusionInstructPix2PixPipeline,
+    StableDiffusionControlNetPipeline,
+    ControlNetModel,
+    UNet2DConditionModel,
 )
-from text_to_animation.models.unet_2d_condition_flax import (
-    FlaxUNet2DConditionModel
-)
-from diffusers import FlaxControlNetModel
-
-from text_to_animation.pipelines.text_to_video_pipeline_flax import (
-    FlaxTextToVideoPipeline,
-)
+from diffusers.schedulers import EulerAncestralDiscreteScheduler, DDIMScheduler
+from text_to_animation.pipelines.text_to_video_pipeline import TextToVideoPipeline
 
 import utils.utils as utils
 import utils.gradio_utils as gradio_utils
@@ -36,155 +19,209 @@ import os
 
 on_huggingspace = os.environ.get("SPACE_AUTHOR_NAME") == "PAIR"
 
-unshard = lambda x: einops.rearrange(x, "d b ... -> (d b) ...")
+from einops import rearrange
 
 
 class ModelType(Enum):
-    Text2Video = 1
-    ControlNetPose = 2
-    StableDiffusion = 3
-
-
-def replicate_devices(array):
-    return jnp.expand_dims(array, 0).repeat(jax.device_count(), 0)
+    Pix2Pix_Video = (1,)
+    Text2Video = (2,)
+    ControlNetCanny = (3,)
+    ControlNetCannyDB = (4,)
+    ControlNetPose = (5,)
+    ControlNetDepth = (6,)
 
 
 class ControlAnimationModel:
-    def __init__(self, dtype, **kwargs):
+    def __init__(self, device, dtype, **kwargs):
+        self.device = device
         self.dtype = dtype
-        self.rng = jax.random.PRNGKey(0)
+        self.generator = torch.Generator(device=device)
+        self.controlnet_attn_proc = utils.CrossFrameAttnProcessor(unet_chunk_size=2)
+        self.pix2pix_attn_proc = utils.CrossFrameAttnProcessor(unet_chunk_size=3)
+        self.text2video_attn_proc = utils.CrossFrameAttnProcessor(unet_chunk_size=2)
+
         self.pipe = None
         self.model_type = None
 
         self.states = {}
         self.model_name = ""
 
-    def set_model(
-        self,
-        model_id: str,
-        **kwargs,
-    ):
+    def set_model(self, model_type: ModelType, model_id: str, **kwargs):
         if hasattr(self, "pipe") and self.pipe is not None:
             del self.pipe
-            self.pipe = None
+        torch.cuda.empty_cache()
         gc.collect()
-
-        controlnet, controlnet_params = FlaxControlNetModel.from_pretrained(
-            "fusing/stable-diffusion-v1-5-controlnet-openpose",
-            from_pt=True,
-            dtype=jnp.float16,
+        safety_checker = kwargs.pop("safety_checker", None)
+        self.pipe = (
+            self.pipe_dict[model_type]
+            .from_pretrained(model_id, safety_checker=safety_checker, **kwargs)
+            .to(self.device)
+            .to(self.dtype)
         )
-
-        scheduler, scheduler_state = FlaxDDIMScheduler.from_pretrained(
-            model_id, subfolder="scheduler", from_pt=True
-        )
-        tokenizer = CLIPTokenizer.from_pretrained(model_id, subfolder="tokenizer")
-        feature_extractor = CLIPFeatureExtractor.from_pretrained(
-            model_id, subfolder="feature_extractor"
-        )
-        unet, unet_params = FlaxUNet2DConditionModel.from_pretrained(
-            model_id, subfolder="unet", from_pt=True, dtype=self.dtype
-        )
-        unet_vanilla = VanillaFlaxUNet2DConditionModel.from_config(
-            model_id, subfolder="unet", from_pt=True, dtype=self.dtype
-        )
-        vae, vae_params = FlaxAutoencoderKL.from_pretrained(
-            model_id, subfolder="vae", from_pt=True, dtype=self.dtype
-        )
-        text_encoder = FlaxCLIPTextModel.from_pretrained(
-            model_id, subfolder="text_encoder", from_pt=True, dtype=self.dtype
-        )
-        self.pipe = FlaxTextToVideoPipeline(
-            vae=vae,
-            text_encoder=text_encoder,
-            tokenizer=tokenizer,
-            unet=unet,
-            unet_vanilla=unet_vanilla,
-            controlnet=controlnet,
-            scheduler=scheduler,
-            safety_checker=None,
-            feature_extractor=feature_extractor,
-        )
-        self.params = {
-            "unet": unet_params,
-            "vae": vae_params,
-            "scheduler": scheduler_state,
-            "controlnet": controlnet_params,
-            "text_encoder": text_encoder.params,
-        }
-        self.p_params = jax_utils.replicate(self.params)
+        self.model_type = model_type
         self.model_name = model_id
+
+    def inference_chunk(self, frame_ids, **kwargs):
+        if not hasattr(self, "pipe") or self.pipe is None:
+            return
+
+        prompt = np.array(kwargs.pop("prompt"))
+        negative_prompt = np.array(kwargs.pop("negative_prompt", ""))
+        latents = None
+        if "latents" in kwargs:
+            latents = kwargs.pop("latents")[frame_ids]
+        if "image" in kwargs:
+            kwargs["image"] = kwargs["image"][frame_ids]
+        if "video_length" in kwargs:
+            kwargs["video_length"] = len(frame_ids)
+        if self.model_type == ModelType.Text2Video:
+            kwargs["frame_ids"] = frame_ids
+        return self.pipe(
+            prompt=prompt[frame_ids].tolist(),
+            negative_prompt=negative_prompt[frame_ids].tolist(),
+            latents=latents,
+            generator=self.generator,
+            **kwargs,
+        )
+
+    def inference(self, split_to_chunks=False, chunk_size=2, **kwargs):
+        if not hasattr(self, "pipe") or self.pipe is None:
+            return
+
+        if "merging_ratio" in kwargs:
+            merging_ratio = kwargs.pop("merging_ratio")
+
+            # if merging_ratio > 0:
+            tomesd.apply_patch(self.pipe, ratio=merging_ratio)
+        seed = kwargs.pop("seed", 0)
+        if seed < 0:
+            seed = self.generator.seed()
+        kwargs.pop("generator", "")
+
+        if "image" in kwargs:
+            f = kwargs["image"].shape[0]
+        else:
+            f = kwargs["video_length"]
+
+        assert "prompt" in kwargs
+        prompt = [kwargs.pop("prompt")] * f
+        negative_prompt = [kwargs.pop("negative_prompt", "")] * f
+
+        frames_counter = 0
+
+        # Processing chunk-by-chunk
+        if split_to_chunks:
+            chunk_ids = np.arange(0, f, chunk_size - 1)
+            result = []
+            for i in range(len(chunk_ids)):
+                ch_start = chunk_ids[i]
+                ch_end = f if i == len(chunk_ids) - 1 else chunk_ids[i + 1]
+                frame_ids = [0] + list(range(ch_start, ch_end))
+                self.generator.manual_seed(seed)
+                print(f"Processing chunk {i + 1} / {len(chunk_ids)}")
+                result.append(
+                    self.inference_chunk(
+                        frame_ids=frame_ids,
+                        prompt=prompt,
+                        negative_prompt=negative_prompt,
+                        **kwargs,
+                    ).images[1:]
+                )
+                frames_counter += len(chunk_ids) - 1
+                if on_huggingspace and frames_counter >= 80:
+                    break
+            result = np.concatenate(result)
+            return result
+        else:
+            self.generator.manual_seed(seed)
+            return self.pipe(
+                prompt=prompt,
+                negative_prompt=negative_prompt,
+                generator=self.generator,
+                **kwargs,
+            ).images
+
+    def build_prompt(self, prompt, base_prompt):
+        new_prompt = prompt.rstrip()
+        if len(new_prompt) > 0 and (new_prompt[-1] == "," or new_prompt[-1] == "."):
+            new_prompt = new_prompt.rstrip()[:-1]
+        new_prompt = new_prompt.rstrip()
+        new_prompt = new_prompt + ", " + base_prompt
+
+        return new_prompt
 
     def generate_initial_frames(
         self,
-        prompt: str,
-        video_path: str,
-        n_prompt: str = "",
-        seed: int = 0,
-        num_imgs: int = 4,
-        resolution: int = 512,
-        model_id: str = "runwayml/stable-diffusion-v1-5",
-    ) -> List[Image.Image]:
-        self.set_model(model_id=model_id)
+        video_path,
+        prompt,
+        model_name="dreamlike-art/dreamlike-photoreal-2.0",
+        motion_field_strength_x=12,
+        motion_field_strength_y=12,
+        t0=44,
+        t1=47,
+        n_prompt="",
+        chunk_size=2,
+        video_length=8,
+        watermark="Picsart AI Research",
+        merging_ratio=0.0,
+        seed=0,
+        resolution=512,
+        fps=2,
+        use_cf_attn=True,
+        use_motion_field=True,
+        smooth_bg=False,
+        smooth_bg_strength=0.4,
+        path=None,
+    ):
+        print("Generating Initial Frames...")
+        unet = UNet2DConditionModel.from_pretrained(model_name, subfolder="unet")
+        self.set_model(ModelType.Text2Video, model_id=model_name, unet=unet)
+        self.pipe.scheduler = DDIMScheduler.from_config(self.pipe.scheduler.config)
 
-        video_path = gradio_utils.motion_to_video_path(video_path)
+        if use_cf_attn:
+            self.pipe.unet.set_attn_processor(processor=self.text2video_attn_proc)
 
-        added_prompt = "high quality, best quality, HD, clay stop-motion, claymation, HQ, masterpiece, art, smooth"
-        prompts = added_prompt + ", " + prompt
+        self.generator.manual_seed(seed)
 
-        added_n_prompt = "longbody, lowres, bad anatomy, bad hands, missing fingers, extra digit, fewer difits, cropped, worst quality, low quality, deformed body, bloated, ugly"
-        negative_prompts = added_n_prompt + ", " + n_prompt
+        added_prompt = "high quality, HD, 8K, trending on artstation, high focus, dramatic lighting"
+        negative_prompt = "longbody, lowres, bad anatomy, bad hands, missing fingers, extra digit, fewer difits, cropped, worst quality, low quality, deformed body, bloated, ugly, unrealistic"
+
+        prompt = self.build_prompt(prompt, added_prompt)
+        negative_prompt = self.build_prompt(prompt, negative_prompt)
 
         video, fps = utils.prepare_video(
-            video_path, resolution, None, self.dtype, False, output_fps=4
+            video_path, resolution, self.device, self.dtype, False, output_fps=4
         )
-        control = utils.pre_process_pose(video, apply_pose_detect=False)
-
-        # seeds = [seed for seed in jax.random.randint(self.rng, [num_imgs], 0, 65536)]
-        prngs = [jax.random.PRNGKey(seed)] * num_imgs
-        images = self.pipe.generate_starting_frames(
-            params=self.p_params,
-            prngs=prngs,
-            controlnet_image=control,
-            prompt=prompts,
-            neg_prompt=negative_prompts,
+        control = (
+            utils.process_first_frame(video, apply_pose_detect=False)
+            .to(self.device)
+            .to(self.dtype)
         )
+        f, _, h, w = video.shape
 
-        images = [np.array(images[i]) for i in range(images.shape[0])]
-
-        return video, images
-
-    def generate_video_from_frame(self, controlnet_video, prompt, n_prompt, seed):
-        # generate a video using the seed provided
-        prng_seed = jax.random.PRNGKey(seed)
-        len_vid = controlnet_video.shape[0]
-        # print(f"Generating video from prompt {'<aardman> style '+ prompt}, with {controlnet_video.shape[0]} frames and prng seed {seed}")
-        added_prompt = "high quality, best quality, HD, clay stop-motion, claymation, HQ, masterpiece, art, smooth"
-        prompts = added_prompt + ", " + prompt
-
-        added_n_prompt = "longbody, lowres, bad anatomy, bad hands, missing fingers, extra digit, fewer difits, cropped, worst quality, low quality, deformed body, bloated, ugly"
-        negative_prompts = added_n_prompt + ", " + n_prompt
-        
-        # prompt_ids = self.pipe.prepare_text_inputs(["aardman style "+ prompt]*len_vid)
-        # n_prompt_ids = self.pipe.prepare_text_inputs([neg_prompt]*len_vid)
-        
-        prompt_ids = self.pipe.prepare_text_inputs([prompts]*len_vid)
-        n_prompt_ids = self.pipe.prepare_text_inputs([negative_prompts]*len_vid)
-        prng = replicate_devices(prng_seed) #jax.random.split(prng, jax.device_count())
-        image = replicate_devices(controlnet_video)
-        prompt_ids = replicate_devices(prompt_ids)
-        n_prompt_ids = replicate_devices(n_prompt_ids)
-        motion_field_strength_x = replicate_devices(jnp.array(3))
-        motion_field_strength_y = replicate_devices(jnp.array(4))
-        smooth_bg_strength = replicate_devices(jnp.array(0.8))
-        vid = (self.pipe(image=image,
-                        prompt_ids=prompt_ids,
-                        neg_prompt_ids=n_prompt_ids, 
-                        params=self.p_params,
-                        prng_seed=prng,
-                        jit = True,
-                        smooth_bg_strength=smooth_bg_strength,
-                        motion_field_strength_x=motion_field_strength_x,
-                        motion_field_strength_y=motion_field_strength_y,
-                        ).images)[0]
-        return utils.create_gif(np.array(vid), 4, path=None, watermark=None)
+        result = self.inference(
+            image=control,
+            prompt=prompt,
+            video_length=video_length,
+            height=h,
+            width=w,
+            num_inference_steps=50,
+            guidance_scale=7.5,
+            guidance_stop_step=1.0,
+            t0=t0,
+            t1=t1,
+            motion_field_strength_x=motion_field_strength_x,
+            motion_field_strength_y=motion_field_strength_y,
+            use_motion_field=use_motion_field,
+            smooth_bg=smooth_bg,
+            smooth_bg_strength=smooth_bg_strength,
+            seed=seed,
+            output_type="numpy",
+            negative_prompt=negative_prompt,
+            merging_ratio=merging_ratio,
+            split_to_chunks=True,
+            chunk_size=chunk_size,
+        )
+        return utils.create_video(
+            result, fps, path=path, watermark=gradio_utils.logo_name_to_path(watermark)
+        )

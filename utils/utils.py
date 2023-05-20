@@ -22,47 +22,39 @@ import flax.linen as nn
 
 apply_openpose = OpenposeDetector()
 
+# TODO
 
-def add_watermark(image, watermark_path, wm_rel_size=1 / 16, boundary=5):
-    """
-    Creates a watermark on the saved inference image.
-    We request that you do not remove this to properly assign credit to
-    Shi-Lab's work.
-    """
-    watermark = Image.open(watermark_path)
-    w_0, h_0 = watermark.size
-    H, W, _ = image.shape
-    wmsize = int(max(H, W) * wm_rel_size)
-    aspect = h_0 / w_0
-    if aspect > 1.0:
-        watermark = watermark.resize((wmsize, int(aspect * wmsize)), Image.LANCZOS)
+# def load_safetensors_model(model_link):
+#     ckpt_path = hf_hub_download(
+#         repo_id=model_link, filename="ligne_claire_anime_diffusion_v1.safetensors"
+#     )
+
+#     print(f"Checkpoint path: {ckpt_path}")
+
+#     # !wget https://raw.githubusercontent.com/CompVis/stable-diffusion/main/configs/stable-diffusion/v1-inference.yaml
+#     pipe = download_from_original_stable_diffusion_ckpt(
+#         checkpoint_path=ckpt_path,
+#         original_config_file="v1-inference.yaml",
+#         from_safetensors=True,
+#     )
+#     pipe.save_pretrained("./models/ligne_claire", safe_serialization=True)
+
+#     return pipe
+
+
+def process_first_frame(input_video, apply_pose_detect: bool = True):
+    frame = input_video[0]  # get first frame
+    img = rearrange(frame, "c h w -> h w c").astype(np.uint8)
+    img = HWC3(img)
+    if apply_pose_detect:
+        detected_map, _ = apply_openpose(img)
     else:
-        watermark = watermark.resize((int(wmsize / aspect), wmsize), Image.LANCZOS)
-    w, h = watermark.size
-    loc_h = H - h - boundary
-    loc_w = W - w - boundary
-    image = Image.fromarray(image)
-    mask = watermark if watermark.mode in ("RGBA", "LA") else None
-    image.paste(watermark, (loc_w, loc_h), mask)
-    return image
-
-
-def load_safetensors_model(model_link):
-    ckpt_path = hf_hub_download(
-        repo_id=model_link, filename="ligne_claire_anime_diffusion_v1.safetensors"
-    )
-
-    print(f"Checkpoint path: {ckpt_path}")
-
-    # !wget https://raw.githubusercontent.com/CompVis/stable-diffusion/main/configs/stable-diffusion/v1-inference.yaml
-    pipe = download_from_original_stable_diffusion_ckpt(
-        checkpoint_path=ckpt_path,
-        original_config_file="v1-inference.yaml",
-        from_safetensors=True,
-    )
-    pipe.save_pretrained("./models/ligne_claire", safe_serialization=True)
-
-    return pipe
+        detected_map = img
+    detected_map = HWC3(detected_map)
+    H, W, C = img.shape
+    detected_map = cv2.resize(detected_map, (W, H), interpolation=cv2.INTER_NEAREST)
+    control = (detected_map[None].copy()) / 255.0
+    return rearrange(control, "f h w c -> f c h w")
 
 
 def pre_process_pose(input_video, apply_pose_detect: bool = True):

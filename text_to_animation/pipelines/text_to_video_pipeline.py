@@ -384,6 +384,7 @@ class TextToVideoPipeline(StableDiffusionPipeline):
 
             if x_t1_1 is None:
                 raise Exception
+
             x_t1 = torch.cat([x_t1_1, x_t1_k], dim=2).clone().detach()
 
             ddim_res = self.DDIM_backward(num_inference_steps=num_inference_steps, timesteps=timesteps, skip_t=t1, t0=-1, t1=-1, do_classifier_free_guidance=do_classifier_free_guidance,

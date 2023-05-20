@@ -164,7 +164,7 @@ def create_demo(model: ControlAnimationModel):
                         variant="secondary",
                     )
 
-                with gr.Column(visible=True) as animation_view:
+                with gr.Column(visible=False) as animation_view:
                     result = gr.Image(label="Generated Video")
 
         with gr.Box(visible=False):
@@ -187,17 +187,6 @@ def create_demo(model: ControlAnimationModel):
         animation_inputs = [
             controlnet_video,
             prompt,
-            # initial_frame_index,
-            # input_video_path,
-            # model_link,
-            # motion_field_strength_x,
-            # motion_field_strength_y,
-            # t0,
-            # t1,
-            # negative_prompt,
-            # chunk_size,
-            # video_length,
-            # merging_ratio,
             negative_prompt,
             seed
         ]

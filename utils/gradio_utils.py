@@ -1,5 +1,6 @@
 import os
 
+
 # App Pose utils
 def motion_to_video_path(motion):
     videos = [
@@ -18,13 +19,3 @@ def motion_to_video_path(motion):
         return videos[id]
     else:
         return motion
-
-def logo_name_to_path(name):
-    logo_paths = {
-        'Picsart AI Research': '__assets__/pair_watermark.png',
-        'Text2Video-Zero': '__assets__/t2v-z_watermark.png',
-        'None': None
-    }
-    if name in logo_paths:
-        return logo_paths[name]
-    return name
